@@ -1,0 +1,20 @@
+[package]
+name = "infera-management-test-fixtures"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Workspace crates
+infera-management-core = { path = "../infera-management-core" }
+infera-management-storage = { path = "../infera-management-storage" }
+
+# External dependencies
+anyhow = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]

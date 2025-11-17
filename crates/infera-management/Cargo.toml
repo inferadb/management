@@ -1,0 +1,32 @@
+[package]
+name = "infera-management"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "inferadb-management"
+path = "src/main.rs"
+
+[dependencies]
+# Workspace crates
+infera-management-api = { path = "../infera-management-api" }
+infera-management-core = { path = "../infera-management-core" }
+infera-management-grpc = { path = "../infera-management-grpc" }
+infera-management-storage = { path = "../infera-management-storage" }
+
+# External dependencies
+anyhow = { workspace = true }
+clap = { workspace = true }
+config = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+infera-management-test-fixtures = { path = "../infera-management-test-fixtures" }

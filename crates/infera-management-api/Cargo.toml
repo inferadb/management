@@ -1,0 +1,28 @@
+[package]
+name = "infera-management-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Workspace crates
+infera-management-core = { path = "../infera-management-core" }
+infera-management-storage = { path = "../infera-management-storage" }
+
+# External dependencies
+anyhow = { workspace = true }
+axum = { workspace = true }
+axum-extra = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]

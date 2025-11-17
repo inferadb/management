@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # FoundationDB for production-like development
+  foundationdb:
+    image: foundationdb/foundationdb:7.3.63
+    container_name: inferadb-management-fdb
+    ports:
+      - "4500:4500"
+    environment:
+      - FDB_NETWORKING_MODE=host
+    volumes:
+      - fdb-data:/var/fdb/data
+    networks:
+      - inferadb-mgmt-network
+
+  # MailHog for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: inferadb-management-mailhog
+    ports:
+      - "1025:1025" # SMTP server
+      - "8025:8025" # Web UI
+    networks:
+      - inferadb-mgmt-network
+
+  # Optional: Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: inferadb-management-jaeger
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "16686:16686" # Jaeger UI
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - inferadb-mgmt-network
+
+  # Optional: Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: inferadb-management-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - inferadb-mgmt-network
+
+  # Optional: Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: inferadb-management-grafana
+    ports:
+      - "3030:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - inferadb-mgmt-network
+    depends_on:
+      - prometheus
+
+volumes:
+  fdb-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  inferadb-mgmt-network:
+    driver: bridge

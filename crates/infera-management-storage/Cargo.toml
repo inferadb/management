@@ -1,0 +1,23 @@
+[package]
+name = "infera-management-storage"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+# External dependencies
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+foundationdb = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
