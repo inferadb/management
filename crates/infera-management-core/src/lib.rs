@@ -12,11 +12,13 @@ pub use clock::{ClockStatus, ClockValidator};
 pub use config::ManagementConfig;
 pub use email::{EmailSender, EmailService, SmtpEmailService};
 pub use entities::{
-    SessionType, User, UserEmail, UserEmailVerificationToken, UserPasswordResetToken, UserSession,
+    Organization, OrganizationMember, OrganizationRole, OrganizationTier, SessionType, User,
+    UserEmail, UserEmailVerificationToken, UserPasswordResetToken, UserSession,
 };
 pub use error::{Error, Result};
 pub use id::{IdGenerator, WorkerRegistry};
 pub use repository::{
-    UserEmailRepository, UserEmailVerificationTokenRepository, UserPasswordResetTokenRepository,
-    UserRepository, UserSessionRepository,
+    OrganizationMemberRepository, OrganizationRepository, UserEmailRepository,
+    UserEmailVerificationTokenRepository, UserPasswordResetTokenRepository, UserRepository,
+    UserSessionRepository,
 };

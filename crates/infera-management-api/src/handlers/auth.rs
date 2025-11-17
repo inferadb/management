@@ -6,11 +6,15 @@ use axum::{
 };
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use infera_management_core::{
-    entities::{SessionType, User, UserEmail, UserSession},
+    entities::{
+        Organization, OrganizationMember, OrganizationRole, OrganizationTier, SessionType, User,
+        UserEmail, UserSession,
+    },
     error::Error as CoreError,
-    hash_password, verify_password, IdGenerator, UserEmailRepository,
-    UserEmailVerificationTokenRepository, UserPasswordResetToken, UserPasswordResetTokenRepository,
-    UserRepository, UserSessionRepository,
+    hash_password, verify_password, IdGenerator, OrganizationMemberRepository,
+    OrganizationRepository, UserEmailRepository, UserEmailVerificationTokenRepository,
+    UserPasswordResetToken, UserPasswordResetTokenRepository, UserRepository,
+    UserSessionRepository,
 };
 use infera_management_storage::Backend;
 use serde::{Deserialize, Serialize};
@@ -201,6 +205,20 @@ pub async fn register(
     let session = UserSession::new(session_id, user_id, SessionType::Web, None, None);
     let session_repo = UserSessionRepository::new((*state.storage).clone());
     session_repo.create(session).await?;
+
+    // Create default organization with same name as user
+    let org_id = IdGenerator::next_id();
+    let member_id = IdGenerator::next_id();
+
+    let organization =
+        Organization::new(org_id, payload.name.clone(), OrganizationTier::TierDevV1)?;
+    let org_repo = OrganizationRepository::new((*state.storage).clone());
+    org_repo.create(organization).await?;
+
+    // Create organization member (owner role)
+    let member = OrganizationMember::new(member_id, org_id, user_id, OrganizationRole::Owner);
+    let member_repo = OrganizationMemberRepository::new((*state.storage).clone());
+    member_repo.create(member).await?;
 
     // Set session cookie
     let cookie = Cookie::build((SESSION_COOKIE_NAME, session_id.to_string()))
