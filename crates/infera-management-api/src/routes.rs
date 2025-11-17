@@ -1,5 +1,5 @@
 use crate::handlers::{auth, emails, organizations, sessions, users, AppState};
-use crate::middleware::require_session;
+use crate::middleware::{require_organization_member, require_session};
 use axum::{
     middleware,
     routing::{delete, get, patch, post},
@@ -70,6 +70,19 @@ pub fn create_router() -> Router<AppState> {
             "/v1/organizations/{org}/members/{member}",
             delete(organizations::remove_member),
         )
+        // Organization invitation routes
+        .route(
+            "/v1/organizations/{org}/invitations",
+            post(organizations::create_invitation),
+        )
+        .route(
+            "/v1/organizations/{org}/invitations",
+            get(organizations::list_invitations),
+        )
+        .route(
+            "/v1/organizations/{org}/invitations/{invitation}",
+            delete(organizations::delete_invitation),
+        )
 }
 
 /// Create router with state and middleware applied
@@ -77,30 +90,8 @@ pub fn create_router() -> Router<AppState> {
 /// Applies session middleware only to protected routes, leaving public routes (like register/login)
 /// accessible without authentication.
 pub fn create_router_with_state(state: AppState) -> axum::Router {
-    // Create router with protected routes that need session middleware
-    let protected = Router::new()
-        // Protected session management routes
-        .route("/v1/users/sessions", get(sessions::list_sessions))
-        .route("/v1/users/sessions/{id}", delete(sessions::revoke_session))
-        .route(
-            "/v1/users/sessions/revoke-others",
-            post(sessions::revoke_other_sessions),
-        )
-        // User profile management routes
-        .route("/v1/users/me", get(users::get_profile))
-        .route("/v1/users/me", patch(users::update_profile))
-        .route("/v1/users/me", delete(users::delete_user))
-        // Email management routes
-        .route("/v1/users/emails", post(emails::add_email))
-        .route("/v1/users/emails", get(emails::list_emails))
-        .route("/v1/users/emails/{id}", patch(emails::update_email))
-        .route("/v1/users/emails/{id}", delete(emails::delete_email))
-        // Organization management routes
-        .route(
-            "/v1/organizations",
-            post(organizations::create_organization),
-        )
-        .route("/v1/organizations", get(organizations::list_organizations))
+    // Routes that need organization context (session + org membership)
+    let org_scoped = Router::new()
         .route(
             "/v1/organizations/{org}",
             get(organizations::get_organization),
@@ -126,13 +117,70 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             "/v1/organizations/{org}/members/{member}",
             delete(organizations::remove_member),
         )
+        // Organization invitation routes
+        .route(
+            "/v1/organizations/{org}/invitations",
+            post(organizations::create_invitation),
+        )
+        .route(
+            "/v1/organizations/{org}/invitations",
+            get(organizations::list_invitations),
+        )
+        .route(
+            "/v1/organizations/{org}/invitations/{invitation}",
+            delete(organizations::delete_invitation),
+        )
+        // Ownership transfer route
+        .route(
+            "/v1/organizations/{org}/transfer-ownership",
+            post(organizations::transfer_ownership),
+        )
+        .with_state(state.clone())
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            require_organization_member,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            require_session,
+        ));
+
+    // Create router with protected routes that need session middleware only
+    let protected = Router::new()
+        // Protected session management routes
+        .route("/v1/users/sessions", get(sessions::list_sessions))
+        .route("/v1/users/sessions/{id}", delete(sessions::revoke_session))
+        .route(
+            "/v1/users/sessions/revoke-others",
+            post(sessions::revoke_other_sessions),
+        )
+        // User profile management routes
+        .route("/v1/users/me", get(users::get_profile))
+        .route("/v1/users/me", patch(users::update_profile))
+        .route("/v1/users/me", delete(users::delete_user))
+        // Email management routes
+        .route("/v1/users/emails", post(emails::add_email))
+        .route("/v1/users/emails", get(emails::list_emails))
+        .route("/v1/users/emails/{id}", patch(emails::update_email))
+        .route("/v1/users/emails/{id}", delete(emails::delete_email))
+        // Organization management routes (non-scoped)
+        .route(
+            "/v1/organizations",
+            post(organizations::create_organization),
+        )
+        .route("/v1/organizations", get(organizations::list_organizations))
+        // Accept invitation route (protected, needs session)
+        .route(
+            "/v1/organizations/invitations/accept",
+            post(organizations::accept_invitation),
+        )
         .with_state(state.clone())
         .layer(middleware::from_fn_with_state(
             state.clone(),
             require_session,
         ));
 
-    // Combine public and protected routes
+    // Combine public, protected, and org-scoped routes
     Router::new()
         .route("/health", get(health_check))
         .route("/v1/auth/register", post(auth::register))
@@ -149,6 +197,7 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         )
         .with_state(state)
         .merge(protected)
+        .merge(org_scoped)
 }
 
 /// Health check endpoint

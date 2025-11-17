@@ -3,14 +3,14 @@ use axum::{
     Extension, Json,
 };
 use infera_management_core::{
-    entities::{Organization, OrganizationMember, OrganizationRole, OrganizationTier},
+    entities::{Organization, OrganizationInvitation, OrganizationMember, OrganizationRole, OrganizationTier},
     error::Error as CoreError,
-    IdGenerator, OrganizationMemberRepository, OrganizationRepository, UserEmailRepository,
+    IdGenerator, OrganizationInvitationRepository, OrganizationMemberRepository, OrganizationRepository, UserEmailRepository,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::handlers::auth::{AppState, Result};
-use crate::middleware::SessionContext;
+use crate::middleware::{OrganizationContext, SessionContext};
 
 /// Global limit on total organizations
 const GLOBAL_ORGANIZATION_LIMIT: i64 = 100_000;
@@ -560,5 +560,392 @@ pub async fn remove_member(
 
     Ok(Json(RemoveMemberResponse {
         message: "Member removed successfully".to_string(),
+    }))
+}
+
+// ============================================================================
+// Organization Invitations
+// ============================================================================
+
+/// Invitation response
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InvitationResponse {
+    /// Invitation ID
+    pub id: i64,
+    /// Email address
+    pub email: String,
+    /// Role
+    pub role: String,
+    /// When created
+    pub created_at: String,
+    /// When expires
+    pub expires_at: String,
+    /// User who created the invitation
+    pub invited_by_user_id: i64,
+}
+
+impl From<OrganizationInvitation> for InvitationResponse {
+    fn from(invitation: OrganizationInvitation) -> Self {
+        Self {
+            id: invitation.id,
+            email: invitation.email,
+            role: format!("{:?}", invitation.role).to_uppercase(),
+            created_at: invitation.created_at.to_rfc3339(),
+            expires_at: invitation.expires_at.to_rfc3339(),
+            invited_by_user_id: invitation.invited_by_user_id,
+        }
+    }
+}
+
+/// Request body for creating an invitation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateInvitationRequest {
+    /// Email address to invite
+    pub email: String,
+    /// Role for the invited user
+    pub role: OrganizationRole,
+}
+
+/// Response body for invitation creation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateInvitationResponse {
+    /// Created invitation
+    pub invitation: InvitationResponse,
+}
+
+/// Response body for listing invitations
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ListInvitationsResponse {
+    /// Invitations
+    pub invitations: Vec<InvitationResponse>,
+}
+
+/// Response for accepting an invitation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AcceptInvitationRequest {
+    /// Invitation token
+    pub token: String,
+}
+
+/// Response for accepting an invitation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AcceptInvitationResponse {
+    /// Organization the user joined
+    pub organization: OrganizationResponse,
+}
+
+/// Response for deleting an invitation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeleteInvitationResponse {
+    /// Success message
+    pub message: String,
+}
+
+/// Create a new organization invitation
+///
+/// POST /v1/organizations/:org/invitations
+///
+/// Invite a user to join an organization by email. Requires ADMIN or OWNER role.
+pub async fn create_invitation(
+    State(state): State<AppState>,
+    Extension(org_ctx): Extension<OrganizationContext>,
+    Json(payload): Json<CreateInvitationRequest>,
+) -> Result<Json<CreateInvitationResponse>> {
+    // Require admin or owner
+    crate::middleware::require_admin_or_owner(&org_ctx)?;
+
+    // Validate email
+    OrganizationInvitation::validate_email(&payload.email)?;
+
+    // Get organization to check member limits
+    let org_repo = OrganizationRepository::new((*state.storage).clone());
+    let org = org_repo
+        .get(org_ctx.organization_id)
+        .await?
+        .ok_or_else(|| CoreError::NotFound("Organization not found".to_string()))?;
+
+    // Check member count against tier limit
+    let member_repo = OrganizationMemberRepository::new((*state.storage).clone());
+    let member_count = member_repo
+        .count_by_organization(org_ctx.organization_id)
+        .await?;
+
+    if member_count >= org.tier.max_members() {
+        return Err(CoreError::TierLimit(format!(
+            "Organization has reached the maximum number of members ({}) for tier {:?}",
+            org.tier.max_members(),
+            org.tier
+        ))
+        .into());
+    }
+
+    // Check if user with this email already exists and is a member
+    let email_repo = UserEmailRepository::new((*state.storage).clone());
+    if let Some(existing_email) = email_repo.get_by_email(&payload.email).await? {
+        if member_repo
+            .get_by_org_and_user(org_ctx.organization_id, existing_email.user_id)
+            .await?
+            .is_some()
+        {
+            return Err(CoreError::AlreadyExists(
+                "User is already a member of this organization".to_string(),
+            )
+            .into());
+        }
+    }
+
+    // Check for existing invitation
+    let invitation_repo = OrganizationInvitationRepository::new((*state.storage).clone());
+    if invitation_repo
+        .exists_for_email_in_org(&payload.email, org_ctx.organization_id)
+        .await?
+    {
+        return Err(CoreError::AlreadyExists(
+            "An invitation for this email already exists".to_string(),
+        )
+        .into());
+    }
+
+    // Generate invitation
+    let invitation_id = IdGenerator::next_id();
+    let token = OrganizationInvitation::generate_token()?;
+    let invitation = OrganizationInvitation::new(
+        invitation_id,
+        org_ctx.organization_id,
+        org_ctx.member.user_id,
+        payload.email,
+        payload.role,
+        token,
+    )?;
+
+    // Create invitation
+    invitation_repo.create(invitation.clone()).await?;
+
+    Ok(Json(CreateInvitationResponse {
+        invitation: invitation.into(),
+    }))
+}
+
+/// List organization invitations
+///
+/// GET /v1/organizations/:org/invitations
+///
+/// List all pending invitations for an organization. Requires ADMIN or OWNER role.
+pub async fn list_invitations(
+    State(state): State<AppState>,
+    Extension(org_ctx): Extension<OrganizationContext>,
+) -> Result<Json<ListInvitationsResponse>> {
+    // Require admin or owner
+    crate::middleware::require_admin_or_owner(&org_ctx)?;
+
+    let invitation_repo = OrganizationInvitationRepository::new((*state.storage).clone());
+    let invitations = invitation_repo
+        .list_by_organization(org_ctx.organization_id)
+        .await?;
+
+    Ok(Json(ListInvitationsResponse {
+        invitations: invitations.into_iter().map(Into::into).collect(),
+    }))
+}
+
+/// Delete an organization invitation
+///
+/// DELETE /v1/organizations/:org/invitations/:invitation
+///
+/// Revoke a pending invitation. Requires ADMIN or OWNER role.
+pub async fn delete_invitation(
+    State(state): State<AppState>,
+    Extension(org_ctx): Extension<OrganizationContext>,
+    Path((_org_id, invitation_id)): Path<(i64, i64)>,
+) -> Result<Json<DeleteInvitationResponse>> {
+    // Require admin or owner
+    crate::middleware::require_admin_or_owner(&org_ctx)?;
+
+    // Verify invitation belongs to this organization
+    let invitation_repo = OrganizationInvitationRepository::new((*state.storage).clone());
+    let invitation: OrganizationInvitation = invitation_repo
+        .get(invitation_id)
+        .await?
+        .ok_or_else(|| CoreError::NotFound("Invitation not found".to_string()))?;
+
+    if invitation.organization_id != org_ctx.organization_id {
+        return Err(CoreError::NotFound("Invitation not found".to_string()).into());
+    }
+
+    // Delete invitation
+    invitation_repo.delete(invitation_id).await?;
+
+    Ok(Json(DeleteInvitationResponse {
+        message: "Invitation deleted successfully".to_string(),
+    }))
+}
+
+/// Accept an organization invitation
+///
+/// POST /v1/organizations/invitations/accept
+///
+/// Accept an invitation to join an organization using the invitation token.
+pub async fn accept_invitation(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<SessionContext>,
+    Json(payload): Json<AcceptInvitationRequest>,
+) -> Result<Json<AcceptInvitationResponse>> {
+    // Validate token format
+    OrganizationInvitation::validate_token(&payload.token)?;
+
+    // Get invitation by token
+    let invitation_repo = OrganizationInvitationRepository::new((*state.storage).clone());
+    let invitation: OrganizationInvitation = invitation_repo
+        .get_by_token(&payload.token)
+        .await?
+        .ok_or_else(|| CoreError::NotFound("Invalid or expired invitation".to_string()))?;
+
+    // Check if invitation has expired
+    if invitation.is_expired() {
+        // Clean up expired invitation
+        invitation_repo.delete(invitation.id).await?;
+        return Err(CoreError::NotFound("Invalid or expired invitation".to_string()).into());
+    }
+
+    // Get user's email to verify it matches
+    let email_repo = UserEmailRepository::new((*state.storage).clone());
+    let user_emails = email_repo.get_user_emails(ctx.user_id).await?;
+    let has_matching_email = user_emails
+        .iter()
+        .any(|e| e.email.to_lowercase() == invitation.email.to_lowercase());
+
+    if !has_matching_email {
+        return Err(CoreError::Validation(
+            "This invitation was sent to a different email address".to_string(),
+        )
+        .into());
+    }
+
+    // Check if user is already a member
+    let member_repo = OrganizationMemberRepository::new((*state.storage).clone());
+    if member_repo
+        .get_by_org_and_user(invitation.organization_id, ctx.user_id)
+        .await?
+        .is_some()
+    {
+        // Delete invitation and return success
+        invitation_repo.delete(invitation.id).await?;
+        return Err(CoreError::AlreadyExists(
+            "You are already a member of this organization".to_string(),
+        )
+        .into());
+    }
+
+    // Check organization member limit
+    let org_repo = OrganizationRepository::new((*state.storage).clone());
+    let org = org_repo
+        .get(invitation.organization_id)
+        .await?
+        .ok_or_else(|| CoreError::NotFound("Organization not found".to_string()))?;
+
+    let member_count = member_repo.count_by_organization(invitation.organization_id).await?;
+    if member_count >= org.tier.max_members() {
+        return Err(CoreError::TierLimit(
+            "Organization has reached the maximum number of members".to_string(),
+        )
+        .into());
+    }
+
+    // Create organization member
+    let member_id = IdGenerator::next_id();
+    let member = OrganizationMember::new(
+        member_id,
+        invitation.organization_id,
+        ctx.user_id,
+        invitation.role,
+    );
+    member_repo.create(member).await?;
+
+    // Delete invitation
+    invitation_repo.delete(invitation.id).await?;
+
+    // Return organization details
+    let org_response = OrganizationResponse {
+        id: org.id,
+        name: org.name,
+        tier: format!("{:?}", org.tier).to_uppercase(),
+        created_at: org.created_at.to_rfc3339(),
+        role: format!("{:?}", invitation.role).to_uppercase(),
+    };
+
+    Ok(Json(AcceptInvitationResponse {
+        organization: org_response,
+    }))
+}
+
+// ============================================================================
+// Ownership Transfer
+// ============================================================================
+
+/// Request body for transferring ownership
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TransferOwnershipRequest {
+    /// User ID of the new owner (must be existing member)
+    pub new_owner_user_id: i64,
+}
+
+/// Response for ownership transfer
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TransferOwnershipResponse {
+    /// Success message
+    pub message: String,
+}
+
+/// Transfer organization ownership
+///
+/// POST /v1/organizations/:org/transfer-ownership
+///
+/// Transfer ownership of an organization to another member. Requires OWNER role.
+/// The new owner must already be a member of the organization.
+pub async fn transfer_ownership(
+    State(state): State<AppState>,
+    Extension(org_ctx): Extension<OrganizationContext>,
+    Json(payload): Json<TransferOwnershipRequest>,
+) -> Result<Json<TransferOwnershipResponse>> {
+    // Require owner
+    crate::middleware::require_owner(&org_ctx)?;
+
+    // Cannot transfer to self
+    if payload.new_owner_user_id == org_ctx.member.user_id {
+        return Err(CoreError::Validation(
+            "Cannot transfer ownership to yourself".to_string(),
+        )
+        .into());
+    }
+
+    // Check if new owner is a member
+    let member_repo = OrganizationMemberRepository::new((*state.storage).clone());
+    let new_owner_member = member_repo
+        .get_by_org_and_user(org_ctx.organization_id, payload.new_owner_user_id)
+        .await?
+        .ok_or_else(|| {
+            CoreError::NotFound(
+                "The specified user is not a member of this organization".to_string(),
+            )
+        })?;
+
+    // Get current owner's member record
+    let current_owner_member = member_repo
+        .get(org_ctx.member.id)
+        .await?
+        .ok_or_else(|| CoreError::Internal("Current owner member not found".to_string()))?;
+
+    // Update new owner to OWNER role
+    let mut updated_new_owner = new_owner_member;
+    updated_new_owner.role = OrganizationRole::Owner;
+    member_repo.update(updated_new_owner).await?;
+
+    // Demote current owner to ADMIN
+    let mut updated_current_owner = current_owner_member;
+    updated_current_owner.role = OrganizationRole::Admin;
+    member_repo.update(updated_current_owner).await?;
+
+    Ok(Json(TransferOwnershipResponse {
+        message: "Ownership transferred successfully".to_string(),
     }))
 }
