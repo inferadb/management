@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::leader::LeaderElection;
-use crate::repository::{UserSessionRepository, VaultRefreshTokenRepository};
+use crate::repository::{AuditLogRepository, UserSessionRepository, VaultRefreshTokenRepository};
 use infera_management_storage::StorageBackend;
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,6 +18,7 @@ use tokio::time;
 /// - **Expired token cleanup** (daily): Remove expired verification and reset tokens
 /// - **Expired refresh token cleanup** (daily): Remove old used/expired refresh tokens
 /// - **Expired authorization code cleanup** (hourly): Clean up old authorization codes
+/// - **Audit log retention** (daily): Remove audit logs older than 90 days
 ///
 /// # Usage
 ///
@@ -93,6 +94,13 @@ impl<S: StorageBackend + Clone + Send + Sync + 'static> BackgroundJobs<S> {
         handles.push(
             self.spawn_hourly_job("authz_code_cleanup", |storage, _leader| {
                 Box::pin(async move { Self::cleanup_expired_authorization_codes(storage).await })
+            }),
+        );
+
+        // Audit log retention cleanup (daily at 5 AM)
+        handles.push(
+            self.spawn_daily_job("audit_log_cleanup", 5, 0, |storage, _leader| {
+                Box::pin(async move { Self::cleanup_old_audit_logs(storage).await })
             }),
         );
 
@@ -256,6 +264,30 @@ impl<S: StorageBackend + Clone + Send + Sync + 'static> BackgroundJobs<S> {
     async fn cleanup_expired_authorization_codes(_storage: S) -> Result<()> {
         // Authorization code cleanup is handled by TTL on the storage layer
         tracing::debug!("Authorization code cleanup skipped (TTL-based expiry in storage layer)");
+        Ok(())
+    }
+
+    /// Cleanup old audit logs (90-day retention)
+    ///
+    /// Deletes audit logs older than 90 days to comply with retention policy
+    async fn cleanup_old_audit_logs(storage: S) -> Result<()> {
+        let repo = AuditLogRepository::new(storage);
+
+        // Calculate cutoff date (90 days ago)
+        let cutoff_date = chrono::Utc::now() - chrono::Duration::days(90);
+
+        let deleted = repo.delete_older_than(cutoff_date).await?;
+
+        if deleted > 0 {
+            tracing::info!(
+                count = deleted,
+                cutoff_date = %cutoff_date.format("%Y-%m-%d"),
+                "Cleaned up old audit logs"
+            );
+        } else {
+            tracing::debug!("No old audit logs to clean up");
+        }
+
         Ok(())
     }
 }

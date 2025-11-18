@@ -34,12 +34,7 @@ fn extract_session_cookie(headers: &axum::http::HeaderMap) -> Option<String> {
 }
 
 /// Helper function to register a user and return session cookie
-async fn register_user(
-    app: &axum::Router,
-    name: &str,
-    email: &str,
-    password: &str,
-) -> String {
+async fn register_user(app: &axum::Router, name: &str, email: &str, password: &str) -> String {
     let response = app
         .clone()
         .oneshot(
@@ -69,11 +64,7 @@ async fn register_user(
 }
 
 /// Helper to create a client with certificate
-async fn create_client_with_cert(
-    app: &axum::Router,
-    session: &str,
-    org_id: i64,
-) -> (i64, i64) {
+async fn create_client_with_cert(app: &axum::Router, session: &str, org_id: i64) -> (i64, i64) {
     let response = app
         .clone()
         .oneshot(
@@ -138,7 +129,8 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
     let app = create_test_app(state.clone());
 
     // Register owner and create organization
-    let owner_session = register_user(&app, "owner", "owner@example.com", "securepassword123").await;
+    let owner_session =
+        register_user(&app, "owner", "owner@example.com", "securepassword123").await;
 
     // Get organization
     let response = app
@@ -319,10 +311,7 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
     assert_eq!(grants.len(), 2);
 
     // Verify one grant is for READER role and one is for WRITER role
-    let roles: Vec<&str> = grants
-        .iter()
-        .map(|g| g["role"].as_str().unwrap())
-        .collect();
+    let roles: Vec<&str> = grants.iter().map(|g| g["role"].as_str().unwrap()).collect();
     assert!(roles.contains(&"READER"));
     assert!(roles.contains(&"WRITER"));
 }
@@ -654,7 +643,10 @@ async fn test_certificate_rotation_scenario() {
         .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(json["certificate"]["is_active"], false, "Certificate should be revoked (is_active=false)");
+    assert_eq!(
+        json["certificate"]["is_active"], false,
+        "Certificate should be revoked (is_active=false)"
+    );
 
     // Verify second cert is still active
     let response = app
@@ -678,5 +670,8 @@ async fn test_certificate_rotation_scenario() {
         .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(json["certificate"]["is_active"], true, "Certificate should still be active");
+    assert_eq!(
+        json["certificate"]["is_active"], true,
+        "Certificate should still be active"
+    );
 }

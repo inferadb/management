@@ -1,5 +1,6 @@
 // REST API handlers and routes
 
+pub mod audit;
 pub mod handlers;
 pub mod middleware;
 pub mod pagination;

@@ -132,6 +132,40 @@ impl<S: StorageBackend> AuditLogRepository<S> {
         Ok((paginated_logs, total))
     }
 
+    /// Delete audit logs older than the specified date
+    ///
+    /// Returns the number of logs deleted
+    pub async fn delete_older_than(&self, cutoff_date: DateTime<Utc>) -> Result<usize> {
+        let prefix = format!("{}{}", String::from_utf8_lossy(PREFIX_AUDIT_LOG), "");
+        let start_key = prefix.as_bytes().to_vec();
+        let end_key = {
+            let mut key = start_key.clone();
+            key.push(0xFF);
+            key
+        };
+
+        let kvs = self
+            .storage
+            .get_range(start_key..end_key)
+            .await
+            .map_err(|e| Error::Internal(format!("Failed to scan audit logs: {}", e)))?;
+
+        let mut deleted_count = 0;
+
+        for kv in kvs {
+            if let Ok(log) = serde_json::from_slice::<AuditLog>(&kv.value) {
+                if log.created_at < cutoff_date {
+                    self.storage.delete(&kv.key).await.map_err(|e| {
+                        Error::Internal(format!("Failed to delete audit log: {}", e))
+                    })?;
+                    deleted_count += 1;
+                }
+            }
+        }
+
+        Ok(deleted_count)
+    }
+
     fn key(id: i64) -> Vec<u8> {
         format!("{}{}", String::from_utf8_lossy(PREFIX_AUDIT_LOG), id).into_bytes()
     }
