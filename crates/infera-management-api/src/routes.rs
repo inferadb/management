@@ -221,6 +221,11 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             "/v1/users/sessions/revoke-others",
             post(sessions::revoke_other_sessions),
         )
+        // Token revocation routes
+        .route(
+            "/v1/tokens/revoke/vault/{vault}",
+            post(tokens::revoke_vault_tokens),
+        )
         // User profile management routes
         .route("/v1/users/me", get(users::get_profile))
         .route("/v1/users/me", patch(users::update_profile))

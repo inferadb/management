@@ -32,6 +32,8 @@ pub struct GenerateVaultTokenResponse {
     pub access_token: String,
     /// Type of token (always "Bearer")
     pub token_type: String,
+    /// Access token TTL in seconds (OAuth 2.0 standard)
+    pub expires_in: i64,
     /// Access token expiration time (Unix timestamp)
     pub expires_at: i64,
     /// Long-lived refresh token (hex-encoded)
@@ -58,6 +60,8 @@ pub struct RefreshTokenResponse {
     pub access_token: String,
     /// Type of token (always "Bearer")
     pub token_type: String,
+    /// Access token TTL in seconds (OAuth 2.0 standard)
+    pub expires_in: i64,
     /// Access token expiration time (Unix timestamp)
     pub expires_at: i64,
     /// New refresh token (rotation)
@@ -182,6 +186,7 @@ pub async fn generate_vault_token(
         Json(GenerateVaultTokenResponse {
             access_token,
             token_type: "Bearer".to_string(),
+            expires_in: access_ttl,
             expires_at: claims.exp,
             refresh_token: refresh_token.token.clone(),
             refresh_token_expires_at: refresh_token.expires_at.timestamp(),
@@ -203,7 +208,7 @@ pub async fn generate_vault_token(
 pub async fn refresh_vault_token(
     State(state): State<AppState>,
     Json(req): Json<RefreshTokenRequest>,
-) -> Result<Json<RefreshTokenResponse>> {
+) -> Result<(StatusCode, Json<RefreshTokenResponse>)> {
     let refresh_repo = VaultRefreshTokenRepository::new((*state.storage).clone());
 
     // Get refresh token by token string
@@ -322,13 +327,17 @@ pub async fn refresh_vault_token(
     // Store new refresh token
     refresh_repo.create(new_token.clone()).await?;
 
-    Ok(Json(RefreshTokenResponse {
-        access_token,
-        token_type: "Bearer".to_string(),
-        expires_at: claims.exp,
-        refresh_token: new_token.token.clone(),
-        refresh_token_expires_at: new_token.expires_at.timestamp(),
-    }))
+    Ok((
+        StatusCode::CREATED,
+        Json(RefreshTokenResponse {
+            access_token,
+            token_type: "Bearer".to_string(),
+            expires_in: access_ttl,
+            expires_at: claims.exp,
+            refresh_token: new_token.token.clone(),
+            refresh_token_expires_at: new_token.expires_at.timestamp(),
+        }),
+    ))
 }
 
 // ============================================================================
@@ -602,4 +611,65 @@ pub async fn client_assertion_authenticate(
         expires_in: access_ttl,
         refresh_token: refresh_token.token,
     }))
+}
+
+// ============================================================================
+// Token Revocation Endpoint
+// ============================================================================
+
+#[derive(Debug, Serialize)]
+pub struct RevokeTokensResponse {
+    /// Number of tokens revoked
+    pub revoked_count: usize,
+}
+
+/// Revoke all refresh tokens for a vault
+///
+/// POST /v1/tokens/revoke/vault/:vault_id
+/// Requires session authentication
+///
+/// This revokes all active refresh tokens for the specified vault.
+/// Useful when vault access changes or vault is being deleted.
+pub async fn revoke_vault_tokens(
+    State(state): State<AppState>,
+    Extension(session_ctx): Extension<SessionContext>,
+    Path(vault_id): Path<i64>,
+) -> Result<(StatusCode, Json<RevokeTokensResponse>)> {
+    // Verify user has session
+    let session_repo = UserSessionRepository::new((*state.storage).clone());
+    let session = session_repo
+        .get(session_ctx.session_id)
+        .await?
+        .ok_or_else(|| CoreError::Auth("Session not found".to_string()))?;
+
+    if session.is_expired() {
+        return Err(CoreError::Auth("Session expired".to_string()).into());
+    }
+
+    // Verify vault exists
+    let vault_repo = VaultRepository::new((*state.storage).clone());
+    let _vault = vault_repo
+        .get(vault_id)
+        .await?
+        .ok_or_else(|| CoreError::NotFound("Vault not found".to_string()))?;
+
+    // Verify user has access to this vault (must be admin or have vault access)
+    let user_id = session.user_id;
+    let vault_role = get_user_vault_role(&state, vault_id, user_id)
+        .await?
+        .ok_or_else(|| CoreError::Authz("You do not have access to this vault".to_string()))?;
+
+    // Only admins can revoke tokens
+    if vault_role != VaultRole::Admin {
+        return Err(CoreError::Authz("Only vault admins can revoke tokens".to_string()).into());
+    }
+
+    // Revoke all refresh tokens for this vault
+    let refresh_repo = VaultRefreshTokenRepository::new((*state.storage).clone());
+    let revoked_count = refresh_repo.revoke_by_vault(vault_id).await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(RevokeTokensResponse { revoked_count }),
+    ))
 }

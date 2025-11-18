@@ -373,6 +373,9 @@ async fn test_refresh_token_flow() {
     assert_eq!(json["token_type"], "Bearer");
     assert_eq!(json["expires_in"], 3600); // 1 hour
 
+    // Wait 1 second to ensure new token has different iat timestamp
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
     // Use refresh token to get new access token
     let response = app
         .clone()
