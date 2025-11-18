@@ -1,5 +1,6 @@
 use crate::handlers::{
-    auth, clients, emails, jwks, organizations, sessions, teams, users, vaults, AppState,
+    auth, cli_auth, clients, emails, jwks, organizations, sessions, teams, tokens, users, vaults,
+    AppState,
 };
 use crate::middleware::{require_organization_member, require_session};
 use axum::{
@@ -145,6 +146,11 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             "/v1/organizations/{org}/vaults/{vault}/team-grants/{grant}",
             delete(vaults::delete_team_grant),
         )
+        // Vault token generation route
+        .route(
+            "/v1/organizations/{org}/vaults/{vault}/tokens",
+            post(tokens::generate_vault_token),
+        )
         // Team management routes
         .route("/v1/organizations/{org}/teams", post(teams::create_team))
         .route("/v1/organizations/{org}/teams", get(teams::list_teams))
@@ -226,6 +232,8 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             "/v1/organizations/invitations/accept",
             post(organizations::accept_invitation),
         )
+        // CLI authentication routes (protected, needs session for authorize)
+        .route("/v1/auth/cli/authorize", post(cli_auth::cli_authorize))
         .with_state(state.clone())
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -247,6 +255,12 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             "/v1/auth/password-reset/confirm",
             post(auth::confirm_password_reset),
         )
+        // Token refresh endpoint (public, refresh token provides authentication)
+        .route("/v1/tokens/refresh", post(tokens::refresh_vault_token))
+        // Client assertion authentication endpoint (public, OAuth 2.0 JWT Bearer)
+        .route("/v1/token", post(tokens::client_assertion_authenticate))
+        // CLI token exchange endpoint (public, authorization code provides authentication)
+        .route("/v1/auth/cli/token", post(cli_auth::cli_token_exchange))
         // JWKS endpoints (public, no authentication required)
         .route("/.well-known/jwks.json", get(jwks::get_global_jwks))
         .route("/v1/organizations/{org}/jwks.json", get(jwks::get_org_jwks))

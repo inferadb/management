@@ -6,6 +6,7 @@ pub mod email;
 pub mod entities;
 pub mod error;
 pub mod id;
+pub mod jwt;
 pub mod repository;
 
 pub use auth::{hash_password, verify_password, PasswordHasher};
@@ -14,18 +15,21 @@ pub use config::ManagementConfig;
 pub use crypto::{keypair, PrivateKeyEncryptor};
 pub use email::{EmailSender, EmailService, SmtpEmailService};
 pub use entities::{
-    Client, ClientCertificate, Organization, OrganizationInvitation, OrganizationMember,
-    OrganizationPermission, OrganizationRole, OrganizationTeam, OrganizationTeamMember,
-    OrganizationTeamPermission, OrganizationTier, SessionType, User, UserEmail,
-    UserEmailVerificationToken, UserPasswordResetToken, UserSession, Vault, VaultRole,
-    VaultSyncStatus, VaultTeamGrant, VaultUserGrant,
+    AuthorizationCode, Client, ClientCertificate, Organization, OrganizationInvitation,
+    OrganizationMember, OrganizationPermission, OrganizationRole, OrganizationTeam,
+    OrganizationTeamMember, OrganizationTeamPermission, OrganizationTier, SessionType, User,
+    UserEmail, UserEmailVerificationToken, UserPasswordResetToken, UserSession, Vault,
+    VaultRefreshToken, VaultRole, VaultSyncStatus, VaultTeamGrant, VaultUserGrant,
 };
 pub use error::{Error, Result};
 pub use id::{IdGenerator, WorkerRegistry};
+pub use jwt::{JwtSigner, VaultTokenClaims};
 pub use repository::{
-    ClientCertificateRepository, ClientRepository, OrganizationInvitationRepository,
-    OrganizationMemberRepository, OrganizationRepository, OrganizationTeamMemberRepository,
-    OrganizationTeamPermissionRepository, OrganizationTeamRepository, UserEmailRepository,
-    UserEmailVerificationTokenRepository, UserPasswordResetTokenRepository, UserRepository,
-    UserSessionRepository, VaultRepository, VaultTeamGrantRepository, VaultUserGrantRepository,
+    AuthorizationCodeRepository, ClientCertificateRepository, ClientRepository,
+    JtiReplayProtectionRepository, OrganizationInvitationRepository, OrganizationMemberRepository,
+    OrganizationRepository, OrganizationTeamMemberRepository, OrganizationTeamPermissionRepository,
+    OrganizationTeamRepository, UserEmailRepository, UserEmailVerificationTokenRepository,
+    UserPasswordResetTokenRepository, UserRepository, UserSessionRepository,
+    VaultRefreshTokenRepository, VaultRepository, VaultTeamGrantRepository,
+    VaultUserGrantRepository,
 };

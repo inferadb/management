@@ -1,5 +1,7 @@
+pub mod authorization_code;
 pub mod client;
 pub mod client_certificate;
+pub mod jti_replay_protection;
 pub mod organization;
 pub mod organization_invitation;
 pub mod team;
@@ -9,9 +11,12 @@ pub mod user_email_verification_token;
 pub mod user_password_reset_token;
 pub mod user_session;
 pub mod vault;
+pub mod vault_refresh_token;
 
+pub use authorization_code::AuthorizationCodeRepository;
 pub use client::ClientRepository;
 pub use client_certificate::ClientCertificateRepository;
+pub use jti_replay_protection::JtiReplayProtectionRepository;
 pub use organization::{OrganizationMemberRepository, OrganizationRepository};
 pub use organization_invitation::OrganizationInvitationRepository;
 pub use team::{
@@ -24,3 +29,4 @@ pub use user_email_verification_token::UserEmailVerificationTokenRepository;
 pub use user_password_reset_token::UserPasswordResetTokenRepository;
 pub use user_session::UserSessionRepository;
 pub use vault::{VaultRepository, VaultTeamGrantRepository, VaultUserGrantRepository};
+pub use vault_refresh_token::VaultRefreshTokenRepository;
