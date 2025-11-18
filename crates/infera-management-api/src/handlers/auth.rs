@@ -28,6 +28,9 @@ pub struct AppState {
     pub storage: Arc<Backend>,
     pub config: Arc<infera_management_core::ManagementConfig>,
     pub server_client: Arc<ServerApiClient>,
+    pub worker_id: u16,
+    pub start_time: std::time::SystemTime,
+    pub leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
 }
 
 impl AppState {
@@ -35,11 +38,16 @@ impl AppState {
         storage: Arc<Backend>,
         config: Arc<infera_management_core::ManagementConfig>,
         server_client: Arc<ServerApiClient>,
+        worker_id: u16,
+        leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
     ) -> Self {
         Self {
             storage,
             config,
             server_client,
+            worker_id,
+            start_time: std::time::SystemTime::now(),
+            leader,
         }
     }
 
@@ -104,6 +112,9 @@ server_api:
             storage,
             config: Arc::new(config),
             server_client: Arc::new(server_client),
+            worker_id: 0,
+            start_time: std::time::SystemTime::now(),
+            leader: None,
         }
     }
 }

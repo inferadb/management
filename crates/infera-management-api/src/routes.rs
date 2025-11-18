@@ -1,6 +1,6 @@
 use crate::handlers::{
-    auth, cli_auth, clients, emails, jwks, organizations, sessions, teams, tokens, users, vaults,
-    AppState,
+    auth, cli_auth, clients, emails, health, jwks, organizations, sessions, teams, tokens, users,
+    vaults, AppState,
 };
 use crate::middleware::{require_organization_member, require_session};
 use axum::{
@@ -242,7 +242,14 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
 
     // Combine public, protected, and org-scoped routes
     Router::new()
+        // Health check endpoints (no authentication)
+        .route("/v1/health", get(health::health_detailed))
+        .route("/v1/health/live", get(health::health_live))
+        .route("/v1/health/ready", get(health::health_ready))
+        .route("/v1/health/startup", get(health::health_startup))
+        // Legacy health check endpoint
         .route("/health", get(health_check))
+        // Authentication endpoints
         .route("/v1/auth/register", post(auth::register))
         .route("/v1/auth/login/password", post(auth::login))
         .route("/v1/auth/logout", post(auth::logout))

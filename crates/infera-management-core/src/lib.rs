@@ -6,7 +6,10 @@ pub mod email;
 pub mod entities;
 pub mod error;
 pub mod id;
+pub mod jobs;
 pub mod jwt;
+pub mod leader;
+pub mod ratelimit;
 pub mod repository;
 
 pub use auth::{hash_password, verify_password, PasswordHasher};
@@ -23,7 +26,10 @@ pub use entities::{
 };
 pub use error::{Error, Result};
 pub use id::{IdGenerator, WorkerRegistry};
+pub use jobs::BackgroundJobs;
 pub use jwt::{JwtSigner, VaultTokenClaims};
+pub use leader::LeaderElection;
+pub use ratelimit::{categories, limits, RateLimit, RateLimitResult, RateLimiter};
 pub use repository::{
     AuthorizationCodeRepository, ClientCertificateRepository, ClientRepository,
     JtiReplayProtectionRepository, OrganizationInvitationRepository, OrganizationMemberRepository,

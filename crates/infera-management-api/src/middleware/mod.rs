@@ -1,5 +1,6 @@
 pub mod organization;
 pub mod permission;
+pub mod ratelimit;
 pub mod session;
 pub mod vault;
 
@@ -10,6 +11,7 @@ pub use organization::{
 pub use permission::{
     get_user_permissions, has_organization_permission, require_organization_permission,
 };
+pub use ratelimit::{login_rate_limit, registration_rate_limit};
 pub use session::{extract_session_context, require_session, SessionContext};
 pub use vault::{
     get_user_vault_role, require_admin, require_manager, require_reader, require_vault_access,
