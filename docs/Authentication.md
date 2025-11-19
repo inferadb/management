@@ -55,83 +55,34 @@ This separation ensures that authentication (identity) and authorization (policy
 
 ## Complete Authentication Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          CLIENT APPLICATION                         │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │ 1. Login Request
-                                  │    (email/password, passkey, OAuth, etc.)
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         MANAGEMENT API                              │
-│                    (Authentication Orchestrator)                    │
-├─────────────────────────────────────────────────────────────────────┤
-│  2. Validate Credentials                                            │
-│  3. Create Session (Twitter Snowflake ID)                           │
-│  4. Issue Session Token + Refresh Token                             │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │ 5. Return Tokens
-                                  │    {
-                                  │      "session_token": "...",
-                                  │      "refresh_token": "..."
-                                  │    }
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                          CLIENT APPLICATION                         │
-│                    (Stores session credentials)                     │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │ 6. Request Vault Access
-                                  │    Authorization: Bearer <session_token>
-                                  │    POST /v1/vaults/{vault_id}/tokens
-                                  │    { "role": "VAULT_ROLE_WRITER" }
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         MANAGEMENT API                              │
-├─────────────────────────────────────────────────────────────────────┤
-│  7. Validate Session Token                                          │
-│  8. Check User Permissions for Vault                                │
-│  9. Generate Vault-Scoped JWT (signed with Ed25519)                 │
-│ 10. Issue Vault Access Token + Vault Refresh Token                  │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │ 11. Return Vault Token
-                                  │     {
-                                  │       "access_token": "<jwt>",
-                                  │       "refresh_token": "...",
-                                  │       "token_type": "Bearer",
-                                  │       "expires_in": 3600,
-                                  │       "vault_id": "...",
-                                  │       "vault_role": "VAULT_ROLE_WRITER"
-                                  │     }
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                          CLIENT APPLICATION                         │
-│                   (Stores vault access token)                       │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │ 12. Authorization Request
-                                  │     Authorization: Bearer <vault_jwt>
-                                  │     POST /check
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                           SERVER API                                │
-│                  (Authorization Policy Engine)                      │
-├─────────────────────────────────────────────────────────────────────┤
-│ 13. Validate JWT Signature (using JWKS from Management API)         │
-│ 14. Verify Claims (aud, exp, scope, vault_role)                     │
-│ 15. Execute Policy Evaluation                                       │
-│ 16. Return Authorization Decision                                   │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │ 17. Authorization Result
-                                  │     { "allowed": true/false }
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                          CLIENT APPLICATION                         │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Client as Client Application
+    participant MgmtAPI as Management API<br/>(Authentication Orchestrator)
+    participant ServerAPI as Server API<br/>(Authorization Policy Engine)
+
+    Note over Client: User initiates login
+    Client->>MgmtAPI: 1. Login Request<br/>(email/password, passkey, OAuth, etc.)
+
+    Note over MgmtAPI: 2. Validate Credentials<br/>3. Create Session (Snowflake ID)<br/>4. Issue Session + Refresh Tokens
+
+    MgmtAPI-->>Client: 5. Return Tokens<br/>{session_token, refresh_token}
+
+    Note over Client: Store session credentials
+
+    Client->>MgmtAPI: 6. Request Vault Access<br/>POST /v1/vaults/{vault_id}/tokens<br/>Authorization: Bearer {session_token}
+
+    Note over MgmtAPI: 7. Validate Session Token<br/>8. Check User Vault Permissions<br/>9. Generate Vault JWT (Ed25519)<br/>10. Issue Vault Tokens
+
+    MgmtAPI-->>Client: 11. Return Vault Token<br/>{access_token (JWT), refresh_token,<br/>expires_in: 3600, vault_role}
+
+    Note over Client: Store vault access token
+
+    Client->>ServerAPI: 12. Authorization Request<br/>POST /check<br/>Authorization: Bearer {vault_jwt}
+
+    Note over ServerAPI: 13. Validate JWT (JWKS)<br/>14. Verify Claims<br/>15. Execute Policy Evaluation
+
+    ServerAPI-->>Client: 16. Authorization Result<br/>{allowed: true/false}
 ```
 
 ## JWT Claims Structure
@@ -182,27 +133,16 @@ When a client requests a vault access token, the Management API returns:
 
 Vault access tokens expire after a short duration (typically 1 hour). Clients can use refresh tokens to obtain new access tokens without re-authenticating:
 
-```
-CLIENT                          MANAGEMENT API
-  │
-  │ POST /v1/vaults/{vault_id}/tokens/refresh
-  │ { "refresh_token": "..." }
-  ├──────────────────────────────────────────────────>
-  │                                                     │
-  │                                          Validate Refresh Token
-  │                                          Check if Single-Use Token
-  │                                          Mark Token as Used
-  │                                          Generate New JWT
-  │                                          Issue New Refresh Token
-  │                                                     │
-  │ {                                                   │
-  │   "access_token": "<new_jwt>",                      │
-  │   "refresh_token": "<new_refresh_token>",           │
-  │   "token_type": "Bearer",                           │
-  │   "expires_in": 3600                                │
-  │ }                                                   │
-  <──────────────────────────────────────────────────────┤
-  │
+```mermaid
+sequenceDiagram
+    participant Client as Client Application
+    participant MgmtAPI as Management API
+
+    Client->>MgmtAPI: POST /v1/vaults/{vault_id}/tokens/refresh<br/>{refresh_token}
+
+    Note over MgmtAPI: Validate Refresh Token<br/>Check Single-Use Status<br/>Mark Token as Used<br/>Generate New JWT<br/>Issue New Refresh Token
+
+    MgmtAPI-->>Client: New Tokens<br/>{access_token (JWT),<br/>refresh_token (new),<br/>token_type: Bearer,<br/>expires_in: 3600}
 ```
 
 ### Refresh Token Security Properties
@@ -246,78 +186,45 @@ The Management API supports multiple authentication methods:
 
 #### Client Assertion Flow
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  ONE-TIME SETUP (Developer Portal)               │
-├─────────────────────────────────────────────────────────────────┤
-│ 1. Create Client in Management API                              │
-│    - Specify name, organization, vault permissions              │
-│                                                                  │
-│ 2. Management API generates:                                    │
-│    - Client ID (e.g., "client_abc123xyz")                       │
-│    - Ed25519 key pair                                            │
-│                                                                  │
-│ 3. Developer downloads private key (PEM/JWK)                    │
-│    - Management API stores public key                            │
-│    - Private key shown only once                                 │
-│                                                                  │
-│ 4. Developer configures backend app:                            │
-│    - INFERADB_CLIENT_ID=client_abc123xyz                         │
-│    - INFERADB_PRIVATE_KEY=<pem_contents>                         │
-└─────────────────────────────────────────────────────────────────┘
+**ONE-TIME SETUP (Developer Portal)**
 
-┌─────────────────────────────────────────────────────────────────┐
-│                  RUNTIME (Every Token Request)                   │
-├─────────────────────────────────────────────────────────────────┤
-│ BACKEND APP                                                      │
-│   1. Create client assertion JWT:                               │
-│      {                                                           │
-│        "iss": "client_abc123xyz",         // Client ID           │
-│        "sub": "client_abc123xyz",         // Client ID           │
-│        "aud": "https://management.inferadb.com/v1/token",        │
-│        "exp": <now + 60 seconds>,         // Short-lived         │
-│        "iat": <now>,                                             │
-│        "jti": "<random_unique_id>"        // Prevents replay     │
-│      }                                                           │
-│                                                                  │
-│   2. Sign assertion with private key (Ed25519)                   │
-│                                                                  │
-│   3. POST /v1/token:                                             │
-│      {                                                           │
-│        "grant_type": "client_credentials",                       │
-│        "client_assertion_type":                                  │
-│          "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",│
-│        "client_assertion": "<signed_jwt>",                       │
-│        "scope": "vault:vault_123:WRITER"  // Requested scope     │
-│      }                                                           │
-│                                                                  │
-│ ──────────────────────────────────────────────────────────────► │
-│                                                                  │
-│ MANAGEMENT API                                                   │
-│   4. Parse client_assertion JWT                                  │
-│   5. Lookup Client by iss/sub claim                              │
-│   6. Verify signature using stored public key                    │
-│   7. Validate claims:                                            │
-│      - aud matches token endpoint                                │
-│      - exp not expired (< 60 seconds old)                        │
-│      - jti not previously used (replay protection)               │
-│   8. Check Client has permission for requested vault/role        │
-│   9. Generate vault-scoped JWT                                   │
-│  10. Return response:                                            │
-│      {                                                           │
-│        "access_token": "<vault_jwt>",                            │
-│        "token_type": "Bearer",                                   │
-│        "expires_in": 3600,                                       │
-│        "scope": "vault:vault_123:WRITER"                         │
-│      }                                                           │
-│                                                                  │
-│ ◄────────────────────────────────────────────────────────────── │
-│                                                                  │
-│ BACKEND APP                                                      │
-│  11. Cache vault JWT until expiration (~1 hour)                  │
-│  12. Use vault JWT for Server API requests                       │
-│  13. When expired, repeat steps 1-10                             │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant Portal as Management API<br/>Dashboard/Portal
+    participant MgmtAPI as Management API
+
+    Dev->>Portal: 1. Create Client<br/>(name, organization, vault permissions)
+
+    Portal->>MgmtAPI: Create Client Request
+
+    Note over MgmtAPI: Generate Client ID<br/>Generate Ed25519 Key Pair<br/>Store Public Key
+
+    MgmtAPI-->>Portal: Client Created<br/>{client_id, private_key (PEM)}
+
+    Portal-->>Dev: 2. Download Private Key<br/>⚠️ Shown only once!
+
+    Note over Dev: 3. Configure Backend App:<br/>INFERADB_CLIENT_ID=client_abc123xyz<br/>INFERADB_PRIVATE_KEY={pem_contents}
+```
+
+**RUNTIME (Every Token Request)**
+
+```mermaid
+sequenceDiagram
+    participant Backend as Backend Application
+    participant MgmtAPI as Management API
+
+    Note over Backend: 1. Create Client Assertion JWT:<br/>{iss: client_id, sub: client_id,<br/>aud: token_endpoint, exp: now+60s,<br/>iat: now, jti: unique_id}
+
+    Note over Backend: 2. Sign with Private Key (Ed25519)
+
+    Backend->>MgmtAPI: 3. POST /v1/token<br/>{grant_type: client_credentials,<br/>client_assertion_type: jwt-bearer,<br/>client_assertion: {signed_jwt},<br/>scope: vault:vault_123:WRITER}
+
+    Note over MgmtAPI: 4. Parse Assertion JWT<br/>5. Lookup Client by iss/sub<br/>6. Verify Signature (Public Key)<br/>7. Validate Claims (aud, exp, jti)<br/>8. Check Vault Permissions<br/>9. Generate Vault-Scoped JWT
+
+    MgmtAPI-->>Backend: 10. Vault Token Response<br/>{access_token: {vault_jwt},<br/>token_type: Bearer,<br/>expires_in: 3600,<br/>scope: vault:vault_123:WRITER}
+
+    Note over Backend: 11. Cache JWT (~1 hour)<br/>12. Use for Server API Requests<br/>13. Repeat when expired
 ```
 
 #### Client Assertion Benefits
@@ -346,22 +253,23 @@ The Management API supports multiple authentication methods:
 
 #### Correct SPA Architecture
 
-```text
-END USER (authenticated with your auth)
-    │
-    │ Your auth JWT
-    ▼
-SPA (React/Vue/etc.)
-    │
-    │ API call with user token
-    ▼
-YOUR BACKEND
-    │
-    │ Validates user
-    │ Uses Client Assertion to get vault token
-    │ Checks InferaDB permissions
-    ▼
-INFERADB (Management + Server APIs)
+```mermaid
+flowchart TB
+    User["👤 End User<br/>(authenticated with YOUR auth)"]
+    SPA["🌐 SPA<br/>(React/Vue/etc.)"]
+    Backend["🔧 YOUR Backend"]
+    InferaDB["🔐 InferaDB<br/>(Management + Server APIs)"]
+
+    User -->|"Your Auth JWT"| SPA
+    SPA -->|"API call with user token"| Backend
+    Backend -->|"1. Validates user<br/>2. Uses Client Assertion<br/>3. Gets vault token<br/>4. Checks permissions"| InferaDB
+    InferaDB -->|"Authorization decision"| Backend
+    Backend -->|"Response (show/hide features)"| SPA
+
+    style InferaDB fill:#e1f5ff
+    style Backend fill:#fff4e1
+    style SPA fill:#f0f0f0
+    style User fill:#e8f5e9
 ```
 
 **Flow**:
