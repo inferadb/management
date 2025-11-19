@@ -506,8 +506,8 @@ graph TB
     end
 
     subgraph "Vaults"
-        Vault1[Vault: Production<br/>Policies]
-        Vault2[Vault: Staging<br/>Policies]
+        Vault1[Vault: Production Policies]
+        Vault2[Vault: Staging Policies]
     end
 
     User1 -->|Member| Team1
@@ -519,19 +519,17 @@ graph TB
     Team1 -->|Viewer| Vault2
     Team2 -->|Admin| Vault1
 
-    Note1[Alice can:<br/>- Edit Prod (via Eng)<br/>- View Staging (via Eng)]
-    Note2[Bob can:<br/>- Edit Prod (via Eng)<br/>- Admin Prod (via Sec)<br/>- View Staging (via Eng)]
-    Note3[Charlie can:<br/>- Admin Prod (via Sec)]
-
-    User1 -.-> Note1
-    User2 -.-> Note2
-    User3 -.-> Note3
-
     style Vault1 fill:#4CAF50
     style Vault2 fill:#2196F3
     style Team1 fill:#FF9800
     style Team2 fill:#9C27B0
 ```
+
+**Resulting Permissions:**
+
+- **Alice**: Can edit Production (via Engineering), can view Staging (via Engineering)
+- **Bob**: Can edit Production (via Engineering), can admin Production (via Security), can view Staging (via Engineering)
+- **Charlie**: Can admin Production (via Security)
 
 ## Rate Limiting Flow
 
