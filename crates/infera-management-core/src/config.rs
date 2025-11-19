@@ -29,6 +29,12 @@ pub struct ManagementConfig {
 
     /// Server API configuration (for gRPC communication with @server)
     pub server_api: ServerApiConfig,
+
+    /// Frontend base URL for email links (verification, password reset)
+    /// Example: "https://app.inferadb.com" or "http://localhost:3000"
+    /// Environment variable: INFERADB_MGMT__FRONTEND_BASE_URL
+    #[serde(default = "default_frontend_base_url")]
+    pub frontend_base_url: String,
 }
 
 /// Server/HTTP configuration
@@ -294,6 +300,10 @@ fn default_grpc_tls_enabled() -> bool {
     true
 }
 
+fn default_frontend_base_url() -> String {
+    "http://localhost:3000".to_string()
+}
+
 impl ManagementConfig {
     /// Load configuration from a file with environment variable overrides
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -343,6 +353,31 @@ impl ManagementConfig {
         if self.auth.key_encryption_secret.is_none() {
             tracing::warn!(
                 "KEY_ENCRYPTION_SECRET not set - private keys will not be encrypted at rest!"
+            );
+        }
+
+        // Validate frontend_base_url format
+        if !self.frontend_base_url.starts_with("http://")
+            && !self.frontend_base_url.starts_with("https://")
+        {
+            return Err(Error::Config(
+                "frontend_base_url must start with http:// or https://".to_string(),
+            ));
+        }
+
+        if self.frontend_base_url.ends_with('/') {
+            return Err(Error::Config(
+                "frontend_base_url must not end with trailing slash".to_string(),
+            ));
+        }
+
+        // Warn about localhost in production-like environments
+        if self.frontend_base_url.contains("localhost")
+            || self.frontend_base_url.contains("127.0.0.1")
+        {
+            tracing::warn!(
+                "frontend_base_url contains localhost - this should only be used in development. \
+                 Production deployments should use a public domain."
             );
         }
 
@@ -419,6 +454,7 @@ mod tests {
                 grpc_endpoint: "http://localhost:8080".to_string(),
                 tls_enabled: false,
             },
+            frontend_base_url: default_frontend_base_url(),
         };
 
         // Valid worker ID
@@ -484,6 +520,7 @@ mod tests {
                 grpc_endpoint: "http://localhost:8080".to_string(),
                 tls_enabled: false,
             },
+            frontend_base_url: default_frontend_base_url(),
         };
 
         // Invalid storage backend

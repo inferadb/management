@@ -313,16 +313,14 @@ pub async fn register(
         let user_name = payload.name.clone();
         let token_str = verification_token.token.clone();
         let email_service = Arc::clone(email_service);
+        let frontend_base_url = state.config.frontend_base_url.clone();
 
         // Spawn async task to send email
         tokio::spawn(async move {
             use infera_management_core::{EmailTemplate, VerificationEmailTemplate};
 
-            let verification_link = format!(
-                "{}/verify-email?token={}",
-                "http://localhost:3000", // TODO: Get from config
-                token_str
-            );
+            let verification_link =
+                format!("{}/verify-email?token={}", frontend_base_url, token_str);
 
             let template = VerificationEmailTemplate {
                 user_name,
@@ -616,6 +614,7 @@ pub async fn request_password_reset(
         let user_name = user.name.clone();
         let token_for_email = token_string.clone();
         let email_service = Arc::clone(email_service);
+        let frontend_base_url = state.config.frontend_base_url.clone();
 
         // Spawn async task to send email
         tokio::spawn(async move {
@@ -623,8 +622,7 @@ pub async fn request_password_reset(
 
             let reset_link = format!(
                 "{}/reset-password?token={}",
-                "http://localhost:3000", // TODO: Get from config
-                token_for_email
+                frontend_base_url, token_for_email
             );
 
             let template = PasswordResetEmailTemplate {
@@ -725,8 +723,13 @@ pub async fn confirm_password_reset(
     token.mark_used();
     token_repo.update(token).await?;
 
-    // TODO: Invalidate all user sessions for security
-    tracing::info!("Password reset successfully for user {}", user_id);
+    // Invalidate all user sessions for security
+    let session_repo = UserSessionRepository::new((*state.storage).clone());
+    session_repo.revoke_user_sessions(user_id).await?;
+    tracing::info!(
+        "Password reset successfully for user {} - all sessions revoked",
+        user_id
+    );
 
     Ok(Json(PasswordResetConfirmResponse {
         message: "Password reset successfully".to_string(),
@@ -1036,5 +1039,135 @@ mod tests {
 
         let response = app.oneshot(confirm_request).await.unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_password_reset_revokes_all_sessions() {
+        let _ = IdGenerator::init(1);
+        let storage = Arc::new(Backend::Memory(MemoryBackend::new()));
+        let state = AppState::new_test(storage.clone());
+
+        let app = axum::Router::new()
+            .route("/register", axum::routing::post(register))
+            .route(
+                "/password-reset-request",
+                axum::routing::post(request_password_reset),
+            )
+            .route(
+                "/password-reset-confirm",
+                axum::routing::post(confirm_password_reset),
+            )
+            .with_state(state.clone());
+
+        // Register user (creates first session)
+        let register_request = axum::http::Request::builder()
+            .method("POST")
+            .uri("/register")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(
+                serde_json::to_string(&RegisterRequest {
+                    name: "alice".to_string(),
+                    email: "alice@example.com".to_string(),
+                    password: "old-password-123".to_string(),
+                })
+                .unwrap(),
+            ))
+            .unwrap();
+
+        app.clone().oneshot(register_request).await.unwrap();
+
+        // Manually verify the email
+        let email_repo = UserEmailRepository::new((*storage).clone());
+        let mut email = email_repo
+            .get_by_email("alice@example.com")
+            .await
+            .unwrap()
+            .unwrap();
+        let user_id = email.user_id;
+        email.verify();
+        email_repo.update(email).await.unwrap();
+
+        // Create additional sessions to verify they all get revoked
+        let session_repo = UserSessionRepository::new((*storage).clone());
+        let session2 = UserSession::new(
+            IdGenerator::next_id(),
+            user_id,
+            SessionType::Cli,
+            None,
+            None,
+        );
+        let session3 = UserSession::new(
+            IdGenerator::next_id(),
+            user_id,
+            SessionType::Sdk,
+            None,
+            None,
+        );
+        session_repo.create(session2.clone()).await.unwrap();
+        session_repo.create(session3.clone()).await.unwrap();
+
+        // Verify we have 3 active sessions (1 from registration + 2 created)
+        let sessions_before = session_repo.get_user_sessions(user_id).await.unwrap();
+        let active_before: Vec<_> = sessions_before.iter().filter(|s| s.is_active()).collect();
+        assert_eq!(
+            active_before.len(),
+            3,
+            "Should have 3 active sessions before password reset"
+        );
+
+        // Request password reset
+        let reset_request = axum::http::Request::builder()
+            .method("POST")
+            .uri("/password-reset-request")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(
+                serde_json::to_string(&PasswordResetRequestRequest {
+                    email: "alice@example.com".to_string(),
+                })
+                .unwrap(),
+            ))
+            .unwrap();
+
+        app.clone().oneshot(reset_request).await.unwrap();
+
+        // Get the reset token
+        let token_repo = UserPasswordResetTokenRepository::new((*storage).clone());
+        let tokens = token_repo.get_by_user(user_id).await.unwrap();
+        let reset_token = tokens[0].token.clone();
+
+        // Confirm password reset
+        let confirm_request = axum::http::Request::builder()
+            .method("POST")
+            .uri("/password-reset-confirm")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(
+                serde_json::to_string(&PasswordResetConfirmRequest {
+                    token: reset_token,
+                    new_password: "new-password-456".to_string(),
+                })
+                .unwrap(),
+            ))
+            .unwrap();
+
+        let response = app.oneshot(confirm_request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Verify ALL sessions are now revoked
+        let sessions_after = session_repo.get_user_sessions(user_id).await.unwrap();
+        let active_after: Vec<_> = sessions_after.iter().filter(|s| s.is_active()).collect();
+        assert_eq!(
+            active_after.len(),
+            0,
+            "All sessions should be revoked after password reset"
+        );
+
+        // Verify all sessions have deleted_at set
+        for session in sessions_after {
+            assert!(
+                session.deleted_at.is_some(),
+                "Session {} should have deleted_at set",
+                session.id
+            );
+        }
     }
 }

@@ -1,5 +1,10 @@
 # InferaDB Management API Configuration
 
+# Frontend base URL for email verification and password reset links
+# Development: http://localhost:3000
+# Production: https://app.inferadb.com
+frontend_base_url: "http://localhost:3000"
+
 server:
   http_host: "127.0.0.1"
   http_port: 3000
