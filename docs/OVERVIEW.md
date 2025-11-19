@@ -618,26 +618,31 @@ Enum defining organization-level permissions that can be delegated to teams (har
 **Client Management Permissions**:
 
 - **ORG_PERM_CLIENT_READ**: View existing Clients (list, read details, view public keys)
+
   - **Allows**: `GET /v1/organizations/:org/clients`, `GET /v1/organizations/:org/clients/:client`
   - **Denies**: Cannot view private keys (never returned by API anyway)
   - **Use case**: Security audit, monitoring which clients exist
 
 - **ORG_PERM_CLIENT_CREATE**: Create new Clients
+
   - **Allows**: `POST /v1/organizations/:org/clients`
   - **Grants**: Private key is shown once on creation (team member must save securely)
   - **Use case**: DevOps teams provisioning new service accounts
 
 - **ORG_PERM_CLIENT_ROTATE**: Rotate Client credentials (create new, revoke old)
+
   - **Allows**: `POST /v1/organizations/:org/clients/:client/rotate`
   - **Security**: Atomic operation (both create new and revoke old succeed or both fail)
   - **Use case**: Security team enforcing credential rotation policies
 
 - **ORG_PERM_CLIENT_REVOKE**: Revoke existing Clients (non-destructive, can be reversed by creating new client)
+
   - **Allows**: `POST /v1/organizations/:org/clients/:client/revoke`
   - **Note**: Cannot un-revoke, but can create new client to restore access
   - **Use case**: Security incident response team
 
 - **ORG_PERM_CLIENT_DELETE**: Permanently delete Clients (destructive, cannot be undone)
+
   - **Allows**: `DELETE /v1/organizations/:org/clients/:client`
   - **Security**: Requires confirmation parameter to prevent accidental deletion
   - **Use case**: Cleanup of deprecated service accounts
@@ -649,6 +654,7 @@ Enum defining organization-level permissions that can be delegated to teams (har
 **Vault Management Permissions**:
 
 - **ORG_PERM_VAULT_CREATE**: Create new Vaults
+
   - **Allows**: `POST /v1/vaults` (with organization_id matching the team's org)
   - **Automatically grants**: Creator receives VAULT_ROLE_ADMIN on created vault
   - **Use case**: Engineering teams creating vaults for new projects
@@ -661,10 +667,12 @@ Enum defining organization-level permissions that can be delegated to teams (har
 **Team Management Permissions**:
 
 - **ORG_PERM_TEAM_CREATE**: Create new Teams
+
   - **Allows**: `POST /v1/organizations/:org/teams`
   - **Use case**: HR or team leads organizing people
 
 - **ORG_PERM_TEAM_DELETE**: Delete Teams
+
   - **Allows**: `DELETE /v1/organizations/:org/teams/:team`
   - **Restriction**: Cannot delete team with active VaultTeamGrant entries (must revoke vault access first)
   - **Use case**: Cleanup of dissolved teams
@@ -676,6 +684,7 @@ Enum defining organization-level permissions that can be delegated to teams (har
 **Invitation Permissions**:
 
 - **ORG_PERM_INVITE_USERS**: Send invitations to join the Organization
+
   - **Allows**: `POST /v1/organizations/:org/invitations`
   - **Restriction**: Can only invite as Member role (not Admin or Owner)
   - **Use case**: Team leads onboarding new team members
@@ -804,17 +813,20 @@ Enum defining Vault access roles (hard-coded).
 **Values**:
 
 - **VAULT_ROLE_READER**: Read-only access
+
   - Can query relationships via @server API
   - Can perform authorization checks via @server API
   - Cannot modify anything
 
 - **VAULT_ROLE_WRITER**: Read and write access
+
   - All Reader permissions, plus:
   - Can write relationships via @server API
   - Can delete relationships via @server API
   - Cannot modify vault schema/policy or manage access
 
 - **VAULT_ROLE_MANAGER**: Policy management access
+
   - All Writer permissions, plus:
   - Can read and write vault policy/schema
   - Can view vault access grants
@@ -1074,20 +1086,25 @@ fn user_has_org_permission(
 **Authorization checks** (before performing operation):
 
 - **List Clients** (`GET /v1/organizations/:org/clients`):
+
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_READ`
 
 - **Get Client details** (`GET /v1/organizations/:org/clients/:client`):
+
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_READ`
 
 - **Create Client** (`POST /v1/organizations/:org/clients`):
+
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_CREATE` OR `ORG_PERM_CLIENT_MANAGE`
   - Log AuditEventType::CLIENT_CREATED with creating user
 
 - **Create certificate** (`POST /v1/organizations/:org/clients/:client/certificates`):
+
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_CREATE` OR `ORG_PERM_CLIENT_MANAGE`
   - Enables graceful zero-downtime rotation
 
 - **Revoke certificate** (`POST /v1/organizations/:org/clients/:client/certificates/:cert/revoke`):
+
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_REVOKE` OR `ORG_PERM_CLIENT_MANAGE`
   - Cannot revoke last active certificate (must generate new one first)
 
@@ -1859,8 +1876,8 @@ Users can register and manage multiple passkeys for their account.
     "name": "InferaDB"
   },
   "pubKeyCredParams": [
-    {"type": "public-key", "alg": -8},
-    {"type": "public-key", "alg": -7}
+    { "type": "public-key", "alg": -8 },
+    { "type": "public-key", "alg": -7 }
   ],
   "timeout": 60000,
   "authenticatorSelection": {
@@ -2170,16 +2187,19 @@ class VaultClient:
 **Error Handling Best Practices**:
 
 1. **401 Unauthorized**: Token expired
+
    - Attempt refresh if refresh token available
    - Otherwise, request new tokens from Management API
    - Retry original request once
 
 2. **403 Forbidden**: Permissions changed
+
    - Clear all cached tokens (access + refresh)
    - Re-authenticate with Management API to get updated permissions
    - Do NOT retry automatically
 
 3. **`REFRESH_TOKEN_USED`**: Possible token theft
+
    - All refresh tokens for auth context have been revoked
    - User/API key must re-authenticate completely
    - Log security event
@@ -2611,11 +2631,11 @@ SDKs automatically:
 
 #### Authentication Method Comparison
 
-| Method | Use Case | Credential Type | Scope | Lifetime | Revocation |
-|--------|----------|----------------|-------|----------|------------|
-| **Browser OAuth** | Interactive CLI | Session token | User | 90 days | User can revoke |
-| **API Key** | CI/CD, automation | Private key | Organization | Until revoked | Owner can revoke |
-| **Session Token** | Scripts, testing | Session token | User | 30-90 days | User can revoke |
+| Method            | Use Case          | Credential Type | Scope        | Lifetime      | Revocation       |
+| ----------------- | ----------------- | --------------- | ------------ | ------------- | ---------------- |
+| **Browser OAuth** | Interactive CLI   | Session token   | User         | 90 days       | User can revoke  |
+| **API Key**       | CI/CD, automation | Private key     | Organization | Until revoked | Owner can revoke |
+| **Session Token** | Scripts, testing  | Session token   | User         | 30-90 days    | User can revoke  |
 
 **Recommendations**:
 
@@ -2943,6 +2963,7 @@ When manually revoking a client (without rotation):
 **Services Exposed by Management API**:
 
 1. **AuthService**: Authentication operations
+
    - `LoginPassword(LoginPasswordRequest) → Session`
    - `LoginPasskeyBegin(LoginPasskeyBeginRequest) → PasskeyChallenge`
    - `LoginPasskeyFinish(LoginPasskeyFinishRequest) → Session`
@@ -2951,6 +2972,7 @@ When manually revoking a client (without rotation):
    - `ConfirmPasswordReset(ResetToken, NewPassword) → Empty`
 
 2. **UserService**: User management
+
    - `RegisterUser(UserRegistration) → User`
    - `GetUser(UserId) → User`
    - `UpdateUser(UserId, UserUpdate) → User`
@@ -2959,6 +2981,7 @@ When manually revoking a client (without rotation):
    - `VerifyEmail(VerificationToken) → UserEmail`
 
 3. **OrganizationService**: Organization management
+
    - `CreateOrganization(OrganizationCreate) → Organization`
    - `GetOrganization(OrganizationId) → Organization`
    - `ListOrganizations(UserId, Pagination) → OrganizationList`
@@ -2975,6 +2998,7 @@ When manually revoking a client (without rotation):
    - `RotateClient(OrganizationId, OldClientId, NewClientName) → Client`
 
 4. **VaultService**: Vault management
+
    - `CreateVault(OrganizationId, VaultCreate) → Vault`
    - `GetVault(VaultId) → Vault`
    - `ListVaults(OrganizationId, Pagination) → VaultList`
@@ -3282,13 +3306,13 @@ impl VaultManagementService for VaultService {
 ```yaml
 system_api_key:
   key_id: "sys_abc123"
-  private_key_path: "/var/run/secrets/inferadb/system-key.pem"  # Or from env variable
+  private_key_path: "/var/run/secrets/inferadb/system-key.pem" # Or from env variable
   scope: "vault.create vault.delete vault.configure"
-  jwt_ttl_seconds: 60  # Short-lived tokens
+  jwt_ttl_seconds: 60 # Short-lived tokens
 
 server_api:
   grpc_endpoint: "https://server.inferadb.com:8081"
-  tls_enabled: true  # TLS for transport encryption (not mTLS)
+  tls_enabled: true # TLS for transport encryption (not mTLS)
 ```
 
 **Server API Configuration**:
@@ -3296,15 +3320,15 @@ server_api:
 ```yaml
 management_auth:
   jwks_url: "https://management.inferadb.com/.well-known/system-jwks.json"
-  jwks_cache_ttl_seconds: 300  # 5 minutes
+  jwks_cache_ttl_seconds: 300 # 5 minutes
   allowed_issuers: ["inferadb-management"]
   required_audience: "inferadb-server"
 
   # JTI replay attack prevention (MANDATORY in production)
   jti_replay_protection:
-    enabled: true  # MUST be true in production deployments
-    ttl_seconds: 120  # Must be > max JWT TTL (60s)
-    backend: "foundationdb"  # Production: "foundationdb" or "redis", Dev: "memory"
+    enabled: true # MUST be true in production deployments
+    ttl_seconds: 120 # Must be > max JWT TTL (60s)
+    backend: "foundationdb" # Production: "foundationdb" or "redis", Dev: "memory"
     # Emergency mode: If backend is unavailable, fail closed (reject all JWTs) to prevent replay attacks
 ```
 
@@ -3317,11 +3341,11 @@ For local development, use the same JWT/JWKS flow but with relaxed validation:
 ```yaml
 system_api_key:
   key_id: "dev_key"
-  private_key_path: "./dev/system-key.pem"  # Local development key
+  private_key_path: "./dev/system-key.pem" # Local development key
   scope: "vault.create vault.delete vault.configure"
 
 server_api:
-  grpc_endpoint: "http://localhost:8081"  # Plain HTTP is acceptable in dev
+  grpc_endpoint: "http://localhost:8081" # Plain HTTP is acceptable in dev
   tls_enabled: false
 ```
 
@@ -3330,9 +3354,9 @@ server_api:
 ```yaml
 management_auth:
   jwks_url: "http://localhost:3000/.well-known/system-jwks.json"
-  jwks_cache_ttl_seconds: 60  # Shorter cache for faster development iteration
+  jwks_cache_ttl_seconds: 60 # Shorter cache for faster development iteration
   jti_replay_protection:
-    enabled: false  # Can be disabled in dev for faster iteration (NOT SAFE for production)
+    enabled: false # Can be disabled in dev for faster iteration (NOT SAFE for production)
 ```
 
 ⚠️ **Note**: Development keys should NEVER be used in production. Generate production keys using secure random generation.
@@ -3387,12 +3411,12 @@ READER < WRITER < MANAGER < ADMIN
 
 **Permission Mapping**:
 
-| VaultRole | Scopes | Allowed Operations |
-|-----------|--------|-------------------|
-| **READER** | `inferadb.check`, `inferadb.expand` | Read-only operations: Check, Expand, ListRelations |
-| **WRITER** | `inferadb.check`, `inferadb.expand`, `inferadb.write` | READER + Write, Delete (data mutations) |
-| **MANAGER** | `inferadb.check`, `inferadb.expand`, `inferadb.write`, `inferadb.schema` | WRITER + WriteSchema, DeleteSchema (schema changes) |
-| **ADMIN** | `inferadb.check`, `inferadb.expand`, `inferadb.write`, `inferadb.schema`, `inferadb.admin` | MANAGER + administrative operations (if any) |
+| VaultRole   | Scopes                                                                                     | Allowed Operations                                  |
+| ----------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| **READER**  | `inferadb.check`, `inferadb.expand`                                                        | Read-only operations: Check, Expand, ListRelations  |
+| **WRITER**  | `inferadb.check`, `inferadb.expand`, `inferadb.write`                                      | READER + Write, Delete (data mutations)             |
+| **MANAGER** | `inferadb.check`, `inferadb.expand`, `inferadb.write`, `inferadb.schema`                   | WRITER + WriteSchema, DeleteSchema (schema changes) |
+| **ADMIN**   | `inferadb.check`, `inferadb.expand`, `inferadb.write`, `inferadb.schema`, `inferadb.admin` | MANAGER + administrative operations (if any)        |
 
 **Inheritance**: Higher roles include all permissions of lower roles (ADMIN has all READER/WRITER/MANAGER permissions).
 
@@ -3690,7 +3714,7 @@ impl JwksCache {
 ```yaml
 auth:
   management_api_url: "https://management.inferadb.com"
-  jwks_cache_ttl: 300  # 5 minutes (matches Management API's grace period)
+  jwks_cache_ttl: 300 # 5 minutes (matches Management API's grace period)
 ```
 
 ### Authorization Flow Summary
@@ -3727,30 +3751,30 @@ Configuration follows @server patterns using YAML and environment variables.
 
 ```yaml
 server:
-  http_port: 8090  # REST API
-  grpc_port: 8091  # gRPC API
+  http_port: 8090 # REST API
+  grpc_port: 8091 # gRPC API
   host: "0.0.0.0"
 
 storage:
-  backend: "memory"  # or "foundationdb"
+  backend: "memory" # or "foundationdb"
   foundationdb:
     cluster_file: "/etc/foundationdb/fdb.cluster"
-    key_prefix: "mgmt/"  # Namespace isolation
+    key_prefix: "mgmt/" # Namespace isolation
 
 server_api:
   grpc_endpoint: "http://localhost:8081"
-  tls_enabled: false  # Enable in production
+  tls_enabled: false # Enable in production
 
 auth:
-  session_ttl_web: 2592000      # 30 days in seconds (SessionType::WEB)
-  session_ttl_cli: 7776000      # 90 days in seconds (SessionType::CLI)
-  session_ttl_sdk: 7776000      # 90 days in seconds (SessionType::SDK)
+  session_ttl_web: 2592000 # 30 days in seconds (SessionType::WEB)
+  session_ttl_cli: 7776000 # 90 days in seconds (SessionType::CLI)
+  session_ttl_sdk: 7776000 # 90 days in seconds (SessionType::SDK)
   max_sessions_per_user: 10
-  password_reset_token_ttl: 3600      # 1 hour (token expiry for password reset)
-  email_verification_token_ttl: 86400  # 24 hours (token expiry for email verification)
-  password_min_length: 12       # Minimum password length
-  client_rotation_warning_days: 90  # Warn when clients are older than 90 days
-  key_encryption_secret: "${INFERADB_MGMT_KEY_ENCRYPTION_SECRET}"  # Required for encrypting Client private keys
+  password_reset_token_ttl: 3600 # 1 hour (token expiry for password reset)
+  email_verification_token_ttl: 86400 # 24 hours (token expiry for email verification)
+  password_min_length: 12 # Minimum password length
+  client_rotation_warning_days: 90 # Warn when clients are older than 90 days
+  key_encryption_secret: "${INFERADB_MGMT_KEY_ENCRYPTION_SECRET}" # Required for encrypting Client private keys
   webauthn:
     rp_id: "inferadb.com"
     rp_name: "InferaDB"
@@ -3759,8 +3783,8 @@ auth:
 cors:
   enabled: true
   allowed_origins:
-    - "http://localhost:3000"  # Dashboard dev
-    - "https://app.inferadb.com"  # Dashboard prod
+    - "http://localhost:3000" # Dashboard dev
+    - "https://app.inferadb.com" # Dashboard prod
   allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   allowed_headers: ["Authorization", "Content-Type"]
 
@@ -3784,7 +3808,7 @@ rate_limiting:
 
 observability:
   metrics_port: 9091
-  tracing_enabled: false  # Enable in production
+  tracing_enabled: false # Enable in production
   otlp_endpoint: "http://localhost:4317"
 ```
 
@@ -3805,6 +3829,7 @@ The Management API is designed to run as multiple instances for high availabilit
 **Deployment Models**:
 
 1. **Single-instance** (development, small deployments)
+
    - Worker ID: 0 (static)
    - No coordination needed
    - Simpler configuration
@@ -3838,24 +3863,24 @@ spec:
   template:
     spec:
       containers:
-      - name: management
-        image: inferadb/management:latest
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: INFERADB_MGMT_WORKER_ID
-          value: "$(echo $POD_NAME | grep -oE '[0-9]+$')"  # Extract ordinal
-        # For simple numeric extraction, use init container or entrypoint script:
-        # inferadb-management-0 → WORKER_ID=0
-        # inferadb-management-1 → WORKER_ID=1
+        - name: management
+          image: inferadb/management:latest
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: INFERADB_MGMT_WORKER_ID
+              value: "$(echo $POD_NAME | grep -oE '[0-9]+$')" # Extract ordinal
+          # For simple numeric extraction, use init container or entrypoint script:
+          # inferadb-management-0 → WORKER_ID=0
+          # inferadb-management-1 → WORKER_ID=1
 ```
 
 **Docker Compose Example**:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   management-0:
     image: inferadb/management:latest
@@ -4512,11 +4537,13 @@ The test suite includes dedicated multi-tenant scenarios:
 Runs daily (cron-like scheduler) and performs the following:
 
 1. **Soft-deleted entity cleanup** (90-day grace period):
+
    - Identifies entities where `deleted_at < (now - 90 days)`
    - Hard-deletes entities and all descendants
    - Logs all deletions for audit purposes
 
 2. **Expired session cleanup**:
+
    - Identifies UserSession entries where `expires_at < now`
    - Hard-deletes expired sessions immediately (no grace period needed)
    - Logs cleanup statistics (sessions deleted per run)
@@ -4586,7 +4613,7 @@ Comprehensive error codes for consistent client handling and debugging.
 
 **Error Codes**:
 
-### Authentication Errors (AUTH_*)
+### Authentication Errors (AUTH\_\*)
 
 - `AUTH_INVALID_CREDENTIALS`: Email or password incorrect
 - `AUTH_PASSKEY_VERIFICATION_FAILED`: Passkey signature verification failed
@@ -4596,7 +4623,7 @@ Comprehensive error codes for consistent client handling and debugging.
 - `AUTH_PASSWORD_RESET_REQUIRED`: User must reset password
 - `AUTH_MFA_REQUIRED`: Multi-factor authentication required (future)
 
-### Validation Errors (VALIDATION_*)
+### Validation Errors (VALIDATION\_\*)
 
 - `VALIDATION_INVALID_EMAIL`: Email format is invalid
 - `VALIDATION_EMAIL_ALREADY_EXISTS`: Email address already registered
@@ -4606,7 +4633,7 @@ Comprehensive error codes for consistent client handling and debugging.
 - `VALIDATION_INVALID_VAULT_NAME`: Vault name contains invalid characters or already exists
 - `VALIDATION_INVALID_TEAM_NAME`: Team name already exists in organization
 
-### Authorization Errors (AUTHZ_*)
+### Authorization Errors (AUTHZ\_\*)
 
 - `AUTHZ_INSUFFICIENT_PERMISSIONS`: User lacks required permission
 - `AUTHZ_NOT_ORGANIZATION_MEMBER`: User is not a member of the organization
@@ -4616,14 +4643,14 @@ Comprehensive error codes for consistent client handling and debugging.
 - `AUTHZ_VAULT_ACCESS_DENIED`: User lacks access to vault
 - `AUTHZ_CANNOT_REMOVE_LAST_OWNER`: Cannot remove the last Owner from organization
 
-### Resource Errors (RESOURCE_*)
+### Resource Errors (RESOURCE\_\*)
 
 - `RESOURCE_NOT_FOUND`: Requested resource does not exist
 - `RESOURCE_ALREADY_EXISTS`: Resource with same identifier already exists
 - `RESOURCE_DELETED`: Resource was soft-deleted (in grace period)
 - `RESOURCE_CONFLICT`: Resource state conflict (e.g., vault name already taken)
 
-### Rate Limiting Errors (RATE_LIMIT_*)
+### Rate Limiting Errors (RATE*LIMIT*\*)
 
 - `RATE_LIMIT_EXCEEDED`: Rate limit exceeded, try again later
 - `RATE_LIMIT_LOGIN_ATTEMPTS`: Too many login attempts from this IP
@@ -4631,20 +4658,20 @@ Comprehensive error codes for consistent client handling and debugging.
 - `RATE_LIMIT_EMAIL_TOKENS`: Too many email verification tokens requested
 - `RATE_LIMIT_PASSWORD_RESET_TOKENS`: Too many password reset tokens requested
 
-### Tier Limit Errors (TIER_LIMIT_*)
+### Tier Limit Errors (TIER*LIMIT*\*)
 
 - `TIER_LIMIT_USERS_EXCEEDED`: Organization has reached maximum users for tier
 - `TIER_LIMIT_TEAMS_EXCEEDED`: Organization has reached maximum teams for tier
 - `TIER_LIMIT_VAULTS_EXCEEDED`: Organization has reached maximum vaults for tier
 - `TIER_LIMIT_DOWNGRADE_BLOCKED`: Cannot downgrade tier due to usage exceeding new limits
 
-### External Service Errors (EXTERNAL_*)
+### External Service Errors (EXTERNAL\_\*)
 
 - `EXTERNAL_EMAIL_SEND_FAILED`: Failed to send email (SMTP error)
 - `EXTERNAL_SERVER_SYNC_FAILED`: Failed to sync with @server (vault creation/deletion)
 - `EXTERNAL_JWKS_FETCH_FAILED`: Failed to fetch JWKS from Management API
 
-### System Errors (SYSTEM_*)
+### System Errors (SYSTEM\_\*)
 
 - `SYSTEM_INTERNAL_ERROR`: Unexpected server error
 - `SYSTEM_STORAGE_ERROR`: Database/storage layer error
@@ -4652,13 +4679,13 @@ Comprehensive error codes for consistent client handling and debugging.
 
 **HTTP Status Code Mapping**:
 
-- 400 Bad Request: VALIDATION_*, some AUTHZ_*, RESOURCE_CONFLICT
+- 400 Bad Request: VALIDATION*\*, some AUTHZ*\*, RESOURCE_CONFLICT
 - 401 Unauthorized: AUTH_INVALID_CREDENTIALS, AUTH_SESSION_EXPIRED, AUTH_SESSION_REVOKED
-- 403 Forbidden: AUTHZ_* (except those mapped to 400), AUTH_UNVERIFIED_EMAIL
+- 403 Forbidden: AUTHZ\_\* (except those mapped to 400), AUTH_UNVERIFIED_EMAIL
 - 404 Not Found: RESOURCE_NOT_FOUND
 - 409 Conflict: RESOURCE_ALREADY_EXISTS, RESOURCE_CONFLICT
-- 429 Too Many Requests: RATE_LIMIT_*
-- 500 Internal Server Error: SYSTEM_*, EXTERNAL_* (except retryable errors)
+- 429 Too Many Requests: RATE*LIMIT*\*
+- 500 Internal Server Error: SYSTEM*\*, EXTERNAL*\* (except retryable errors)
 - 503 Service Unavailable: SYSTEM_UNAVAILABLE
 
 ---
@@ -4861,7 +4888,7 @@ Enhanced password reset flow with user control over session invalidation.
 {
   "token": "<reset_token>",
   "new_password": "newsecret",
-  "invalidate_other_sessions": true  // Optional, default: true
+  "invalidate_other_sessions": true // Optional, default: true
 }
 ```
 
@@ -4885,7 +4912,7 @@ Enhanced password reset flow with user control over session invalidation.
 ```json
 {
   "success": true,
-  "sessions_invalidated": 5,  // Number of sessions logged out (if invalidate_other_sessions=true)
+  "sessions_invalidated": 5, // Number of sessions logged out (if invalidate_other_sessions=true)
   "message": "Password reset successfully. Please log in with your new password."
 }
 ```
@@ -5143,10 +5170,10 @@ OpenTelemetry integration for distributed tracing:
 
 ```yaml
 observability:
-  tracing_enabled: true  # Enable in production
+  tracing_enabled: true # Enable in production
   otlp_endpoint: "http://otel-collector:4317"
   service_name: "inferadb-management"
-  trace_sampling_rate: 0.1  # Sample 10% of requests
+  trace_sampling_rate: 0.1 # Sample 10% of requests
 ```
 
 ---

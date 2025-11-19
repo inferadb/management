@@ -9,6 +9,7 @@ The **Management API** acts as the central authentication orchestrator for the e
 InferaDB uses a **two-token system** to maintain clean separation of concerns:
 
 1. **Session Tokens** - Used for Management API operations
+
    - Identity and account management
    - Organization and vault administration
    - User profile and settings

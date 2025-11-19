@@ -1,289 +1,251 @@
 # InferaDB Management API
 
-The Management API serves as the **Control Plane** for InferaDB, providing self-service capabilities for user registration, authentication, organization management, and vault access control.
+Control Plane API for InferaDB providing self-service user authentication, organization management, and vault access control.
 
-## Overview
+## What It Does
 
-The Management API enables:
+- **User Authentication**: Password, passkey, OAuth, and email verification
+- **Multi-Tenancy**: Organization-based isolation with role-based access control (Owner, Admin, Member)
+- **Vault Management**: Authorization policy vaults with team and user access grants
+- **Client Authentication**: Backend service auth using Ed25519 certificates and JWT assertions
+- **Token Issuance**: Generate vault-scoped JWTs for Server API authorization requests
 
-- **User Management**: Self-service registration, authentication (password, passkey), and profile management
-- **Organization Management**: Multi-tenant organizations with role-based access control
-- **Vault Management**: Authorization policy vaults with team and user-based access grants
-- **Client Management**: Backend service authentication using Ed25519 certificates and client assertions
-- **Token Management**: Vault-scoped JWT generation for accessing the InferaDB Server API
+## Quick Start
 
-## Architecture
-
-The Management API is built in Rust and consists of the following components:
-
-- **infera-management**: Main binary (`inferadb-management`)
-- **infera-management-core**: Core business logic and configuration
-- **infera-management-storage**: Storage abstraction layer (in-memory, FoundationDB)
-- **infera-management-grpc**: gRPC client for Server API communication
-- **infera-management-api**: REST API handlers and routes
-- **infera-management-test-fixtures**: Test utilities and fixtures
-
-## Prerequisites
-
-- **Rust**: 1.70 or later
-- **FoundationDB**: 7.3.x (for production, optional for development)
-- **Docker & Docker Compose**: For local development services
-
-## Development Setup
-
-### 1. Clone the Repository
+**Prerequisites**: Rust 1.70+, Docker (for local services)
 
 ```bash
+# Clone and build
 git clone https://github.com/inferadb/inferadb.git
 cd inferadb/management
-```
-
-### 2. Install Dependencies
-
-The project uses standard Rust tooling:
-
-```bash
 cargo build
-```
 
-### 3. Configure Environment
-
-Copy the example environment file and update with your settings:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and set:
-
-- `INFERADB_MGMT__AUTH__KEY_ENCRYPTION_SECRET`: Generate with `openssl rand -base64 32`
-- Other configuration as needed
-
-### 4. Start Development Services
-
-Start FoundationDB, MailHog, and other services using Docker Compose:
-
-```bash
+# Start supporting services (FoundationDB, MailHog, etc.)
 docker-compose up -d
-```
 
-This will start:
+# Generate encryption secret
+export INFERADB_MGMT__AUTH__KEY_ENCRYPTION_SECRET=$(openssl rand -base64 32)
 
-- **FoundationDB**: Port 4500 (key-value storage)
-- **MailHog**: Port 1025 (SMTP), Port 8025 (Web UI)
-- **Jaeger**: Port 4317 (OTLP), Port 16686 (Web UI)
-- **Prometheus**: Port 9090
-- **Grafana**: Port 3030 (admin/admin)
-
-### 5. Run the Management API
-
-```bash
+# Run the API
 cargo run --bin inferadb-management
 ```
 
-The API will start on:
+**API Endpoints**:
 
-- HTTP: `http://localhost:3000`
-- gRPC: `http://localhost:3001`
+- REST API: `http://localhost:3000`
+- gRPC API: `http://localhost:3001`
+- Health: `http://localhost:3000/health`
+- Metrics: `http://localhost:3000/metrics`
+- OpenAPI Spec: [`OpenAPI.yaml`](OpenAPI.yaml)
+
+## Architecture
+
+Built in Rust with pluggable storage:
+
+```
+infera-management        # Main binary
+├── infera-management-api      # REST/gRPC handlers
+├── infera-management-core     # Business logic, entities, repositories
+├── infera-management-storage  # Storage abstraction (memory, FoundationDB)
+└── infera-management-grpc     # Server API client
+```
+
+**Storage Backends**:
+
+- **Memory**: Default for dev/testing (no persistence)
+- **FoundationDB**: Production (distributed, ACID, multi-region)
 
 ## Configuration
 
-Configuration is managed via `config.yaml` with environment variable overrides.
-
-### Configuration File
-
-See [`config.yaml`](./config.yaml) for the default configuration.
-
-### Environment Variable Overrides
-
-All configuration values can be overridden using environment variables with the prefix `INFERADB_MGMT__`:
+Via `config.yaml` or environment variables with `INFERADB_MGMT__` prefix:
 
 ```bash
-# Example: Override HTTP port
-INFERADB_MGMT__SERVER__HTTP_PORT=4000
-
-# Example: Use FoundationDB
+# Use FoundationDB
 INFERADB_MGMT__STORAGE__BACKEND=foundationdb
 INFERADB_MGMT__STORAGE__FDB_CLUSTER_FILE=/etc/foundationdb/fdb.cluster
+
+# Override ports
+INFERADB_MGMT__SERVER__HTTP_PORT=4000
+INFERADB_MGMT__SERVER__GRPC_PORT=4001
+
+# Observability
+INFERADB_MGMT__OBSERVABILITY__LOG_LEVEL=debug
+INFERADB_MGMT__OBSERVABILITY__TRACING_ENABLED=true
 ```
 
-See [`.env.example`](./.env.example) for a complete list of environment variables.
+See [`config.yaml`](config.yaml) for all options.
 
-## Building
+## Development
 
-### Debug Build
+**Run Tests**:
 
 ```bash
-cargo build
+cargo test                           # All tests
+cargo test --package infera-management-core  # Specific crate
 ```
 
-### Release Build
+**Lint & Format**:
 
 ```bash
-cargo build --release
+cargo clippy -- -D warnings
+cargo fmt
 ```
 
-The binary will be located at `target/release/inferadb-management`.
-
-## Testing
-
-### Run All Tests
-
-```bash
-cargo test
-```
-
-### Run Tests with Coverage
-
-```bash
-cargo tarpaulin --out Html
-```
-
-### Run Specific Test Suite
-
-```bash
-cargo test --package infera-management-core
-```
-
-## Documentation
-
-### Generate API Documentation
+**Generate Docs**:
 
 ```bash
 cargo doc --no-deps --open
 ```
 
-### Architecture Documentation
+## Key Concepts
 
-See the following documents for detailed information:
+**Entities**:
 
-- [docs/OVERVIEW.md](./docs/OVERVIEW.md): Complete entity definitions and behavioral rules
-- [docs/AUTHENTICATION.md](./docs/AUTHENTICATION.md): Authentication flows and security
+- **User**: Individual account with authentication methods (password, passkey)
+- **Organization**: Multi-tenant workspace with members and roles
+- **Vault**: Authorization policy container with access grants
+- **Client**: Backend service identity with Ed25519 certificates
+- **Team**: Group-based vault access (future: policy inheritance)
 
-## Development Workflow
+**IDs**: All entities use Twitter Snowflake IDs (64-bit integers, globally unique, time-sortable)
 
-1. **Create a feature branch**:
+**Authentication Flow**:
 
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+1. User authenticates → Management API issues session token
+2. User requests vault access → Management API generates vault-scoped JWT
+3. Application uses JWT → Server API evaluates authorization policies
 
-2. **Run tests and linters**:
-
-   ```bash
-   cargo test
-   cargo clippy -- -D warnings
-   cargo fmt --check
-   ```
-
-3. **Commit and push**:
-
-   ```bash
-   git add .
-   git commit -m "feat: your feature description"
-   git push origin feature/your-feature-name
-   ```
-
-4. **Create a pull request**
-
-## API Endpoints
-
-### Health Check
-
-```bash
-curl http://localhost:3000/health
-```
-
-Additional endpoints will be added as implementation progresses. See [PLAN.md](./PLAN.md) for the complete API roadmap.
+See [`docs/Authentication.md`](docs/Authentication.md) for complete flow diagrams.
 
 ## Production Deployment
 
-### Single Instance
+**Single Instance**:
 
 ```bash
-# Build release binary
 cargo build --release
 
-# Configure via environment variables
 export INFERADB_MGMT__STORAGE__BACKEND=foundationdb
 export INFERADB_MGMT__STORAGE__FDB_CLUSTER_FILE=/etc/foundationdb/fdb.cluster
 export INFERADB_MGMT__AUTH__KEY_ENCRYPTION_SECRET=$(openssl rand -base64 32)
 
-# Run
 ./target/release/inferadb-management --config /etc/inferadb/config.yaml
 ```
 
-### Multi-Instance (Kubernetes)
-
-For multi-instance deployments with leader election and distributed coordination, see the Kubernetes deployment guide (to be added in Phase 8).
+**Multi-Instance** (Kubernetes with leader election): See [`DEPLOYMENT.md`](DEPLOYMENT.md)
 
 ## Monitoring
 
-### Metrics
+**Metrics**: Prometheus format at `/metrics`
 
-Prometheus metrics are exposed at `http://localhost:3000/metrics`.
+- HTTP request latency, status codes
+- Database query performance
+- Authentication attempts
+- Rate limiting
 
-### Logs
+**Logs**: Structured JSON (production) or human-readable (dev)
 
-Structured logs are written to stdout in JSON format (production) or human-readable format (development).
+**Tracing**: Optional OpenTelemetry integration for distributed tracing
 
-Configure log level via:
+## Performance & Load Testing
+
+**Performance Benchmarks**: See [PERFORMANCE.md](PERFORMANCE.md) for:
+
+- Latency characteristics (p50/p95/p99) for all operations
+- Throughput benchmarks (RPS) under various loads
+- Scalability guidelines (horizontal/vertical)
+- Optimization recommendations
+
+**Load Testing**: k6-based test suite in [`loadtests/`](loadtests/):
 
 ```bash
-INFERADB_MGMT__OBSERVABILITY__LOG_LEVEL=debug
+# Install k6 (macOS)
+brew install k6
+
+# Run authentication load test (100 concurrent users)
+k6 run loadtests/auth.js
+
+# Run all test scenarios
+for test in auth vaults organizations spike; do
+  k6 run loadtests/${test}.js
+done
 ```
 
-### Tracing
+See [`loadtests/README.md`](loadtests/README.md) for detailed test scenarios and configuration.
 
-Optional OpenTelemetry tracing can be enabled:
+## Documentation
+
+- **[Overview](docs/Overview.md)**: Complete entity definitions, data model, and behavioral rules
+- **[Authentication](docs/Authentication.md)**: Auth flows, token management, and security model
+- **[Deployment](DEPLOYMENT.md)**: Production deployment, scaling, and high availability
+- **[Performance](PERFORMANCE.md)**: Performance benchmarks, scalability, and optimization
+- **[Contributing](CONTRIBUTING.md)**: Development workflow and contribution guidelines
+- **[Plan](PLAN.md)**: Implementation roadmap and phase status
+
+## API Examples
+
+**Register User**:
 
 ```bash
-INFERADB_MGMT__OBSERVABILITY__TRACING_ENABLED=true
-INFERADB_MGMT__OBSERVABILITY__OTLP_ENDPOINT=http://localhost:4317
+curl -X POST http://localhost:3000/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "securepass123", "name": "Alice"}'
 ```
 
-View traces in Jaeger UI at `http://localhost:16686`.
+**Login**:
+
+```bash
+curl -X POST http://localhost:3000/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "securepass123"}'
+```
+
+**Create Vault**:
+
+```bash
+curl -X POST http://localhost:3000/v1/organizations/{org_id}/vaults \
+  -H "Cookie: infera_session={session_id}" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Production Policies"}'
+```
+
+**Generate Vault JWT**:
+
+```bash
+curl -X POST http://localhost:3000/v1/vaults/{vault_id}/token \
+  -H "Cookie: infera_session={session_id}"
+```
+
+See [`PLAN.md`](PLAN.md) for complete API endpoint specifications.
 
 ## Troubleshooting
 
-### FoundationDB Connection Issues
-
-Ensure FoundationDB is running:
+**FoundationDB connection failed**:
 
 ```bash
 docker-compose ps foundationdb
+cat /etc/foundationdb/fdb.cluster  # Verify cluster file
 ```
 
-Check cluster file exists:
+**Port conflicts** (3000/3001 in use):
 
 ```bash
-cat /etc/foundationdb/fdb.cluster
+INFERADB_MGMT__SERVER__HTTP_PORT=4000 cargo run
 ```
 
-### Email Delivery Issues
-
-Check MailHog is running and view emails in the web UI at `http://localhost:8025`.
-
-### Port Conflicts
-
-If ports 3000 or 3001 are in use, override them:
-
-```bash
-INFERADB_MGMT__SERVER__HTTP_PORT=4000
-INFERADB_MGMT__SERVER__GRPC_PORT=4001
-```
+**Email not sending**: Check MailHog UI at `http://localhost:8025`
 
 ## License
 
-This project is licensed under the BSL 1.1 License. See the [LICENSE](../LICENSE) file for details.
+Business Source License 1.1 (BSL 1.1)
 
-## Contributing
+- **Free**: Non-commercial, personal, internal business use
+- **Restricted**: Commercial SaaS offerings require separate license
+- **Transition**: Automatically converts to Apache 2.0 on January 1, 2031
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines.
+See [`LICENSE.md`](LICENSE.md) for full terms.
 
 ## Support
 
-For issues and questions:
-
-- GitHub Issues: <https://github.com/inferadb/inferadb/issues>
-- Documentation: <https://inferadb.com/docs>
+- **Issues**: [github.com/inferadb/inferadb/issues](https://github.com/inferadb/inferadb/issues)
+- **Docs**: [inferadb.com/docs](https://inferadb.com/docs)
+- **Security**: [security@inferadb.com](mailto:security@inferadb.com)

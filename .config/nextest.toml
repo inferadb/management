@@ -1,0 +1,88 @@
+# Nextest Configuration for InferaDB Management API
+# cargo-nextest is a next-generation test runner for Rust
+#
+# Installation:
+#   cargo install cargo-nextest --locked
+#
+# Usage:
+#   cargo nextest run                  # Run all tests
+#   cargo nextest run --all-features   # Run with all features
+#   cargo nextest run -p infera-management-core  # Run specific crate tests
+
+[profile.default]
+# Number of retries for failing tests (0 = no retries)
+retries = 0
+
+# Test threads (0 = number of logical CPUs)
+test-threads = 0
+
+# Status level (none, fail, retry, slow, pass, skip, all)
+status-level = "pass"
+
+# Final status level for summary
+final-status-level = "fail"
+
+# Fail fast (stop on first failure)
+fail-fast = false
+
+# Test execution timeout
+slow-timeout = { period = "60s", terminate-after = 3 }
+
+# Leak timeout (SIGTERM to SIGKILL)
+leak-timeout = "10s"
+
+# Success output (never, final, immediate, immediate-final)
+success-output = "never"
+
+# Failure output
+failure-output = "immediate"
+
+# [profile.ci]
+# CI/CD optimized profile
+[profile.ci]
+retries = 2
+fail-fast = false
+status-level = "fail"
+success-output = "never"
+failure-output = "immediate-final"
+
+# Longer timeouts for CI environments
+slow-timeout = { period = "120s", terminate-after = 5 }
+
+# [profile.default.junit]
+# JUnit XML output configuration
+[profile.default.junit]
+path = "target/nextest/junit.xml"
+report-name = "InferaDB Management API Tests"
+store-success-output = false
+store-failure-output = true
+
+# Test groups for parallelization
+# Groups tests that should run sequentially
+[test-groups]
+# Database tests that might conflict
+database = { max-threads = 1 }
+
+# [profile.default.overrides]
+# Override settings for specific tests
+[[profile.default.overrides]]
+# Run integration tests with more time
+filter = 'test(integration)'
+slow-timeout = { period = "120s" }
+threads-required = 2
+
+[[profile.default.overrides]]
+# FDB tests need to run serially to avoid conflicts
+filter = 'test(fdb) | test(foundationdb)'
+test-group = "database"
+threads-required = 1
+
+[[profile.default.overrides]]
+# Quick unit tests can run in parallel
+filter = 'test(unit) | test(test_)'
+threads-required = 1
+
+# Archive configuration
+[profile.default.archive]
+# Include binaries and metadata
+file = "archive.tar.zst"

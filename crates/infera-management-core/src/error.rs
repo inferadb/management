@@ -42,6 +42,10 @@ pub enum Error {
     #[error("Tier limit exceeded: {0}")]
     TierLimit(String),
 
+    /// Too many passkeys
+    #[error("Too many passkeys registered (max: {max})")]
+    TooManyPasskeys { max: usize },
+
     /// External service errors
     #[error("External service error: {0}")]
     External(String),
@@ -68,6 +72,7 @@ impl Error {
             Error::AlreadyExists(_) => 409,
             Error::RateLimit(_) => 429,
             Error::TierLimit(_) => 402,
+            Error::TooManyPasskeys { .. } => 400,
             Error::External(_) => 502,
             Error::Internal(_) => 500,
             Error::Other(_) => 500,
@@ -86,6 +91,7 @@ impl Error {
             Error::AlreadyExists(_) => "ALREADY_EXISTS",
             Error::RateLimit(_) => "RATE_LIMIT_EXCEEDED",
             Error::TierLimit(_) => "TIER_LIMIT_EXCEEDED",
+            Error::TooManyPasskeys { .. } => "TOO_MANY_PASSKEYS",
             Error::External(_) => "EXTERNAL_SERVICE_ERROR",
             Error::Internal(_) => "INTERNAL_ERROR",
             Error::Other(_) => "INTERNAL_ERROR",

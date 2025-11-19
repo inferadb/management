@@ -6,10 +6,12 @@ Thank you for your interest in contributing to the InferaDB Management API! This
 
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
+
    ```bash
    git clone https://github.com/YOUR_USERNAME/inferadb.git
    cd inferadb/management
    ```
+
 3. **Set up your development environment** following the [README.md](./README.md)
 
 ## Development Process
@@ -87,7 +89,8 @@ mod tests {
 #### Documentation
 
 - Add Rustdoc comments for all public APIs:
-  ```rust
+
+  ````rust
   /// Brief description of the function
   ///
   /// # Arguments
@@ -111,7 +114,7 @@ mod tests {
   pub fn function(param1: Type) -> Result<ReturnType> {
       // ...
   }
-  ```
+  ````
 
 ### 4. Commit Your Changes
 
@@ -193,7 +196,7 @@ Before submitting a PR, ensure:
 - Never commit secrets or credentials
 - Use environment variables for sensitive configuration
 - Follow secure coding practices (input validation, SQL injection prevention, etc.)
-- Report security vulnerabilities privately to security@inferadb.com
+- Report security vulnerabilities privately to <security@inferadb.com>
 
 ### Performance
 
@@ -280,6 +283,6 @@ By contributing to this project, you agree that your contributions will be licen
 
 Please be respectful and professional in all interactions. We are committed to providing a welcoming and inclusive environment for all contributors.
 
-## Thank You!
+## Thank You
 
 Your contributions help make InferaDB better for everyone. We appreciate your time and effort!

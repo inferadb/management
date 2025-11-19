@@ -174,6 +174,10 @@ impl IntoResponse for ApiError {
             CoreError::AlreadyExists(msg) => (StatusCode::CONFLICT, msg),
             CoreError::RateLimit(msg) => (StatusCode::TOO_MANY_REQUESTS, msg),
             CoreError::TierLimit(msg) => (StatusCode::PAYMENT_REQUIRED, msg),
+            CoreError::TooManyPasskeys { max } => (
+                StatusCode::BAD_REQUEST,
+                format!("Too many passkeys registered (maximum: {})", max),
+            ),
             CoreError::External(msg) => (StatusCode::BAD_GATEWAY, msg),
             CoreError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             CoreError::Other(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),

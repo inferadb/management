@@ -7,11 +7,13 @@ This guide provides instructions for deploying the InferaDB Management API in pr
 ### Infrastructure Requirements
 
 - **FoundationDB Cluster**: Version 7.1+
+
   - Multi-node cluster recommended for high availability
   - Properly configured cluster file (`fdb.cluster`)
   - Network connectivity from management API instances to FDB cluster
 
 - **Compute Resources** (per instance):
+
   - CPU: 4+ cores recommended
   - RAM: 4GB+ recommended
   - Storage: Minimal (logs only, data in FoundationDB)
@@ -87,8 +89,8 @@ auth:
 email:
   smtp_host: "<SMTP-HOST>"
   smtp_port: 587
-  smtp_username: "<SMTP-USERNAME>"  # Optional
-  smtp_password: "<SMTP-PASSWORD>"  # Optional
+  smtp_username: "<SMTP-USERNAME>" # Optional
+  smtp_password: "<SMTP-PASSWORD>" # Optional
   from_email: "noreply@example.com"
   from_name: "Your Company"
 ```
@@ -135,7 +137,7 @@ Each instance MUST have a unique worker ID (0-1023):
 
 ```yaml
 id_generation:
-  worker_id: ${WORKER_ID}  # Use environment variable
+  worker_id: ${WORKER_ID} # Use environment variable
 ```
 
 **Recommended approaches**:
@@ -277,7 +279,7 @@ Configure log level:
 
 ```yaml
 observability:
-  log_level: "info"  # trace, debug, info, warn, error
+  log_level: "info" # trace, debug, info, warn, error
 ```
 
 ### Metrics
@@ -290,6 +292,7 @@ observability:
 ```
 
 Key metrics:
+
 - HTTP request duration/count
 - gRPC call duration/count
 - Storage operation latency
@@ -304,7 +307,7 @@ OpenTelemetry tracing support (optional):
 ```yaml
 observability:
   tracing_enabled: true
-  tracing_endpoint: "http://jaeger:4317"  # OTLP endpoint
+  tracing_endpoint: "http://jaeger:4317" # OTLP endpoint
 ```
 
 ## Security Best Practices
@@ -312,6 +315,7 @@ observability:
 ### 1. TLS/HTTPS
 
 **Always use TLS in production**:
+
 - Terminate TLS at load balancer or reverse proxy
 - Use valid certificates (Let's Encrypt, commercial CA)
 - Enforce HTTPS redirects
@@ -319,6 +323,7 @@ observability:
 ### 2. Secrets Management
 
 **Never commit secrets to version control**:
+
 - Use environment variables for runtime secrets
 - Consider secrets management systems:
   - Kubernetes Secrets
@@ -335,6 +340,7 @@ observability:
 ### 4. Rate Limiting
 
 Rate limits are enforced per IP:
+
 - Login: 100/hour
 - Registration: 5/day
 - Email verification: 5/hour
@@ -375,6 +381,7 @@ cors:
 **Symptoms**: No instance shows `is_leader: true` in health checks.
 
 **Solutions**:
+
 1. Check FoundationDB connectivity: `fdbcli --exec "status"`
 2. Verify clock synchronization across instances (NTP)
 3. Check logs for leader election errors
@@ -384,6 +391,7 @@ cors:
 **Symptoms**: Users seeing "429 Too Many Requests" errors.
 
 **Solutions**:
+
 1. Verify load balancer correctly forwards `X-Forwarded-For`
 2. Increase rate limits in config (if legitimate traffic)
 3. Implement IP whitelisting for trusted sources
@@ -393,6 +401,7 @@ cors:
 **Symptoms**: Users unable to create new sessions.
 
 **Solutions**:
+
 1. Increase `max_sessions_per_user` in config
 2. Review session cleanup job execution (check leader instance logs)
 3. Manually revoke old sessions via API
@@ -402,6 +411,7 @@ cors:
 **Symptoms**: Users not receiving verification/reset emails.
 
 **Solutions**:
+
 1. Test SMTP connectivity: `telnet smtp-host 587`
 2. Verify SMTP credentials
 3. Check email service logs for delivery status
@@ -431,6 +441,7 @@ Future schema changes will be documented in release notes.
 ## Support
 
 For issues or questions:
-- GitHub Issues: https://github.com/inferadb/inferadb
-- Documentation: https://inferadb.com/docs
-- Community Discord: https://discord.gg/inferadb
+
+- GitHub Issues: <https://github.com/inferadb/inferadb>
+- Documentation: <https://inferadb.com/docs>
+- Community Discord: <https://discord.gg/inferadb>
