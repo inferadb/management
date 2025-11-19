@@ -2,6 +2,9 @@
 
 Control Plane API for InferaDB providing self-service user authentication, organization management, and vault access control.
 
+> [!IMPORTANT]  
+> This project is under active development and is not feature complete or ready for production. Please ⭐️ and follow our repositories to follow along with development.
+
 ## What It Does
 
 - **User Authentication**: Password, passkey, OAuth, and email verification
@@ -150,6 +153,7 @@ export INFERADB_MGMT__AUTH__KEY_ENCRYPTION_SECRET=$(openssl rand -base64 32)
 **Tracing**: Optional OpenTelemetry integration for distributed tracing
 
 **Audit Logs**: Comprehensive audit trail for security and compliance. See [docs/AuditLogs.md](docs/AuditLogs.md) for:
+
 - Event types and severity levels
 - Querying and filtering
 - Compliance reporting examples
@@ -218,6 +222,7 @@ curl -X POST http://localhost:3000/v1/organizations/{org_id}/vaults/{vault_id}/t
 See [OpenAPI.yaml](OpenAPI.yaml) for complete API endpoint specifications.
 
 **Pagination**: All list endpoints support offset-based pagination. See [docs/Pagination.md](docs/Pagination.md) for:
+
 - Query parameter usage (`limit`, `offset`)
 - Response format and metadata
 - Best practices and code examples
@@ -226,21 +231,25 @@ See [OpenAPI.yaml](OpenAPI.yaml) for complete API endpoint specifications.
 ## Documentation
 
 ### Getting Started
+
 - **[Getting Started Guide](docs/GettingStarted.md)**: Step-by-step tutorial for new users
 - **[OpenAPI Specification](OpenAPI.yaml)**: Complete REST API reference
 - **[Examples](docs/Examples.md)**: Real-world integration examples
 
 ### Core Concepts
+
 - **[Overview](docs/Overview.md)**: Entities, relationships, and data model
 - **[Architecture](docs/Architecture.md)**: System architecture and components
 - **[Data Flows](docs/Flows.md)**: Detailed data flow diagrams
 
 ### Features
+
 - **[Authentication](docs/Authentication.md)**: Auth flows, sessions, and security
 - **[Pagination](docs/Pagination.md)**: List endpoints and pagination best practices
 - **[Audit Logs](docs/AuditLogs.md)**: Security audit trail and compliance
 
 ### Operations
+
 - **[Deployment](docs/Deployment.md)**: Production deployment guide
 - **[Performance](docs/Performance.md)**: Benchmarks and optimization
 - **[Troubleshooting](docs/Troubleshooting.md)**: Common issues and solutions
