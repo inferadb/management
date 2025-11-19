@@ -1,8 +1,119 @@
-# Management (Control Plane) API
+# Management API: Architecture & Entity Reference
 
-This system serves as the Control Plane for our system, allowing users to self-service and manage their own user accounts, organizations, groups, and vaults. It communicates (server-to-server) with our @server/ using gRPC for all data operations, and exposes gRPC and REST APIs for client connections. These client connections will be from a web-based Dashboard, CLI tools, and potentially other client types in the future.
+> **Developer Guide**: This document provides a comprehensive reference for the InferaDB Management API architecture, data model, and core entity definitions. Use this as your primary reference when implementing features or understanding system behavior.
 
-For data storage, we will support both in-memory and FoundationDB. In-memory is the default for development, and FoundationDB for production.
+## Overview
+
+The **Management API** is InferaDB's control plane, providing self-service capabilities for users to manage their accounts, organizations, teams, vaults, and access control. It serves as the orchestration layer between client applications (Dashboard, CLI, SDKs) and the InferaDB Server (data plane).
+
+**Key Responsibilities**:
+
+- User authentication & session management (password, passkey/WebAuthn, OAuth)
+- Multi-tenant organization management with role-based access control (RBAC)
+- Vault lifecycle management (create, configure, sync with Server, delete)
+- Client credential management for backend services (Ed25519 certificates, OAuth 2.0 JWT Bearer)
+- Token issuance for Server API access (vault-scoped JWTs with refresh tokens)
+- Audit logging for security events and compliance
+
+**Architecture**:
+
+- **Storage**: FoundationDB (production) or in-memory (development)
+- **Server Communication**: gRPC for real-time vault synchronization
+- **Client APIs**: REST (Dashboard, CLI) and gRPC (SDKs)
+- **Deployment**: Single-instance (dev/small deployments) or multi-instance HA (production)
+
+**Related Documentation**:
+
+- [Architecture.md](Architecture.md) - System architecture diagrams and deployment topologies
+- [Flows.md](Flows.md) - Sequence diagrams for key operations (registration, login, token generation)
+- [Authentication.md](Authentication.md) - Complete authentication and authorization guide
+- [GettingStarted.md](GettingStarted.md) - Step-by-step setup tutorial
+- [OpenAPI Specification](../OpenAPI.yaml) - Complete REST API reference
+
+---
+
+## Table of Contents
+
+### Foundation
+
+- [Primary Keys](#primary-keys) - Snowflake ID generation and collision avoidance
+
+### Core Entities
+
+- [User Management](#user-management)
+
+  - [User](#user) - User accounts
+  - [UserEmail](#useremail) - Email addresses and verification
+  - [UserEmailVerificationToken](#useremailverificationtoken) - Email ownership verification
+  - [UserPasswordResetToken](#userpasswordresettoken) - Password reset flow
+  - [UserPasskey](#userpasskey) - WebAuthn/FIDO2 credentials
+  - [UserSession](#usersession) - Authentication sessions
+  - [SessionType](#sessiontype) - Session type enumeration
+
+- [Organizations](#organizations)
+
+  - [Organization](#organization) - Tenant/organization entities
+  - [OrganizationMember](#organizationmember) - User membership in organizations
+  - [OrganizationRole](#organizationrole) - Member, Admin, Owner roles
+  - [OrganizationInvitation](#organizationinvitation) - Invite users to join
+  - [OrganizationTier](#organizationtier) - Billing tiers and limits
+
+- [Teams](#teams)
+
+  - [OrganizationTeam](#organizationteam) - Groups of users within organizations
+  - [OrganizationTeamMember](#organizationteammember) - Team membership
+  - [OrganizationTeamPermission](#organizationteampermission) - Delegated permissions
+  - [OrganizationPermission](#organizationpermission) - Permission enumeration
+
+- [Clients](#clients)
+
+  - [Client](#client) - Service identities for backend applications
+  - [ClientCertificate](#clientcertificate) - Ed25519 key pairs for JWT signing
+
+- [Vaults](#vaults)
+
+  - [Vault](#vault) - Authorization policy containers
+  - [VaultSyncStatus](#vaultsyncstatus) - Synchronization status with Server
+  - [VaultTeamGrant](#vaultteamgrant) - Team-based vault access
+  - [VaultUserGrant](#vaultusergrant) - Direct user vault access
+  - [VaultRole](#vaultrole) - Reader, Writer, Manager, Admin roles
+
+- [Tokens](#tokens)
+
+  - [VaultRefreshToken](#vaultrefreshtoken) - Long-lived refresh tokens for vault JWTs
+
+- [Audit](#audit)
+  - [AuditLog](#auditlog) - Security event logging
+  - [AuditEventType](#auditeventtype) - Event type enumeration
+
+### System Behavior
+
+- [Behavioral Rules](#behavioral-rules) - Entity lifecycle and business logic
+- [Authentication & Authorization](#authentication--authorization) - Login flows and token management
+- [Email Flows](#email-flows) - Email verification and password reset
+
+### System Design
+
+- [API Design](#api-design) - REST conventions and best practices
+- [Management → Server Authentication](#management--server-privileged-authentication) - gRPC inter-service communication
+- [Server API Integration](#server-api-role-enforcement--tenant-isolation) - Role enforcement and tenant isolation
+- [Configuration](#configuration) - Environment variables and settings
+- [Multi-Instance Deployment](#multi-instance-deployment--distributed-coordination) - HA setup and leader election
+- [Multi-Tenancy & Data Isolation](#multi-tenancy--data-isolation) - Tenant separation guarantees
+- [Soft Delete & Cleanup](#soft-delete--cleanup) - Grace periods and background jobs
+
+### Operations
+
+- [Testing Strategy](#testing-strategy) - Test coverage and approaches
+- [Error Response Taxonomy](#error-response-taxonomy) - Standardized error codes
+- [Enhanced Security Features](#enhanced-security-features) - Rate limiting and security hardening
+- [Observability & Monitoring](#observability--monitoring-day-1) - Logging, metrics, and tracing
+
+### Planning
+
+- [Future Considerations](#future-considerations) - Roadmap and enhancement ideas
+
+---
 
 ## Primary Keys
 
@@ -60,7 +171,23 @@ let user_id = id_gen.next_id(); // Returns i64
 
 **Storage**: IDs are stored as `i64` in FoundationDB and serialized as strings in JSON responses to avoid JavaScript's 53-bit integer precision limit.
 
+---
+
 ## Entity Definitions
+
+This section provides detailed specifications for all entities in the Management API data model. Each entity includes:
+
+- **Purpose**: What the entity represents
+- **Data**: Field definitions with types, constraints, and validation rules
+- **Constraints**: Uniqueness requirements and business rules
+- **Cascade Delete**: Behavior when parent entities are deleted
+- **API Path**: REST endpoint location
+
+> **Implementation Note**: All entities support soft deletion (90-day grace period) unless otherwise noted. See [Soft Delete & Cleanup](#soft-delete--cleanup) for details.
+
+---
+
+## User Management
 
 ### User
 
@@ -252,6 +379,8 @@ Enum defining session types (hard-coded).
 
 ---
 
+## Organizations
+
 ### Organization
 
 Represents a single organization (tenant). Lives under the `/v1/organizations` API path.
@@ -306,6 +435,8 @@ Associates a User with an Organization. Lives under the `/v1/organizations/:org/
 **Cascade Delete**: When Organization is deleted, all OrganizationMember entries are soft-deleted. When User is deleted, all their OrganizationMember entries are soft-deleted.
 
 ---
+
+## Clients
 
 ### Client
 
@@ -532,6 +663,8 @@ Enum defining Organization billing/feature tiers (hard-coded).
 
 ---
 
+## Teams
+
 ### OrganizationTeam
 
 Represents a team (group of users) within an Organization. Lives under the `/v1/organizations/:org/teams` API path.
@@ -718,6 +851,8 @@ Users can accumulate permissions from multiple sources:
 
 ---
 
+## Vaults
+
 ### Vault
 
 Represents an authorization vault (tenant in @server). Lives under the `/v1/vaults` API path.
@@ -840,6 +975,8 @@ Enum defining Vault access roles (hard-coded).
 
 ---
 
+## Tokens
+
 ### VaultRefreshToken
 
 Represents a refresh token for vault-scoped JWTs. Enables long-running operations and background jobs to refresh their Server API access tokens without re-authenticating. Not exposed via REST API (internal use only).
@@ -905,6 +1042,8 @@ Represents a refresh token for vault-scoped JWTs. Enables long-running operation
 - When VaultUserGrant/VaultTeamGrant is removed: Refresh tokens remain valid (permission changes require re-authentication)
 
 ---
+
+## Audit
 
 ### AuditLog
 
