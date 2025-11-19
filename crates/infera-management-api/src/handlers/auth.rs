@@ -8,7 +8,7 @@ use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use infera_management_core::{
     entities::{
         Organization, OrganizationMember, OrganizationRole, OrganizationTier, SessionType, User,
-        UserEmail, UserSession,
+        UserEmail, UserEmailVerificationToken, UserSession,
     },
     error::Error as CoreError,
     hash_password, verify_password, IdGenerator, OrganizationMemberRepository,
@@ -31,6 +31,7 @@ pub struct AppState {
     pub worker_id: u16,
     pub start_time: std::time::SystemTime,
     pub leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
+    pub email_service: Option<Arc<infera_management_core::EmailService>>,
 }
 
 impl AppState {
@@ -40,6 +41,7 @@ impl AppState {
         server_client: Arc<ServerApiClient>,
         worker_id: u16,
         leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
+        email_service: Option<Arc<infera_management_core::EmailService>>,
     ) -> Self {
         Self {
             storage,
@@ -48,6 +50,7 @@ impl AppState {
             worker_id,
             start_time: std::time::SystemTime::now(),
             leader,
+            email_service,
         }
     }
 
@@ -108,6 +111,11 @@ server_api:
 
         let config: ManagementConfig = serde_yaml::from_str(config_str).unwrap();
         let server_client = ServerApiClient::new("http://localhost:8080".to_string()).unwrap();
+
+        // Create mock email service for testing
+        let email_sender = Box::new(infera_management_core::MockEmailSender::new());
+        let email_service = infera_management_core::EmailService::new(email_sender);
+
         Self {
             storage,
             config: Arc::new(config),
@@ -115,6 +123,7 @@ server_api:
             worker_id: 0,
             start_time: std::time::SystemTime::now(),
             leader: None,
+            email_service: Some(Arc::new(email_service)),
         }
     }
 }
@@ -283,10 +292,57 @@ pub async fn register(
     user.accept_tos(); // Auto-accept TOS on registration
     user_repo.create(user).await?;
 
-    // Create email
-    let mut email = UserEmail::new(email_id, user_id, payload.email.clone(), true)?;
-    email.verify(); // Auto-verify email for now (TODO: implement verification flow)
-    email_repo.create(email).await?;
+    // Create email (unverified)
+    let email = UserEmail::new(email_id, user_id, payload.email.clone(), true)?;
+    email_repo.create(email.clone()).await?;
+
+    // Create email verification token
+    let token_id = IdGenerator::next_id();
+    let token_string = UserEmailVerificationToken::generate_token();
+    let verification_token = UserEmailVerificationToken::new(token_id, email_id, token_string)?;
+    let verification_repo = UserEmailVerificationTokenRepository::new((*state.storage).clone());
+    verification_repo.create(verification_token.clone()).await?;
+
+    // Send verification email (fire-and-forget - don't block registration)
+    if let Some(email_service) = &state.email_service {
+        let email_addr = email.email.clone();
+        let user_name = payload.name.clone();
+        let token_str = verification_token.token.clone();
+        let email_service = Arc::clone(email_service);
+
+        // Spawn async task to send email
+        tokio::spawn(async move {
+            use infera_management_core::{EmailTemplate, VerificationEmailTemplate};
+
+            let verification_link = format!(
+                "{}/verify-email?token={}",
+                "http://localhost:3000", // TODO: Get from config
+                token_str
+            );
+
+            let template = VerificationEmailTemplate {
+                user_name,
+                verification_link,
+                verification_code: token_str,
+            };
+
+            if let Err(e) = email_service
+                .send_email(
+                    &email_addr,
+                    &template.subject(),
+                    &template.html_body(),
+                    &template.text_body(),
+                )
+                .await
+            {
+                tracing::error!(
+                    error = %e,
+                    email = %email_addr,
+                    "Failed to send verification email"
+                );
+            }
+        });
+    }
 
     // Create session
     let session = UserSession::new(session_id, user_id, SessionType::Web, None, None);
@@ -550,13 +606,46 @@ pub async fn request_password_reset(
     // Store the token
     token_repo.create(reset_token).await?;
 
-    // TODO: Send password reset email with token
-    tracing::info!(
-        "Password reset token generated for user {} (email: {}): {}",
-        user.id,
-        email.email,
-        token_string
-    );
+    // Send password reset email (fire-and-forget - don't block request)
+    if let Some(email_service) = &state.email_service {
+        let email_addr = email.email.clone();
+        let user_name = user.name.clone();
+        let token_for_email = token_string.clone();
+        let email_service = Arc::clone(email_service);
+
+        // Spawn async task to send email
+        tokio::spawn(async move {
+            use infera_management_core::{EmailTemplate, PasswordResetEmailTemplate};
+
+            let reset_link = format!(
+                "{}/reset-password?token={}",
+                "http://localhost:3000", // TODO: Get from config
+                token_for_email
+            );
+
+            let template = PasswordResetEmailTemplate {
+                user_name,
+                reset_link,
+                reset_code: token_for_email,
+            };
+
+            if let Err(e) = email_service
+                .send_email(
+                    &email_addr,
+                    &template.subject(),
+                    &template.html_body(),
+                    &template.text_body(),
+                )
+                .await
+            {
+                tracing::error!(
+                    error = %e,
+                    email = %email_addr,
+                    "Failed to send password reset email"
+                );
+            }
+        });
+    }
 
     Ok(Json(PasswordResetRequestResponse {
         message: "If the email exists, a reset link has been sent".to_string(),

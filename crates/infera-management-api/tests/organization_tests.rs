@@ -33,6 +33,23 @@ fn extract_session_cookie(headers: &axum::http::HeaderMap) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+/// Helper to verify a user's email (for testing)
+async fn verify_user_email(state: &AppState, username: &str) {
+    use infera_management_core::UserRepository;
+    let user_repo = UserRepository::new((*state.storage).clone());
+    let email_repo = infera_management_core::UserEmailRepository::new((*state.storage).clone());
+
+    // Get the user
+    let user = user_repo.get_by_name(username).await.unwrap().unwrap();
+
+    // Get and verify the user's email
+    let mut emails = email_repo.get_user_emails(user.id).await.unwrap();
+    if let Some(email) = emails.first_mut() {
+        email.verify();
+        email_repo.update(email.clone()).await.unwrap();
+    }
+}
+
 #[tokio::test]
 async fn test_registration_creates_default_organization() {
     let _ = IdGenerator::init(1);
@@ -126,6 +143,9 @@ async fn test_create_organization() {
     let session_cookie =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
 
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "testuser").await;
+
     // Create a new organization
     let response = app
         .clone()
@@ -186,6 +206,9 @@ async fn test_list_organizations() {
 
     let session_cookie =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "testuser").await;
 
     // Create another organization
     let _response = app
@@ -262,6 +285,9 @@ async fn test_get_organization_details() {
 
     let session_cookie =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "testuser").await;
 
     // Create an organization
     let response = app
@@ -342,6 +368,9 @@ async fn test_update_organization() {
 
     let session_cookie =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "testuser").await;
 
     // Create an organization
     let response = app
@@ -428,6 +457,9 @@ async fn test_delete_organization() {
     let session_cookie =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
 
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "testuser").await;
+
     // Create an organization
     let response = app
         .clone()
@@ -499,6 +531,9 @@ async fn test_non_member_cannot_access_organization() {
 
     let session1 =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "user1").await;
 
     // Create an organization
     let response = app

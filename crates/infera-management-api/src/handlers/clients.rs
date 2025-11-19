@@ -55,6 +55,9 @@ pub struct ClientDetail {
 #[derive(Debug, Serialize)]
 pub struct ListClientsResponse {
     pub clients: Vec<ClientDetail>,
+    /// Pagination metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagination: Option<crate::pagination::PaginationMeta>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -204,22 +207,42 @@ pub async fn create_client(
 
 /// List all clients in an organization
 ///
-/// GET /v1/organizations/:org/clients
+/// GET /v1/organizations/:org/clients?limit=50&offset=0
 /// Required role: MEMBER or higher
 pub async fn list_clients(
     State(state): State<AppState>,
     Extension(org_ctx): Extension<OrganizationContext>,
+    pagination: crate::pagination::PaginationQuery,
 ) -> Result<Json<ListClientsResponse>> {
     // Require member role or higher
     require_member(&org_ctx)?;
 
+    let params = pagination.0.validate();
+
     let client_repo = ClientRepository::new((*state.storage).clone());
-    let clients = client_repo
+    let all_clients = client_repo
         .list_active_by_organization(org_ctx.organization_id)
         .await?;
 
+    // Apply pagination
+    let total = all_clients.len();
+    let clients: Vec<ClientDetail> = all_clients
+        .into_iter()
+        .map(client_to_detail)
+        .skip(params.offset)
+        .take(params.limit)
+        .collect();
+
+    let pagination_meta = crate::pagination::PaginationMeta::from_total(
+        total,
+        params.offset,
+        params.limit,
+        clients.len(),
+    );
+
     Ok(Json(ListClientsResponse {
-        clients: clients.into_iter().map(client_to_detail).collect(),
+        clients,
+        pagination: Some(pagination_meta),
     }))
 }
 

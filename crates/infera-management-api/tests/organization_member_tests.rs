@@ -33,6 +33,23 @@ fn extract_session_cookie(headers: &axum::http::HeaderMap) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+/// Helper to verify a user's email (for testing)
+async fn verify_user_email(state: &AppState, username: &str) {
+    use infera_management_core::UserRepository;
+    let user_repo = UserRepository::new((*state.storage).clone());
+    let email_repo = infera_management_core::UserEmailRepository::new((*state.storage).clone());
+
+    // Get the user
+    let user = user_repo.get_by_name(username).await.unwrap().unwrap();
+
+    // Get and verify the user's email
+    let mut emails = email_repo.get_user_emails(user.id).await.unwrap();
+    if let Some(email) = emails.first_mut() {
+        email.verify();
+        email_repo.update(email.clone()).await.unwrap();
+    }
+}
+
 #[tokio::test]
 async fn test_list_organization_members() {
     let _ = IdGenerator::init(1);
@@ -62,6 +79,9 @@ async fn test_list_organization_members() {
 
     let session_cookie =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "testuser").await;
 
     // Create an organization
     let response = app
@@ -144,6 +164,9 @@ async fn test_update_member_role() {
 
     let owner_session =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "owner").await;
 
     // Get owner user ID
     let response = app
@@ -337,6 +360,9 @@ async fn test_cannot_demote_last_owner() {
 
     let session = extract_session_cookie(response.headers()).expect("Session cookie should be set");
 
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "owner").await;
+
     // Create an organization
     let response = app
         .clone()
@@ -440,6 +466,9 @@ async fn test_remove_member() {
 
     let owner_session =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "owner").await;
 
     // Create organization
     let response = app
@@ -621,6 +650,9 @@ async fn test_cannot_remove_last_owner() {
         .unwrap();
 
     let session = extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "owner").await;
 
     // Create organization
     let response = app

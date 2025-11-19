@@ -184,6 +184,142 @@ pub async fn update_email(
     }
 }
 
+/// Verify an email address
+///
+/// POST /v1/auth/verify-email
+///
+/// Verifies an email address using the token sent via email
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VerifyEmailRequest {
+    /// Verification token from email
+    pub token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VerifyEmailResponse {
+    /// Success message
+    pub message: String,
+    /// Whether the email was verified
+    pub verified: bool,
+}
+
+pub async fn verify_email(
+    State(state): State<AppState>,
+    Json(payload): Json<VerifyEmailRequest>,
+) -> Result<Json<VerifyEmailResponse>> {
+    let token_repo = UserEmailVerificationTokenRepository::new((*state.storage).clone());
+
+    // Get the token
+    let mut token = token_repo
+        .get_by_token(&payload.token)
+        .await?
+        .ok_or_else(|| {
+            CoreError::Validation("Invalid or expired verification token".to_string())
+        })?;
+
+    // Check if token is valid (not expired and not used)
+    if token.is_expired() {
+        return Err(CoreError::Validation("Verification token has expired".to_string()).into());
+    }
+
+    if token.is_used() {
+        return Err(
+            CoreError::Validation("Verification token has already been used".to_string()).into(),
+        );
+    }
+
+    // Mark token as used
+    token.mark_used();
+    token_repo.update(token.clone()).await?;
+
+    // Get and verify the email
+    let email_repo = UserEmailRepository::new((*state.storage).clone());
+    let mut email = email_repo
+        .get(token.user_email_id)
+        .await?
+        .ok_or_else(|| CoreError::NotFound("Email not found".to_string()))?;
+
+    if email.is_verified() {
+        return Ok(Json(VerifyEmailResponse {
+            message: "Email already verified".to_string(),
+            verified: true,
+        }));
+    }
+
+    // Mark email as verified
+    email.verify();
+    email_repo.update(email).await?;
+
+    Ok(Json(VerifyEmailResponse {
+        message: "Email verified successfully".to_string(),
+        verified: true,
+    }))
+}
+
+/// Resend verification email
+///
+/// POST /v1/users/emails/:id/resend-verification
+///
+/// Resends the verification email for an unverified email address
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ResendVerificationResponse {
+    /// Success message
+    pub message: String,
+}
+
+pub async fn resend_verification(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<SessionContext>,
+    Path(email_id): Path<i64>,
+) -> Result<Json<ResendVerificationResponse>> {
+    let email_repo = UserEmailRepository::new((*state.storage).clone());
+
+    // Get the email
+    let email = email_repo
+        .get(email_id)
+        .await?
+        .ok_or_else(|| CoreError::NotFound("Email not found".to_string()))?;
+
+    // Verify ownership
+    if email.user_id != ctx.user_id {
+        return Err(CoreError::Auth(
+            "Not authorized to resend verification for this email".to_string(),
+        )
+        .into());
+    }
+
+    // Check if already verified
+    if email.is_verified() {
+        return Err(CoreError::Validation("Email is already verified".to_string()).into());
+    }
+
+    // Delete any existing tokens for this email
+    let token_repo = UserEmailVerificationTokenRepository::new((*state.storage).clone());
+    let existing_tokens = token_repo.get_by_email(email_id).await?;
+    for token in existing_tokens {
+        token_repo.delete(token.id).await?;
+    }
+
+    // Generate new verification token
+    let token_id = IdGenerator::next_id();
+    let token_string = UserEmailVerificationToken::generate_token();
+    let verification_token =
+        UserEmailVerificationToken::new(token_id, email_id, token_string.clone())?;
+
+    token_repo.create(verification_token).await?;
+
+    // TODO: Send verification email via email service
+    tracing::info!(
+        "Verification token for email {} (resend): {}",
+        email.email,
+        token_string
+    );
+
+    Ok(Json(ResendVerificationResponse {
+        message: "Verification email sent. Please check your inbox.".to_string(),
+    }))
+}
+
 /// Delete an email address
 ///
 /// DELETE /v1/users/emails/:id

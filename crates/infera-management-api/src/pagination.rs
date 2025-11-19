@@ -38,7 +38,7 @@ impl Default for PaginationParams {
 }
 
 /// Pagination metadata for responses
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaginationMeta {
     /// Total number of items (if known)
     #[serde(skip_serializing_if = "Option::is_none")]

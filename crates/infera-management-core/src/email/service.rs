@@ -130,35 +130,68 @@ impl EmailService {
     }
 }
 
+/// Mock email sender for testing
+///
+/// This sender logs emails to tracing but doesn't actually send them.
+/// Optionally can be configured to fail for testing error handling.
+pub struct MockEmailSender {
+    should_fail: bool,
+}
+
+impl MockEmailSender {
+    /// Create a new mock email sender that always succeeds
+    pub fn new() -> Self {
+        Self { should_fail: false }
+    }
+
+    /// Create a new mock email sender that always fails
+    pub fn new_failing() -> Self {
+        Self { should_fail: true }
+    }
+}
+
+impl Default for MockEmailSender {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl EmailSender for MockEmailSender {
+    async fn send_email(
+        &self,
+        to: &str,
+        subject: &str,
+        body_html: &str,
+        body_text: &str,
+    ) -> Result<()> {
+        if self.should_fail {
+            tracing::warn!(
+                to = to,
+                subject = subject,
+                "MockEmailSender: Simulating email send failure"
+            );
+            Err(Error::Internal("Mock email send failure".to_string()))
+        } else {
+            tracing::info!(
+                to = to,
+                subject = subject,
+                html_length = body_html.len(),
+                text_length = body_text.len(),
+                "MockEmailSender: Email logged (not sent)"
+            );
+            Ok(())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // Mock email sender for testing
-    struct MockEmailSender {
-        should_fail: bool,
-    }
-
-    #[async_trait]
-    impl EmailSender for MockEmailSender {
-        async fn send_email(
-            &self,
-            _to: &str,
-            _subject: &str,
-            _body_html: &str,
-            _body_text: &str,
-        ) -> Result<()> {
-            if self.should_fail {
-                Err(Error::Internal("Mock email send failure".to_string()))
-            } else {
-                Ok(())
-            }
-        }
-    }
-
     #[tokio::test]
     async fn test_email_service_success() {
-        let sender = Box::new(MockEmailSender { should_fail: false });
+        let sender = Box::new(MockEmailSender::new());
         let service = EmailService::new(sender);
 
         let result = service
@@ -170,13 +203,31 @@ mod tests {
 
     #[tokio::test]
     async fn test_email_service_failure() {
-        let sender = Box::new(MockEmailSender { should_fail: true });
+        let sender = Box::new(MockEmailSender::new_failing());
         let service = EmailService::new(sender);
 
         let result = service
             .send_email("test@example.com", "Test Subject", "<h1>Test</h1>", "Test")
             .await;
 
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_mock_email_sender() {
+        let sender = MockEmailSender::new();
+        let result = sender
+            .send_email("test@example.com", "Test", "<p>HTML</p>", "Text")
+            .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_mock_email_sender_failure() {
+        let sender = MockEmailSender::new_failing();
+        let result = sender
+            .send_email("test@example.com", "Test", "<p>HTML</p>", "Text")
+            .await;
         assert!(result.is_err());
     }
 

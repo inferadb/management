@@ -51,6 +51,9 @@ pub struct TeamResponse {
 #[derive(Debug, Serialize)]
 pub struct ListTeamsResponse {
     pub teams: Vec<TeamResponse>,
+    /// Pagination metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagination: Option<crate::pagination::PaginationMeta>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -262,22 +265,42 @@ pub async fn create_team(
 
 /// List all teams in an organization
 ///
-/// GET /v1/organizations/:org/teams
+/// GET /v1/organizations/:org/teams?limit=50&offset=0
 /// Required role: MEMBER (all organization members can view teams)
 pub async fn list_teams(
     State(state): State<AppState>,
     Extension(org_ctx): Extension<OrganizationContext>,
+    pagination: crate::pagination::PaginationQuery,
 ) -> Result<Json<ListTeamsResponse>> {
     // All organization members can view teams
     require_member(&org_ctx)?;
 
+    let params = pagination.0.validate();
+
     let team_repo = OrganizationTeamRepository::new((*state.storage).clone());
-    let teams = team_repo
+    let all_teams = team_repo
         .list_active_by_organization(org_ctx.organization_id)
         .await?;
 
+    // Apply pagination
+    let total = all_teams.len();
+    let teams: Vec<TeamResponse> = all_teams
+        .into_iter()
+        .map(team_to_response)
+        .skip(params.offset)
+        .take(params.limit)
+        .collect();
+
+    let pagination_meta = crate::pagination::PaginationMeta::from_total(
+        total,
+        params.offset,
+        params.limit,
+        teams.len(),
+    );
+
     Ok(Json(ListTeamsResponse {
-        teams: teams.into_iter().map(team_to_response).collect(),
+        teams,
+        pagination: Some(pagination_meta),
     }))
 }
 

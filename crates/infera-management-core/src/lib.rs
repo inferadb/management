@@ -18,7 +18,12 @@ pub use auth::{hash_password, verify_password, PasswordHasher};
 pub use clock::{ClockStatus, ClockValidator};
 pub use config::ManagementConfig;
 pub use crypto::{keypair, PrivateKeyEncryptor};
-pub use email::{EmailSender, EmailService, SmtpEmailService};
+pub use email::{
+    EmailSender, EmailService, EmailTemplate, InvitationAcceptedEmailTemplate,
+    InvitationEmailTemplate, MockEmailSender, OrganizationDeletionWarningEmailTemplate,
+    PasswordResetEmailTemplate, RoleChangeEmailTemplate, SmtpEmailService,
+    VerificationEmailTemplate,
+};
 pub use entities::{
     AuthorizationCode, Client, ClientCertificate, Organization, OrganizationInvitation,
     OrganizationMember, OrganizationPermission, OrganizationRole, OrganizationTeam,

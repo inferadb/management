@@ -10,8 +10,7 @@ use infera_management_core::{
     error::Error as CoreError,
     IdGenerator, OrganizationInvitationRepository, OrganizationMemberRepository,
     OrganizationRepository, OrganizationTeamMemberRepository, OrganizationTeamPermissionRepository,
-    OrganizationTeamRepository, UserEmailRepository, VaultRepository, VaultTeamGrantRepository,
-    VaultUserGrantRepository,
+    OrganizationTeamRepository, UserEmailRepository, VaultRepository,
 };
 use serde::{Deserialize, Serialize};
 
@@ -152,17 +151,23 @@ fn role_to_string(role: &OrganizationRole) -> String {
 pub struct ListOrganizationsResponse {
     /// List of organizations the user is a member of
     pub organizations: Vec<OrganizationResponse>,
+    /// Pagination metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagination: Option<crate::pagination::PaginationMeta>,
 }
 
 /// List organizations
 ///
-/// GET /v1/organizations
+/// GET /v1/organizations?limit=50&offset=0
 ///
-/// Returns all organizations the authenticated user is a member of.
+/// Returns organizations the authenticated user is a member of, with pagination support.
 pub async fn list_organizations(
     State(state): State<AppState>,
     Extension(ctx): Extension<SessionContext>,
+    pagination: crate::pagination::PaginationQuery,
 ) -> Result<Json<ListOrganizationsResponse>> {
+    let params = pagination.0.validate();
+
     let member_repo = OrganizationMemberRepository::new((*state.storage).clone());
     let org_repo = OrganizationRepository::new((*state.storage).clone());
 
@@ -170,7 +175,7 @@ pub async fn list_organizations(
     let memberships = member_repo.get_by_user(ctx.user_id).await?;
 
     // Fetch organization details for each membership
-    let mut organizations = Vec::new();
+    let mut all_organizations = Vec::new();
     for member in memberships {
         if let Some(org) = org_repo.get(member.organization_id).await? {
             // Skip deleted organizations
@@ -178,7 +183,7 @@ pub async fn list_organizations(
                 continue;
             }
 
-            organizations.push(OrganizationResponse {
+            all_organizations.push(OrganizationResponse {
                 id: org.id,
                 name: org.name,
                 tier: tier_to_string(&org.tier),
@@ -188,7 +193,25 @@ pub async fn list_organizations(
         }
     }
 
-    Ok(Json(ListOrganizationsResponse { organizations }))
+    // Apply pagination
+    let total = all_organizations.len();
+    let organizations: Vec<OrganizationResponse> = all_organizations
+        .into_iter()
+        .skip(params.offset)
+        .take(params.limit)
+        .collect();
+
+    let pagination_meta = crate::pagination::PaginationMeta::from_total(
+        total,
+        params.offset,
+        params.limit,
+        organizations.len(),
+    );
+
+    Ok(Json(ListOrganizationsResponse {
+        organizations,
+        pagination: Some(pagination_meta),
+    }))
 }
 
 /// Response body for getting organization details
@@ -319,8 +342,21 @@ pub async fn delete_organization(
     let team_member_repo = OrganizationTeamMemberRepository::new((*state.storage).clone());
     let team_permission_repo = OrganizationTeamPermissionRepository::new((*state.storage).clone());
     let vault_repo = VaultRepository::new((*state.storage).clone());
-    let vault_user_grant_repo = VaultUserGrantRepository::new((*state.storage).clone());
-    let vault_team_grant_repo = VaultTeamGrantRepository::new((*state.storage).clone());
+
+    // VALIDATION: Check for active vaults before allowing deletion
+    let vaults = vault_repo
+        .list_by_organization(org_ctx.organization_id)
+        .await?;
+    let active_vault_count = vaults.iter().filter(|v| !v.is_deleted()).count();
+
+    if active_vault_count > 0 {
+        return Err(CoreError::Validation(format!(
+            "Cannot delete organization with {} active vault{}. Please delete all vaults first.",
+            active_vault_count,
+            if active_vault_count == 1 { "" } else { "s" }
+        ))
+        .into());
+    }
 
     // CASCADE DELETE: Delete all teams first (and their members/permissions)
     let teams = team_repo
@@ -337,28 +373,8 @@ pub async fn delete_organization(
         }
     }
 
-    // CASCADE DELETE: Delete all vaults (and their grants)
-    let vaults = vault_repo
-        .list_by_organization(org_ctx.organization_id)
-        .await?;
-    for vault in vaults {
-        if !vault.is_deleted() {
-            // Delete vault user grants
-            let user_grants = vault_user_grant_repo.list_by_vault(vault.id).await?;
-            for grant in user_grants {
-                vault_user_grant_repo.delete(grant.id).await?;
-            }
-            // Delete vault team grants
-            let team_grants = vault_team_grant_repo.list_by_vault(vault.id).await?;
-            for grant in team_grants {
-                vault_team_grant_repo.delete(grant.id).await?;
-            }
-            // Delete from server API
-            let _ = state.server_client.delete_vault(vault.id).await;
-            // Soft delete vault
-            vault_repo.delete(vault.id).await?;
-        }
-    }
+    // NOTE: Vaults must be deleted manually before organization deletion
+    // This is enforced by the validation check above
 
     // CASCADE DELETE: Delete all organization members
     let members = member_repo

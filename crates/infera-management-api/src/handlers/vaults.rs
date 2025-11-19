@@ -53,6 +53,9 @@ pub struct VaultResponse {
 #[derive(Debug, Serialize)]
 pub struct ListVaultsResponse {
     pub vaults: Vec<VaultResponse>,
+    /// Pagination metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagination: Option<crate::pagination::PaginationMeta>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -329,22 +332,42 @@ pub async fn create_vault(
 
 /// List all vaults in an organization
 ///
-/// GET /v1/organizations/:org/vaults
+/// GET /v1/organizations/:org/vaults?limit=50&offset=0
 /// Required role: MEMBER or higher
 pub async fn list_vaults(
     State(state): State<AppState>,
     Extension(org_ctx): Extension<OrganizationContext>,
+    pagination: crate::pagination::PaginationQuery,
 ) -> Result<Json<ListVaultsResponse>> {
     // Require member role or higher
     require_member(&org_ctx)?;
 
+    let params = pagination.0.validate();
+
     let vault_repo = VaultRepository::new((*state.storage).clone());
-    let vaults = vault_repo
+    let all_vaults = vault_repo
         .list_active_by_organization(org_ctx.organization_id)
         .await?;
 
+    // Apply pagination
+    let total = all_vaults.len();
+    let vaults: Vec<VaultResponse> = all_vaults
+        .into_iter()
+        .map(vault_to_response)
+        .skip(params.offset)
+        .take(params.limit)
+        .collect();
+
+    let pagination_meta = crate::pagination::PaginationMeta::from_total(
+        total,
+        params.offset,
+        params.limit,
+        vaults.len(),
+    );
+
     Ok(Json(ListVaultsResponse {
-        vaults: vaults.into_iter().map(vault_to_response).collect(),
+        vaults,
+        pagination: Some(pagination_meta),
     }))
 }
 
@@ -447,6 +470,24 @@ pub async fn delete_vault(
     // Verify vault belongs to this organization
     if vault.organization_id != org_ctx.organization_id {
         return Err(CoreError::NotFound("Vault not found".to_string()).into());
+    }
+
+    // VALIDATION: Check for active refresh tokens before allowing deletion
+    let token_repo =
+        infera_management_core::VaultRefreshTokenRepository::new((*state.storage).clone());
+    let tokens = token_repo.list_by_vault(vault_id).await?;
+    let active_token_count = tokens
+        .iter()
+        .filter(|t| !t.is_expired() && !t.is_revoked())
+        .count();
+
+    if active_token_count > 0 {
+        return Err(CoreError::Validation(format!(
+            "Cannot delete vault with {} active refresh token{}. Please revoke all tokens first.",
+            active_token_count,
+            if active_token_count == 1 { "" } else { "s" }
+        ))
+        .into());
     }
 
     // CASCADE DELETE: Delete all vault user grants

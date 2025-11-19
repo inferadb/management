@@ -63,6 +63,24 @@ async fn test_create_and_list_invitations() {
     let session_cookie =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
 
+    // Verify the user's email by directly updating the database
+    // (In production this would be done via the verification endpoint with a token)
+    {
+        use infera_management_core::UserRepository;
+        let user_repo = UserRepository::new((*state.storage).clone());
+        let email_repo = infera_management_core::UserEmailRepository::new((*state.storage).clone());
+
+        // Get the user
+        let user = user_repo.get_by_name("testuser").await.unwrap().unwrap();
+
+        // Get and verify the user's email
+        let mut emails = email_repo.get_user_emails(user.id).await.unwrap();
+        if let Some(email) = emails.first_mut() {
+            email.verify();
+            email_repo.update(email.clone()).await.unwrap();
+        }
+    }
+
     // Create an organization
     let response = app
         .clone()
@@ -175,6 +193,24 @@ async fn test_delete_invitation() {
 
     let session_cookie =
         extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify the user's email by directly updating the database
+    // (In production this would be done via the verification endpoint with a token)
+    {
+        use infera_management_core::UserRepository;
+        let user_repo = UserRepository::new((*state.storage).clone());
+        let email_repo = infera_management_core::UserEmailRepository::new((*state.storage).clone());
+
+        // Get the user
+        let user = user_repo.get_by_name("testuser").await.unwrap().unwrap();
+
+        // Get and verify the user's email
+        let mut emails = email_repo.get_user_emails(user.id).await.unwrap();
+        if let Some(email) = emails.first_mut() {
+            email.verify();
+            email_repo.update(email.clone()).await.unwrap();
+        }
+    }
 
     let response = app
         .clone()

@@ -124,8 +124,28 @@ pub async fn delete_user(
     State(state): State<AppState>,
     Extension(ctx): Extension<SessionContext>,
 ) -> Result<Json<DeleteUserResponse>> {
-    // TODO: Check if user is the only owner of any organizations
-    // This will be implemented in Phase 3 when organizations are added
+    // VALIDATION: Check if user is the only owner of any organizations
+    let member_repo =
+        infera_management_core::OrganizationMemberRepository::new((*state.storage).clone());
+    let memberships = member_repo.get_by_user(ctx.user_id).await?;
+
+    for membership in &memberships {
+        if membership.role == infera_management_core::entities::OrganizationRole::Owner {
+            // Check if this user is the only owner
+            let owner_count = member_repo.count_owners(membership.organization_id).await?;
+            if owner_count <= 1 {
+                let org_repo =
+                    infera_management_core::OrganizationRepository::new((*state.storage).clone());
+                if let Some(org) = org_repo.get(membership.organization_id).await? {
+                    return Err(CoreError::Validation(format!(
+                        "Cannot delete account while being the only owner of organization '{}'. Please transfer ownership or delete the organization first.",
+                        org.name
+                    ))
+                    .into());
+                }
+            }
+        }
+    }
 
     // Get user from repository
     let user_repo = UserRepository::new((*state.storage).clone());
@@ -134,15 +154,49 @@ pub async fn delete_user(
         .await?
         .ok_or_else(|| CoreError::NotFound("User not found".to_string()))?;
 
+    // CASCADE DELETE: Revoke all user sessions
+    let session_repo = infera_management_core::UserSessionRepository::new((*state.storage).clone());
+    let sessions = session_repo.get_user_sessions(ctx.user_id).await?;
+    for session in sessions {
+        session_repo.delete(session.id).await?;
+    }
+
+    // CASCADE DELETE: Remove organization memberships (only if not owner)
+    for membership in memberships {
+        if membership.role != infera_management_core::entities::OrganizationRole::Owner {
+            member_repo.delete(membership.id).await?;
+        }
+    }
+
+    // CASCADE DELETE: Delete all email verification tokens first, then email addresses
+    let email_repo = infera_management_core::UserEmailRepository::new((*state.storage).clone());
+    let emails = email_repo.get_user_emails(ctx.user_id).await?;
+
+    let token_repo =
+        infera_management_core::UserEmailVerificationTokenRepository::new((*state.storage).clone());
+    for email in &emails {
+        let tokens = token_repo.get_by_email(email.id).await?;
+        for token in tokens {
+            token_repo.delete(token.id).await?;
+        }
+    }
+
+    // Now delete all email addresses
+    for email in emails {
+        email_repo.delete(email.id).await?;
+    }
+
+    // CASCADE DELETE: Delete all password reset tokens
+    let reset_token_repo =
+        infera_management_core::UserPasswordResetTokenRepository::new((*state.storage).clone());
+    let reset_tokens = reset_token_repo.get_by_user(ctx.user_id).await?;
+    for token in reset_tokens {
+        reset_token_repo.delete(token.id).await?;
+    }
+
     // Soft-delete the user
     user.soft_delete();
     user_repo.update(user).await?;
-
-    // TODO: Cascade delete related entities (Phase 3+):
-    // - Revoke all user sessions
-    // - Remove from organization memberships
-    // - Clean up email addresses
-    // - Revoke vault access grants
 
     Ok(Json(DeleteUserResponse {
         message: "User account deleted successfully".to_string(),
