@@ -19,6 +19,7 @@ auth:
   session_ttl_sdk: 7200       # 2 hours for tests
   password_min_length: 8      # Relaxed for tests
   max_sessions_per_user: 5
+  key_encryption_secret: "test-integration-secret-key-32bytes-long!"
   webauthn:
     rp_id: "localhost"
     rp_name: "InferaDB Test"
