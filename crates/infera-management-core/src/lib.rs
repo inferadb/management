@@ -1,10 +1,11 @@
+// Re-export types from infera-management-types
+pub use infera_management_types::{entities::*, error::*, *};
+
 pub mod auth;
 pub mod clock;
 pub mod config;
 pub mod crypto;
 pub mod email;
-pub mod entities;
-pub mod error;
 pub mod id;
 pub mod jobs;
 pub mod jwt;
@@ -25,14 +26,6 @@ pub use email::{
     PasswordResetEmailTemplate, RoleChangeEmailTemplate, SmtpEmailService,
     VerificationEmailTemplate,
 };
-pub use entities::{
-    AuthorizationCode, Client, ClientCertificate, Organization, OrganizationInvitation,
-    OrganizationMember, OrganizationPermission, OrganizationRole, OrganizationTeam,
-    OrganizationTeamMember, OrganizationTeamPermission, OrganizationTier, SessionType, User,
-    UserEmail, UserEmailVerificationToken, UserPasswordResetToken, UserSession, Vault,
-    VaultRefreshToken, VaultRole, VaultSyncStatus, VaultTeamGrant, VaultUserGrant,
-};
-pub use error::{Error, Result};
 pub use id::{IdGenerator, WorkerRegistry};
 pub use jobs::BackgroundJobs;
 pub use jwt::{JwtSigner, VaultTokenClaims};

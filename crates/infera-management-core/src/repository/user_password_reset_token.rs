@@ -1,6 +1,6 @@
-use crate::entities::UserPasswordResetToken;
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::UserPasswordResetToken;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for UserPasswordResetToken entity operations
 ///

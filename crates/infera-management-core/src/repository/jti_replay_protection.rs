@@ -1,6 +1,6 @@
-use crate::error::Result;
 use chrono::{DateTime, Utc};
 use infera_management_storage::StorageBackend;
+use infera_management_types::error::Result;
 
 /// Repository for JTI (JWT ID) replay protection
 ///

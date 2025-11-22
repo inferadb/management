@@ -2,76 +2,26 @@ use axum::{
     extract::{Path, State},
     Extension, Json,
 };
-use infera_management_core::{
-    entities::UserEmailVerificationToken, error::Error as CoreError, IdGenerator,
-    RepositoryContext, UserEmail,
+use infera_management_core::{error::Error as CoreError, IdGenerator, RepositoryContext};
+use infera_management_types::{
+    dto::{
+        AddEmailRequest, AddEmailResponse, EmailOperationResponse, ListEmailsResponse,
+        ResendVerificationResponse, SetPrimaryEmailRequest, UserEmailInfo, VerifyEmailRequest,
+        VerifyEmailResponse,
+    },
+    entities::{UserEmail, UserEmailVerificationToken},
 };
-use serde::{Deserialize, Serialize};
 
 use crate::handlers::auth::{AppState, Result};
 use crate::middleware::SessionContext;
 
-/// Request body for adding a new email
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AddEmailRequest {
-    /// Email address to add
-    pub email: String,
-}
-
-/// Response body for adding a new email
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AddEmailResponse {
-    /// The created email
-    pub email: UserEmailInfo,
-    /// Message indicating verification email was sent
-    pub message: String,
-}
-
-/// Email information
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UserEmailInfo {
-    /// Email ID
-    pub id: i64,
-    /// Email address
-    pub email: String,
-    /// Whether this is the primary email
-    pub is_primary: bool,
-    /// Whether this email is verified
-    pub is_verified: bool,
-    /// When the email was created
-    pub created_at: String,
-}
-
-/// Response body for listing emails
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ListEmailsResponse {
-    /// List of user's emails
-    pub emails: Vec<UserEmailInfo>,
-}
-
-/// Request body for setting primary email
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SetPrimaryEmailRequest {
-    /// Whether to set as primary
-    pub is_primary: bool,
-}
-
-/// Response body for email operations
-#[derive(Debug, Serialize, Deserialize)]
-pub struct EmailOperationResponse {
-    /// Success message
-    pub message: String,
-}
-
-impl From<UserEmail> for UserEmailInfo {
-    fn from(email: UserEmail) -> Self {
-        Self {
-            id: email.id,
-            email: email.email,
-            is_primary: email.primary,
-            is_verified: email.verified_at.is_some(),
-            created_at: email.created_at.to_rfc3339(),
-        }
+fn user_email_to_info(email: UserEmail) -> UserEmailInfo {
+    UserEmailInfo {
+        id: email.id,
+        email: email.email,
+        is_primary: email.primary,
+        is_verified: email.verified_at.is_some(),
+        created_at: email.created_at.to_rfc3339(),
     }
 }
 
@@ -123,7 +73,7 @@ pub async fn add_email(
     );
 
     Ok(Json(AddEmailResponse {
-        email: user_email.into(),
+        email: user_email_to_info(user_email),
         message: "Email added. Please check your inbox for a verification link.".to_string(),
     }))
 }
@@ -141,7 +91,7 @@ pub async fn list_emails(
     let emails = repos.user_email.get_user_emails(ctx.user_id).await?;
 
     Ok(Json(ListEmailsResponse {
-        emails: emails.into_iter().map(|e| e.into()).collect(),
+        emails: emails.into_iter().map(user_email_to_info).collect(),
     }))
 }
 
@@ -197,20 +147,6 @@ pub async fn update_email(
 /// POST /v1/auth/verify-email
 ///
 /// Verifies an email address using the token sent via email
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VerifyEmailRequest {
-    /// Verification token from email
-    pub token: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VerifyEmailResponse {
-    /// Success message
-    pub message: String,
-    /// Whether the email was verified
-    pub verified: bool,
-}
-
 pub async fn verify_email(
     State(state): State<AppState>,
     Json(payload): Json<VerifyEmailRequest>,
@@ -273,12 +209,6 @@ pub async fn verify_email(
 /// POST /v1/users/emails/:id/resend-verification
 ///
 /// Resends the verification email for an unverified email address
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ResendVerificationResponse {
-    /// Success message
-    pub message: String,
-}
-
 pub async fn resend_verification(
     State(state): State<AppState>,
     Extension(ctx): Extension<SessionContext>,

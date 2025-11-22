@@ -1,7 +1,7 @@
-use crate::entities::{AuditEventType, AuditLog, AuditResourceType};
-use crate::error::{Error, Result};
 use chrono::{DateTime, Utc};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::{AuditEventType, AuditLog, AuditResourceType};
+use infera_management_types::error::{Error, Result};
 
 const PREFIX_AUDIT_LOG: &[u8] = b"audit_log:";
 // For future index implementation
@@ -174,8 +174,8 @@ impl<S: StorageBackend> AuditLogRepository<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::AuditEventType;
     use infera_management_storage::MemoryBackend;
+    use infera_management_types::entities::AuditEventType;
 
     #[tokio::test]
     async fn test_create_and_get_audit_log() {

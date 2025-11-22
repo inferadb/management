@@ -1,6 +1,6 @@
-use crate::entities::UserEmailVerificationToken;
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::UserEmailVerificationToken;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for UserEmailVerificationToken entity operations
 ///

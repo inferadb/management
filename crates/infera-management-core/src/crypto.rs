@@ -1,9 +1,9 @@
-use crate::error::{Error, Result};
 use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use infera_management_types::error::{Error, Result};
 use sha2::{Digest, Sha256};
 
 /// Private key encryption service using AES-256-GCM

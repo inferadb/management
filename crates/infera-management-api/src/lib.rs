@@ -12,7 +12,8 @@ pub mod middleware;
 pub mod pagination;
 pub mod routes;
 
-pub use handlers::{AppState, ErrorResponse};
+pub use handlers::AppState;
+pub use infera_management_types::dto::ErrorResponse;
 pub use middleware::{
     extract_session_context, get_user_vault_role, require_admin, require_admin_or_owner,
     require_manager, require_member, require_organization_member, require_owner, require_reader,

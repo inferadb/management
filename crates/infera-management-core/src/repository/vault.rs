@@ -1,6 +1,8 @@
-use crate::entities::{Vault, VaultTeamGrant, VaultUserGrant};
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::{
+    entities::{Vault, VaultTeamGrant, VaultUserGrant},
+    error::{Error, Result},
+};
 
 /// Repository for Vault entity operations
 ///
@@ -693,8 +695,8 @@ impl<S: StorageBackend> VaultTeamGrantRepository<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::{VaultRole, VaultSyncStatus};
     use infera_management_storage::{Backend, MemoryBackend};
+    use infera_management_types::entities::{VaultRole, VaultSyncStatus};
 
     fn create_test_vault_repo() -> VaultRepository<Backend> {
         VaultRepository::new(Backend::Memory(MemoryBackend::new()))

@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/infera-management",
+  "crates/infera-management-types",
   "crates/infera-management-core",
   "crates/infera-management-storage",
   "crates/infera-management-grpc",

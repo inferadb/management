@@ -1,7 +1,7 @@
-use crate::error::Result;
 use crate::leader::LeaderElection;
 use crate::repository::{AuditLogRepository, UserSessionRepository, VaultRefreshTokenRepository};
 use infera_management_storage::StorageBackend;
+use infera_management_types::error::Result;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;

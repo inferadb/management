@@ -1,6 +1,8 @@
-use crate::entities::User;
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::{
+    entities::User,
+    error::{Error, Result},
+};
 
 /// Repository for User entity operations
 ///

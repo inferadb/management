@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-use crate::error::{Error, Result};
+use infera_management_types::error::{Error, Result};
 
 /// Root configuration for the Management API
 #[derive(Debug, Clone, Serialize, Deserialize)]

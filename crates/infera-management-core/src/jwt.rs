@@ -1,8 +1,8 @@
 use crate::crypto::PrivateKeyEncryptor;
-use crate::entities::{ClientCertificate, VaultRole};
-use crate::error::{Error, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use chrono::{DateTime, Duration, Utc};
+use infera_management_types::entities::{ClientCertificate, VaultRole};
+use infera_management_types::error::{Error, Result};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 

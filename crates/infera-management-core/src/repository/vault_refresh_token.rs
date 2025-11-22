@@ -1,6 +1,6 @@
-use crate::entities::VaultRefreshToken;
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::VaultRefreshToken;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for VaultRefreshToken entity operations
 ///
@@ -288,8 +288,8 @@ impl<S: StorageBackend> VaultRefreshTokenRepository<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::VaultRole;
     use infera_management_storage::MemoryBackend;
+    use infera_management_types::entities::VaultRole;
 
     fn create_test_repo() -> VaultRefreshTokenRepository<MemoryBackend> {
         VaultRefreshTokenRepository::new(MemoryBackend::new())

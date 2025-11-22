@@ -13,6 +13,7 @@ publish.workspace = true
 infera-management-core = { path = "../infera-management-core" }
 infera-management-grpc = { path = "../infera-management-grpc" }
 infera-management-storage = { path = "../infera-management-storage" }
+infera-management-types = { path = "../infera-management-types" }
 
 # External dependencies
 anyhow = { workspace = true }

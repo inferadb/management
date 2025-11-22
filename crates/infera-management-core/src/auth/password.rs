@@ -1,10 +1,10 @@
-use crate::error::{Error, Result};
 use argon2::{
     password_hash::{
         rand_core::OsRng, PasswordHash, PasswordHasher as _, PasswordVerifier, SaltString,
     },
     Argon2,
 };
+use infera_management_types::error::{Error, Result};
 
 /// Password hasher with Argon2id configuration
 ///

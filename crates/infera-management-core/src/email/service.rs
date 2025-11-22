@@ -1,5 +1,5 @@
-use crate::error::{Error, Result};
 use async_trait::async_trait;
+use infera_management_types::error::{Error, Result};
 use lettre::message::{header::ContentType, Mailbox};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};

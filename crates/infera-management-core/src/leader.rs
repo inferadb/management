@@ -1,5 +1,5 @@
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::error::{Error, Result};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;

@@ -1,5 +1,5 @@
-use crate::error::{Error, Result};
 use chrono::{DateTime, Utc};
+use infera_management_types::error::{Error, Result};
 use std::process::Command;
 
 /// Maximum allowed clock skew in seconds (default: 1 second)

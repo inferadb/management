@@ -10,7 +10,7 @@ publish.workspace = true
 
 [dependencies]
 # Workspace crates
-infera-management-core = { path = "../infera-management-core" }
+infera-management-types = { path = "../infera-management-types" }
 
 # External dependencies
 anyhow = { workspace = true }

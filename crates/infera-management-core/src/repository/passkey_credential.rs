@@ -1,8 +1,8 @@
-use crate::entities::PasskeyCredential;
-use crate::error::{Error, Result};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::PasskeyCredential;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for PasskeyCredential entity operations
 ///

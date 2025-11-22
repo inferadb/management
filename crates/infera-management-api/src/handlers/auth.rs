@@ -6,16 +6,23 @@ use axum::{
 };
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use infera_management_core::{
+    error::Error as CoreError, hash_password, verify_password, IdGenerator, RepositoryContext,
+    UserPasswordResetToken,
+};
+use infera_management_grpc::ServerApiClient;
+use infera_management_storage::Backend;
+use infera_management_types::{
+    dto::{
+        AuthVerifyEmailRequest, AuthVerifyEmailResponse, ErrorResponse, LoginRequest,
+        LoginResponse, LogoutResponse, PasswordResetConfirmRequest, PasswordResetConfirmResponse,
+        PasswordResetRequestRequest, PasswordResetRequestResponse, RegisterRequest,
+        RegisterResponse,
+    },
     entities::{
         Organization, OrganizationMember, OrganizationRole, OrganizationTier, SessionType, User,
         UserEmail, UserEmailVerificationToken, UserSession,
     },
-    error::Error as CoreError,
-    hash_password, verify_password, IdGenerator, RepositoryContext, UserPasswordResetToken,
 };
-use infera_management_grpc::ServerApiClient;
-use infera_management_storage::Backend;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use time;
 
@@ -125,30 +132,6 @@ server_api:
     }
 }
 
-/// API error response
-#[derive(Debug, Serialize)]
-pub struct ErrorResponse {
-    pub error: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub details: Option<String>,
-}
-
-impl ErrorResponse {
-    pub fn new(error: String) -> Self {
-        Self {
-            error,
-            details: None,
-        }
-    }
-
-    pub fn with_details(error: String, details: String) -> Self {
-        Self {
-            error,
-            details: Some(details),
-        }
-    }
-}
-
 /// API error type that wraps core errors
 #[derive(Debug)]
 pub struct ApiError(CoreError);
@@ -187,62 +170,18 @@ impl IntoResponse for ApiError {
             tracing::warn!(status = %status, error = %error_message, "Client error");
         }
 
-        (status, Json(ErrorResponse::new(error_message))).into_response()
+        (
+            status,
+            Json(ErrorResponse {
+                error: error_message,
+                details: None,
+            }),
+        )
+            .into_response()
     }
 }
 
 pub type Result<T> = std::result::Result<T, ApiError>;
-
-/// Request body for user registration
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RegisterRequest {
-    /// User's display name
-    pub name: String,
-    /// User's email address
-    pub email: String,
-    /// User's password (12-128 characters)
-    pub password: String,
-}
-
-/// Response body for user registration
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RegisterResponse {
-    /// Newly created user ID
-    pub user_id: i64,
-    /// User's name
-    pub name: String,
-    /// User's email
-    pub email: String,
-    /// Session ID
-    pub session_id: i64,
-}
-
-/// Request body for password login
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LoginRequest {
-    /// Email address
-    pub email: String,
-    /// Password
-    pub password: String,
-}
-
-/// Response body for successful login
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LoginResponse {
-    /// User ID
-    pub user_id: i64,
-    /// User's name
-    pub name: String,
-    /// Session ID
-    pub session_id: i64,
-}
-
-/// Response body for logout
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LogoutResponse {
-    /// Confirmation message
-    pub message: String,
-}
 
 /// Session cookie name
 pub const SESSION_COOKIE_NAME: &str = "infera_session";
@@ -474,22 +413,6 @@ pub async fn logout(
     ))
 }
 
-/// Request body for email verification
-#[derive(Debug, Deserialize)]
-pub struct VerifyEmailRequest {
-    /// Verification token from email
-    pub token: String,
-}
-
-/// Response body for email verification
-#[derive(Debug, Serialize)]
-pub struct VerifyEmailResponse {
-    /// Success message
-    pub message: String,
-    /// The verified email address
-    pub email: String,
-}
-
 /// Verify email address with token
 ///
 /// POST /v1/auth/verify-email
@@ -497,8 +420,8 @@ pub struct VerifyEmailResponse {
 /// Verifies an email address using the token sent via email
 pub async fn verify_email(
     State(state): State<AppState>,
-    Json(payload): Json<VerifyEmailRequest>,
-) -> Result<Json<VerifyEmailResponse>> {
+    Json(payload): Json<AuthVerifyEmailRequest>,
+) -> Result<Json<AuthVerifyEmailResponse>> {
     let repos = RepositoryContext::new((*state.storage).clone());
 
     // Get token
@@ -526,7 +449,7 @@ pub async fn verify_email(
 
     // Check if already verified
     if email.is_verified() {
-        return Ok(Json(VerifyEmailResponse {
+        return Ok(Json(AuthVerifyEmailResponse {
             message: "Email already verified".to_string(),
             email: email.email,
         }));
@@ -540,24 +463,10 @@ pub async fn verify_email(
     token.mark_used();
     repos.user_email_verification_token.update(token).await?;
 
-    Ok(Json(VerifyEmailResponse {
+    Ok(Json(AuthVerifyEmailResponse {
         message: "Email verified successfully".to_string(),
         email: email.email,
     }))
-}
-
-/// Request body for password reset request
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PasswordResetRequestRequest {
-    /// Email address to send reset link to
-    pub email: String,
-}
-
-/// Response body for password reset request
-#[derive(Debug, Serialize)]
-pub struct PasswordResetRequestResponse {
-    /// Success message
-    pub message: String,
 }
 
 /// Request password reset
@@ -651,22 +560,6 @@ pub async fn request_password_reset(
     Ok(Json(PasswordResetRequestResponse {
         message: "If the email exists, a reset link has been sent".to_string(),
     }))
-}
-
-/// Request body for password reset confirmation
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PasswordResetConfirmRequest {
-    /// Reset token from email
-    pub token: String,
-    /// New password (12-128 characters)
-    pub new_password: String,
-}
-
-/// Response body for password reset confirmation
-#[derive(Debug, Serialize)]
-pub struct PasswordResetConfirmResponse {
-    /// Success message
-    pub message: String,
 }
 
 /// Confirm password reset with token

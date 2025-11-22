@@ -1,6 +1,6 @@
-use crate::entities::OrganizationInvitation;
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::OrganizationInvitation;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for OrganizationInvitation entity operations
 ///
@@ -217,8 +217,8 @@ impl<S: StorageBackend> OrganizationInvitationRepository<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::OrganizationRole;
     use infera_management_storage::{Backend, MemoryBackend};
+    use infera_management_types::entities::OrganizationRole;
 
     fn create_test_repo() -> OrganizationInvitationRepository<Backend> {
         OrganizationInvitationRepository::new(Backend::Memory(MemoryBackend::new()))

@@ -1,6 +1,6 @@
-use crate::entities::UserEmail;
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::UserEmail;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for UserEmail entity operations
 ///

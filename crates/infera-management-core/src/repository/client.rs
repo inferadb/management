@@ -1,6 +1,6 @@
-use crate::entities::Client;
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::Client;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for Client entity operations
 ///

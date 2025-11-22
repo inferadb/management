@@ -1,6 +1,6 @@
-use crate::entities::ClientCertificate;
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::ClientCertificate;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for ClientCertificate entity operations
 ///

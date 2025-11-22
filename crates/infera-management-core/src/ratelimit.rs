@@ -1,5 +1,5 @@
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::error::{Error, Result};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Rate limit window duration

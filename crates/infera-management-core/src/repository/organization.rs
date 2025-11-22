@@ -1,6 +1,6 @@
-use crate::entities::{Organization, OrganizationMember, OrganizationRole};
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::{Organization, OrganizationMember, OrganizationRole};
+use infera_management_types::error::{Error, Result};
 
 /// Repository for Organization entity operations
 ///
@@ -472,9 +472,9 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::OrganizationTier;
     use crate::IdGenerator;
     use infera_management_storage::{Backend, MemoryBackend};
+    use infera_management_types::entities::OrganizationTier;
 
     async fn create_test_org_repo() -> OrganizationRepository<Backend> {
         let storage = Backend::Memory(MemoryBackend::new());

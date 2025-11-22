@@ -52,6 +52,9 @@ validator = { workspace = true }
 # Metrics
 metrics = { workspace = true }
 
+# Internal dependencies
+infera-management-types = { path = "../infera-management-types" }
+
 # Storage
 infera-management-storage = { path = "../infera-management-storage" }
 

@@ -1,8 +1,8 @@
-use crate::entities::{
+use infera_management_storage::StorageBackend;
+use infera_management_types::entities::{
     OrganizationPermission, OrganizationTeam, OrganizationTeamMember, OrganizationTeamPermission,
 };
-use crate::error::{Error, Result};
-use infera_management_storage::StorageBackend;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for OrganizationTeam entity operations
 ///
@@ -690,11 +690,11 @@ impl<S: StorageBackend> OrganizationTeamPermissionRepository<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::{
+    use infera_management_storage::MemoryBackend;
+    use infera_management_types::entities::{
         OrganizationPermission, OrganizationTeam, OrganizationTeamMember,
         OrganizationTeamPermission,
     };
-    use infera_management_storage::MemoryBackend;
 
     #[tokio::test]
     async fn test_create_and_get_team() {

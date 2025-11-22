@@ -1,6 +1,6 @@
-use crate::entities::UserSession;
-use crate::error::{Error, Result};
 use infera_management_storage::StorageBackend;
+use infera_management_types::entities::UserSession;
+use infera_management_types::error::{Error, Result};
 
 /// Repository for UserSession entity operations
 ///
@@ -293,8 +293,8 @@ impl<S: StorageBackend> UserSessionRepository<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::SessionType;
     use infera_management_storage::MemoryBackend;
+    use infera_management_types::entities::SessionType;
 
     async fn create_test_session(id: i64, user_id: i64, session_type: SessionType) -> UserSession {
         UserSession::new(id, user_id, session_type, None, None)

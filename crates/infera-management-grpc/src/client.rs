@@ -1,4 +1,4 @@
-use infera_management_core::Result;
+use infera_management_types::Result;
 
 /// gRPC client for communicating with @server API
 ///

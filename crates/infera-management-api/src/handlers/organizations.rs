@@ -2,15 +2,23 @@ use axum::{
     extract::{Path, State},
     Extension, Json,
 };
-use infera_management_core::{
+use infera_management_core::{error::Error as CoreError, IdGenerator, RepositoryContext};
+use infera_management_types::{
+    dto::{
+        AcceptInvitationRequest, AcceptInvitationResponse, CreateInvitationRequest,
+        CreateInvitationResponse, CreateOrganizationRequest, CreateOrganizationResponse,
+        DeleteInvitationResponse, DeleteOrganizationResponse, GetOrganizationResponse,
+        InvitationResponse, ListInvitationsResponse, ListMembersResponse,
+        ListOrganizationsResponse, OrganizationMemberResponse, OrganizationResponse,
+        RemoveMemberResponse, TransferOwnershipRequest, TransferOwnershipResponse,
+        UpdateMemberRoleRequest, UpdateMemberRoleResponse, UpdateOrganizationRequest,
+        UpdateOrganizationResponse,
+    },
     entities::{
         Organization, OrganizationInvitation, OrganizationMember, OrganizationRole,
         OrganizationTier,
     },
-    error::Error as CoreError,
-    IdGenerator, RepositoryContext,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::handlers::auth::{AppState, Result};
 use crate::middleware::{OrganizationContext, SessionContext};
@@ -20,35 +28,6 @@ const GLOBAL_ORGANIZATION_LIMIT: i64 = 100_000;
 
 /// Per-user limit on organizations
 const PER_USER_ORGANIZATION_LIMIT: i64 = 10;
-
-/// Organization response
-#[derive(Debug, Serialize, Deserialize)]
-pub struct OrganizationResponse {
-    /// Organization ID
-    pub id: i64,
-    /// Organization name
-    pub name: String,
-    /// Organization tier
-    pub tier: String,
-    /// When the organization was created
-    pub created_at: String,
-    /// Your role in the organization
-    pub role: String,
-}
-
-/// Request body for creating an organization
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateOrganizationRequest {
-    /// Organization name
-    pub name: String,
-}
-
-/// Response body for organization creation
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateOrganizationResponse {
-    /// Created organization
-    pub organization: OrganizationResponse,
-}
 
 /// Create a new organization
 ///
@@ -146,16 +125,6 @@ fn role_to_string(role: &OrganizationRole) -> String {
     }
 }
 
-/// Response body for listing organizations
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ListOrganizationsResponse {
-    /// List of organizations the user is a member of
-    pub organizations: Vec<OrganizationResponse>,
-    /// Pagination metadata
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pagination: Option<crate::pagination::PaginationMeta>,
-}
-
 /// List organizations
 ///
 /// GET /v1/organizations?limit=50&offset=0
@@ -199,7 +168,7 @@ pub async fn list_organizations(
         .take(params.limit)
         .collect();
 
-    let pagination_meta = crate::pagination::PaginationMeta::from_total(
+    let pagination_meta = infera_management_types::PaginationMeta::from_total(
         total,
         params.offset,
         params.limit,
@@ -210,13 +179,6 @@ pub async fn list_organizations(
         organizations,
         pagination: Some(pagination_meta),
     }))
-}
-
-/// Response body for getting organization details
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GetOrganizationResponse {
-    /// Organization details
-    pub organization: OrganizationResponse,
 }
 
 /// Get organization details
@@ -251,20 +213,6 @@ pub async fn get_organization(
             role: role_to_string(&org_ctx.member.role),
         },
     }))
-}
-
-/// Request body for updating an organization
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateOrganizationRequest {
-    /// Updated organization name
-    pub name: String,
-}
-
-/// Response body for organization update
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateOrganizationResponse {
-    /// Updated organization
-    pub organization: OrganizationResponse,
 }
 
 /// Update organization
@@ -307,13 +255,6 @@ pub async fn update_organization(
             role: role_to_string(&org_ctx.member.role),
         },
     }))
-}
-
-/// Response body for organization deletion
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DeleteOrganizationResponse {
-    /// Confirmation message
-    pub message: String,
 }
 
 /// Delete organization
@@ -402,26 +343,6 @@ pub async fn delete_organization(
 // Organization Member Management
 // ============================================================================
 
-/// Organization member response
-#[derive(Debug, Serialize, Deserialize)]
-pub struct OrganizationMemberResponse {
-    /// Member ID
-    pub id: i64,
-    /// User ID
-    pub user_id: i64,
-    /// Member role
-    pub role: String,
-    /// When the member joined
-    pub joined_at: String,
-}
-
-/// Response body for listing organization members
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ListMembersResponse {
-    /// List of organization members
-    pub members: Vec<OrganizationMemberResponse>,
-}
-
 /// List organization members
 ///
 /// GET /v1/organizations/:org/members
@@ -452,20 +373,6 @@ pub async fn list_members(
     Ok(Json(ListMembersResponse {
         members: member_responses,
     }))
-}
-
-/// Request body for updating a member's role
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateMemberRoleRequest {
-    /// New role for the member
-    pub role: String,
-}
-
-/// Response body for member role update
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateMemberRoleResponse {
-    /// Updated member
-    pub member: OrganizationMemberResponse,
 }
 
 /// Update organization member's role
@@ -542,13 +449,6 @@ pub async fn update_member_role(
     }))
 }
 
-/// Response body for member removal
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RemoveMemberResponse {
-    /// Confirmation message
-    pub message: String,
-}
-
 /// Remove organization member
 ///
 /// DELETE /v1/organizations/:org/members/:member
@@ -606,82 +506,16 @@ pub async fn remove_member(
 // Organization Invitations
 // ============================================================================
 
-/// Invitation response
-#[derive(Debug, Serialize, Deserialize)]
-pub struct InvitationResponse {
-    /// Invitation ID
-    pub id: i64,
-    /// Email address
-    pub email: String,
-    /// Role
-    pub role: String,
-    /// When created
-    pub created_at: String,
-    /// When expires
-    pub expires_at: String,
-    /// User who created the invitation
-    pub invited_by_user_id: i64,
-    /// Invitation token (only included when creating invitation)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub token: Option<String>,
-}
-
-impl From<OrganizationInvitation> for InvitationResponse {
-    fn from(invitation: OrganizationInvitation) -> Self {
-        Self {
-            id: invitation.id,
-            email: invitation.email,
-            role: format!("{:?}", invitation.role).to_uppercase(),
-            created_at: invitation.created_at.to_rfc3339(),
-            expires_at: invitation.expires_at.to_rfc3339(),
-            invited_by_user_id: invitation.invited_by_user_id,
-            token: None, // Token not included by default
-        }
+fn invitation_to_response(invitation: OrganizationInvitation) -> InvitationResponse {
+    InvitationResponse {
+        id: invitation.id,
+        email: invitation.email,
+        role: format!("{:?}", invitation.role).to_uppercase(),
+        created_at: invitation.created_at.to_rfc3339(),
+        expires_at: invitation.expires_at.to_rfc3339(),
+        invited_by_user_id: invitation.invited_by_user_id,
+        token: None, // Token not included by default
     }
-}
-
-/// Request body for creating an invitation
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateInvitationRequest {
-    /// Email address to invite
-    pub email: String,
-    /// Role for the invited user
-    pub role: OrganizationRole,
-}
-
-/// Response body for invitation creation
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateInvitationResponse {
-    /// Created invitation
-    pub invitation: InvitationResponse,
-}
-
-/// Response body for listing invitations
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ListInvitationsResponse {
-    /// Invitations
-    pub invitations: Vec<InvitationResponse>,
-}
-
-/// Response for accepting an invitation
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AcceptInvitationRequest {
-    /// Invitation token
-    pub token: String,
-}
-
-/// Response for accepting an invitation
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AcceptInvitationResponse {
-    /// Organization the user joined
-    pub organization: OrganizationResponse,
-}
-
-/// Response for deleting an invitation
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DeleteInvitationResponse {
-    /// Success message
-    pub message: String,
 }
 
 /// Create a new organization invitation
@@ -767,7 +601,7 @@ pub async fn create_invitation(
     repos.org_invitation.create(invitation.clone()).await?;
 
     // Convert to response and include token
-    let mut invitation_response: InvitationResponse = invitation.into();
+    let mut invitation_response = invitation_to_response(invitation);
     invitation_response.token = Some(token);
 
     Ok(Json(CreateInvitationResponse {
@@ -795,7 +629,10 @@ pub async fn list_invitations(
         .await?;
 
     Ok(Json(ListInvitationsResponse {
-        invitations: invitations.into_iter().map(Into::into).collect(),
+        invitations: invitations
+            .into_iter()
+            .map(invitation_to_response)
+            .collect(),
     }))
 }
 
@@ -938,20 +775,6 @@ pub async fn accept_invitation(
 // ============================================================================
 // Ownership Transfer
 // ============================================================================
-
-/// Request body for transferring ownership
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TransferOwnershipRequest {
-    /// User ID of the new owner (must be existing member)
-    pub new_owner_user_id: i64,
-}
-
-/// Response for ownership transfer
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TransferOwnershipResponse {
-    /// Success message
-    pub message: String,
-}
 
 /// Transfer organization ownership
 ///

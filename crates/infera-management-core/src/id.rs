@@ -1,7 +1,7 @@
-use crate::error::{Error, Result};
 use chrono::Utc;
 use idgenerator::IdGeneratorOptions;
 use infera_management_storage::StorageBackend;
+use infera_management_types::error::{Error, Result};
 use std::sync::{Arc, Once};
 use std::time::Duration;
 use tokio::sync::RwLock;
