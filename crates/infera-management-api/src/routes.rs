@@ -3,8 +3,7 @@ use crate::handlers::{
     organizations, sessions, teams, tokens, users, vaults, AppState,
 };
 use crate::middleware::{
-    logging_middleware, require_organization_member, require_session,
-    require_session_or_server_jwt,
+    logging_middleware, require_organization_member, require_session, require_session_or_server_jwt,
 };
 use axum::{
     middleware,
@@ -254,7 +253,10 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
     // Routes that accept EITHER session auth OR server JWT (for server-to-server)
     let dual_auth = Router::new()
         // Organization GET endpoint - used by users and by server for verification
-        .route("/v1/organizations/{org}", get(organizations::get_organization))
+        .route(
+            "/v1/organizations/{org}",
+            get(organizations::get_organization_by_id),
+        )
         // Vault GET endpoint - used by users and by server for vault ownership verification
         .route("/v1/vaults/{vault}", get(vaults::get_vault_by_id))
         .with_state(state.clone())
@@ -303,9 +305,9 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             get(jwks::get_org_jwks),
         )
         .with_state(state)
-        .merge(dual_auth)
-        .merge(protected)
         .merge(org_scoped)
+        .merge(protected)
+        .merge(dual_auth)
         // Add logging middleware to log all requests
         .layer(middleware::from_fn(logging_middleware))
 }

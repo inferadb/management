@@ -45,9 +45,10 @@ pub use organizations::{
     CreateInvitationResponse, CreateOrganizationRequest, CreateOrganizationResponse,
     DeleteInvitationResponse, DeleteOrganizationResponse, GetOrganizationResponse,
     InvitationResponse, ListInvitationsResponse, ListMembersResponse, ListOrganizationsResponse,
-    OrganizationMemberResponse, OrganizationResponse, RemoveMemberResponse,
-    TransferOwnershipRequest, TransferOwnershipResponse, UpdateMemberRoleRequest,
-    UpdateMemberRoleResponse, UpdateOrganizationRequest, UpdateOrganizationResponse,
+    OrganizationMemberResponse, OrganizationResponse, OrganizationServerResponse,
+    OrganizationStatus, RemoveMemberResponse, TransferOwnershipRequest,
+    TransferOwnershipResponse, UpdateMemberRoleRequest, UpdateMemberRoleResponse,
+    UpdateOrganizationRequest, UpdateOrganizationResponse,
 };
 
 pub use sessions::{ListSessionsResponse, RevokeSessionResponse, SessionInfo};

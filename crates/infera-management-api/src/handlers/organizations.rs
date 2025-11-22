@@ -10,9 +10,9 @@ use infera_management_types::{
         DeleteInvitationResponse, DeleteOrganizationResponse, GetOrganizationResponse,
         InvitationResponse, ListInvitationsResponse, ListMembersResponse,
         ListOrganizationsResponse, OrganizationMemberResponse, OrganizationResponse,
-        RemoveMemberResponse, TransferOwnershipRequest, TransferOwnershipResponse,
-        UpdateMemberRoleRequest, UpdateMemberRoleResponse, UpdateOrganizationRequest,
-        UpdateOrganizationResponse,
+        OrganizationServerResponse, OrganizationStatus, RemoveMemberResponse,
+        TransferOwnershipRequest, TransferOwnershipResponse, UpdateMemberRoleRequest,
+        UpdateMemberRoleResponse, UpdateOrganizationRequest, UpdateOrganizationResponse,
     },
     entities::{
         Organization, OrganizationInvitation, OrganizationMember, OrganizationRole,
@@ -212,6 +212,46 @@ pub async fn get_organization(
             created_at: org.created_at.to_rfc3339(),
             role: role_to_string(&org_ctx.member.role),
         },
+    }))
+}
+
+/// Get organization by ID (server-to-server endpoint)
+///
+/// GET /v1/organizations/:org
+/// Auth: Session or Server JWT (dual authentication)
+///
+/// This endpoint is used by the server to verify organization status.
+/// Unlike `get_organization`, this does not require organization context
+/// and returns minimal information (no user role).
+///
+/// Returns organization status as Active, Suspended, or Deleted.
+/// Currently only Active and Deleted states are implemented.
+pub async fn get_organization_by_id(
+    State(state): State<AppState>,
+    Path(org_id): Path<i64>,
+) -> Result<Json<OrganizationServerResponse>> {
+    let repos = RepositoryContext::new((*state.storage).clone());
+
+    // Get organization
+    let org = repos
+        .org
+        .get(org_id)
+        .await?
+        .ok_or_else(|| CoreError::NotFound("Organization not found".to_string()))?;
+
+    // Determine status based on deleted_at field
+    // Currently we only have Active and Deleted states
+    // Suspended state would require adding a new field to the Organization entity
+    let status = if org.is_deleted() {
+        OrganizationStatus::Deleted
+    } else {
+        OrganizationStatus::Active
+    };
+
+    Ok(Json(OrganizationServerResponse {
+        id: org.id,
+        name: org.name,
+        status,
     }))
 }
 

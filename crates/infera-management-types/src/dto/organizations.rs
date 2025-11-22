@@ -199,3 +199,33 @@ pub struct TransferOwnershipResponse {
     /// Success message
     pub message: String,
 }
+
+// ============================================================================
+// Server-to-Server Organization Info
+// ============================================================================
+
+/// Organization status for server-to-server communication
+/// This mirrors the server's OrgStatus enum for compatibility
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrganizationStatus {
+    /// Organization is active
+    Active,
+    /// Organization is suspended
+    Suspended,
+    /// Organization is deleted
+    Deleted,
+}
+
+/// Organization information for server-to-server endpoints
+/// This response format is specifically for the server API to verify
+/// organization status without requiring user session context.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OrganizationServerResponse {
+    /// Organization ID
+    pub id: i64,
+    /// Organization name
+    pub name: String,
+    /// Organization status (Active, Suspended, or Deleted)
+    pub status: OrganizationStatus,
+}
