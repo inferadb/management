@@ -101,6 +101,20 @@ pub struct AuthConfig {
     /// Key encryption secret for encrypting private keys at rest
     /// Should be set via environment variable INFERADB_MGMT_KEY_ENCRYPTION_SECRET
     pub key_encryption_secret: Option<String>,
+
+    /// JWT issuer URL (this Management API instance)
+    /// Used in vault-scoped JWTs issued to clients
+    /// Example: "https://api.inferadb.com" or "http://localhost:8081"
+    /// Environment variable: INFERA_MANAGEMENT__AUTH__JWT_ISSUER
+    #[serde(default = "default_jwt_issuer")]
+    pub jwt_issuer: String,
+
+    /// JWT audience URL (the Server API)
+    /// Used in vault-scoped JWTs issued to clients
+    /// Example: "https://api.inferadb.com/evaluate" or "http://localhost:8080/evaluate"
+    /// Environment variable: INFERA_MANAGEMENT__AUTH__JWT_AUDIENCE
+    #[serde(default = "default_jwt_audience")]
+    pub jwt_audience: String,
 }
 
 /// WebAuthn configuration
@@ -304,6 +318,14 @@ fn default_frontend_base_url() -> String {
     "http://localhost:3000".to_string()
 }
 
+fn default_jwt_issuer() -> String {
+    "https://api.inferadb.com".to_string()
+}
+
+fn default_jwt_audience() -> String {
+    "https://api.inferadb.com/evaluate".to_string()
+}
+
 impl ManagementConfig {
     /// Load configuration from a file with environment variable overrides
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -425,6 +447,8 @@ mod tests {
                     origin: "http://localhost:3000".to_string(),
                 },
                 key_encryption_secret: Some("test-secret".to_string()),
+                jwt_issuer: default_jwt_issuer(),
+                jwt_audience: default_jwt_audience(),
             },
             email: EmailConfig {
                 smtp_host: "localhost".to_string(),
@@ -491,6 +515,8 @@ mod tests {
                     origin: "http://localhost:3000".to_string(),
                 },
                 key_encryption_secret: Some("test-secret".to_string()),
+                jwt_issuer: default_jwt_issuer(),
+                jwt_audience: default_jwt_audience(),
             },
             email: EmailConfig {
                 smtp_host: "localhost".to_string(),

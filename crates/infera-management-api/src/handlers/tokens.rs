@@ -153,6 +153,8 @@ pub async fn generate_vault_token(
         vault_id,
         vault_role,
         access_ttl,
+        &state.config.auth.jwt_issuer,
+        &state.config.auth.jwt_audience,
     );
 
     // Sign the access token
@@ -302,6 +304,8 @@ pub async fn refresh_vault_token(
         old_token.vault_id,
         old_token.vault_role,
         access_ttl,
+        &state.config.auth.jwt_issuer,
+        &state.config.auth.jwt_audience,
     );
 
     let access_token = signer.sign_vault_token(&claims, &certificate)?;
@@ -577,6 +581,8 @@ pub async fn client_assertion_authenticate(
         vault_id,
         requested_role,
         access_ttl,
+        &state.config.auth.jwt_issuer,
+        &state.config.auth.jwt_audience,
     );
 
     let access_token = signer.sign_vault_token(&vault_claims, &certificate)?;

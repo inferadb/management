@@ -230,6 +230,33 @@ pub async fn get_vault(
     Ok(Json(vault_to_response(vault)))
 }
 
+/// Get a specific vault by ID (server-to-server endpoint)
+///
+/// GET /v1/vaults/:vault
+/// Auth: Session or Server JWT (dual authentication)
+///
+/// This endpoint is used by the Server API to verify vault ownership and metadata.
+/// Unlike the organization-scoped endpoint, this uses the vault ID directly without
+/// requiring organization context.
+pub async fn get_vault_by_id(
+    State(state): State<AppState>,
+    Path(vault_id): Path<i64>,
+) -> Result<Json<VaultResponse>> {
+    let repos = RepositoryContext::new((*state.storage).clone());
+    let vault = repos
+        .vault
+        .get(vault_id)
+        .await?
+        .ok_or_else(|| CoreError::NotFound("Vault not found".to_string()))?;
+
+    // Don't return deleted vaults
+    if vault.is_deleted() {
+        return Err(CoreError::NotFound("Vault not found".to_string()).into());
+    }
+
+    Ok(Json(vault_to_response(vault)))
+}
+
 /// Update a vault
 ///
 /// PATCH /v1/organizations/:org/vaults/:vault

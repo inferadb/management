@@ -2,7 +2,10 @@ use crate::handlers::{
     audit_logs, auth, cli_auth, clients, emails, health, jwks, metrics as metrics_handler,
     organizations, sessions, teams, tokens, users, vaults, AppState,
 };
-use crate::middleware::{logging_middleware, require_organization_member, require_session};
+use crate::middleware::{
+    logging_middleware, require_organization_member, require_session,
+    require_session_or_server_jwt,
+};
 use axum::{
     middleware,
     routing::{delete, get, patch, post},
@@ -16,10 +19,7 @@ use axum::{
 pub fn create_router_with_state(state: AppState) -> axum::Router {
     // Routes that need organization context (session + org membership)
     let org_scoped = Router::new()
-        .route(
-            "/v1/organizations/{org}",
-            get(organizations::get_organization),
-        )
+        // Organization management routes (PATCH/DELETE only, GET is in dual_auth)
         .route(
             "/v1/organizations/{org}",
             patch(organizations::update_organization),
@@ -101,13 +101,9 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             "/v1/organizations/{org}/clients/{client}/certificates/{cert}",
             get(clients::get_certificate).delete(clients::delete_certificate),
         )
-        // Vault management routes
+        // Vault management routes (GET for single vault is in dual_auth)
         .route("/v1/organizations/{org}/vaults", post(vaults::create_vault))
         .route("/v1/organizations/{org}/vaults", get(vaults::list_vaults))
-        .route(
-            "/v1/organizations/{org}/vaults/{vault}",
-            get(vaults::get_vault),
-        )
         .route(
             "/v1/organizations/{org}/vaults/{vault}",
             patch(vaults::update_vault),
@@ -255,6 +251,18 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             require_session,
         ));
 
+    // Routes that accept EITHER session auth OR server JWT (for server-to-server)
+    let dual_auth = Router::new()
+        // Organization GET endpoint - used by users and by server for verification
+        .route("/v1/organizations/{org}", get(organizations::get_organization))
+        // Vault GET endpoint - used by users and by server for vault ownership verification
+        .route("/v1/vaults/{vault}", get(vaults::get_vault_by_id))
+        .with_state(state.clone())
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            require_session_or_server_jwt,
+        ));
+
     // Combine public, protected, and org-scoped routes
     Router::new()
         // Health check endpoints (no authentication)
@@ -295,6 +303,7 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             get(jwks::get_org_jwks),
         )
         .with_state(state)
+        .merge(dual_auth)
         .merge(protected)
         .merge(org_scoped)
         // Add logging middleware to log all requests

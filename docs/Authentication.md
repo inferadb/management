@@ -134,7 +134,7 @@ Vault-scoped JWTs issued by the Management API contain the following claims:
   "org_id": "9876543210987654321",
   "vault_id": "1111222233334444555",
   "vault_role": "write",
-  "scope": "vault:read vault:write"
+  "scope": "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources"
 }
 ```
 
@@ -148,11 +148,11 @@ Vault-scoped JWTs issued by the Management API contain the following claims:
 - **org_id**: Organization ID (Snowflake ID as string)
 - **vault_id**: The vault ID this token grants access to (Snowflake ID as string)
 - **vault_role**: Permission level (lowercase: `read`, `write`, `manage`, `admin`)
-- **scope**: Space-separated permissions based on role:
-  - `read`: "vault:read"
-  - `write`: "vault:read vault:write"
-  - `manage`: "vault:read vault:write vault:manage"
-  - `admin`: "vault:read vault:write vault:manage vault:admin"
+- **scope**: Space-separated API permissions based on role:
+  - `read`: "inferadb.check inferadb.read inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources"
+  - `write`: "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources"
+  - `manage`: "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage"
+  - `admin`: "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage inferadb.admin"
 
 **Note**: This structure follows the Server API specification where:
 
@@ -462,7 +462,7 @@ sequenceDiagram
 
     Note over MgmtAPI: 4. Parse Assertion JWT<br/>5. Lookup Client by iss/sub<br/>6. Verify Signature (Public Key)<br/>7. Validate Claims (aud, exp, jti)<br/>8. Check Vault Permissions<br/>9. Generate Vault-Scoped JWT
 
-    MgmtAPI-->>Backend: 10. Vault Token Response<br/>{access_token: {vault_jwt},<br/>token_type: Bearer,<br/>expires_in: 300,<br/>vault_role: "write",<br/>scope: "vault:read vault:write"}
+    MgmtAPI-->>Backend: 10. Vault Token Response<br/>{access_token: {vault_jwt},<br/>token_type: Bearer,<br/>expires_in: 300,<br/>vault_role: "write",<br/>scope: "inferadb.check inferadb.read inferadb.write ..."}
 
     Note over Backend: 11. Cache JWT (~5 min)<br/>12. Use for Server API Requests<br/>13. Repeat when expired
 ```
@@ -477,8 +477,8 @@ Content-Type: application/json
   "grant_type": "client_credentials",
   "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
   "client_assertion": "<signed_jwt>",
-  "vault_id": "<vault_id>",           // Required: Which vault to access
-  "requested_role": "write"            // Optional: "read", "write", "manage", or "admin" (defaults to "read")
+  "vault_id": "<vault_id>", // Required: Which vault to access
+  "requested_role": "write" // Optional: "read", "write", "manage", or "admin" (defaults to "read")
 }
 ```
 
@@ -869,6 +869,7 @@ InferaDB follows security-first principles with short-lived tokens as the defaul
 **Recommended Configuration** (Security-First):
 
 - **Session Tokens**: Varies by session type
+
   - **Web Sessions**: 24 hours (86,400 seconds)
   - **CLI Sessions**: 7 days (604,800 seconds)
   - **SDK Sessions**: 30 days (2,592,000 seconds)
@@ -884,6 +885,7 @@ InferaDB follows security-first principles with short-lived tokens as the defaul
   - Limits attack window to 5 minutes maximum
 
 - **Vault Refresh Tokens**: Varies by auth method
+
   - **User Session Refresh Tokens**: 1 hour (3,600 seconds)
     - For interactive user sessions
     - Allows ~12 refreshes before requiring new vault token request
@@ -1004,13 +1006,13 @@ Authorization: Bearer {admin_session_token}
 
 **Revocation Propagation Delay**:
 
-| Token Type                   | Revocation Method  | Max Delay                 |
-| ---------------------------- | ------------------ | ------------------------- |
-| Session Token                | Direct revocation  | Immediate                 |
-| Vault JWT (via session)      | Session revocation | 5 minutes (JWT expiry)    |
-| Vault JWT (via membership)   | Remove from vault  | 5 minutes (JWT expiry)    |
-| Vault JWT (via key rotation) | JWKS update        | 5 minutes (JWKS cache TTL)|
-| Refresh Token                | Session revocation | Immediate                 |
+| Token Type                   | Revocation Method  | Max Delay                  |
+| ---------------------------- | ------------------ | -------------------------- |
+| Session Token                | Direct revocation  | Immediate                  |
+| Vault JWT (via session)      | Session revocation | 5 minutes (JWT expiry)     |
+| Vault JWT (via membership)   | Remove from vault  | 5 minutes (JWT expiry)     |
+| Vault JWT (via key rotation) | JWKS update        | 5 minutes (JWKS cache TTL) |
+| Refresh Token                | Session revocation | Immediate                  |
 
 #### Client Certificate Revocation
 
@@ -1105,6 +1107,288 @@ sequenceDiagram
     ServerAPI-->>Client: 401 Token expired
 ```
 
+## Server-to-Management Authentication
+
+### Overview
+
+The Server API and Management API implement bidirectional JWT authentication using Ed25519 keypairs:
+
+1. **Management-to-Server**: Management API issues vault tokens for clients (documented above)
+2. **Server-to-Management**: Server API authenticates to Management API for verification operations
+
+This bidirectional architecture allows the Server API to verify vault ownership and organization status by making authenticated requests back to the Management API.
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant Client as Client App
+    participant ServerAPI as Server API
+    participant MgmtAPI as Management API
+
+    Note over ServerAPI: Server boots with Ed25519 keypair
+
+    ServerAPI->>ServerAPI: Load/generate server identity
+    ServerAPI->>ServerAPI: Expose JWKS endpoint
+
+    Note over Client: Client makes request to Server API
+
+    Client->>ServerAPI: POST /check<br/>Authorization: Bearer {vault_jwt}
+
+    Note over ServerAPI: Need to verify vault ownership
+
+    ServerAPI->>ServerAPI: Generate server JWT (5 min TTL)
+    ServerAPI->>MgmtAPI: GET /v1/vaults/{vault_id}<br/>Authorization: Bearer {server_jwt}
+
+    MgmtAPI->>ServerAPI: Fetch JWKS from /.well-known/jwks.json
+    MgmtAPI->>MgmtAPI: Verify server JWT signature
+    MgmtAPI->>MgmtAPI: Validate claims (iss, sub, aud, exp)
+    MgmtAPI-->>ServerAPI: Vault details (org_id, name, status)
+
+    ServerAPI->>ServerAPI: Cache vault details (5 min TTL)
+    ServerAPI->>MgmtAPI: GET /v1/organizations/{org_id}<br/>Authorization: Bearer {server_jwt}
+    MgmtAPI-->>ServerAPI: Organization status
+
+    ServerAPI->>ServerAPI: Cache org status (5 min TTL)
+    ServerAPI->>ServerAPI: Evaluate policy
+    ServerAPI-->>Client: Authorization decision
+```
+
+### Server Identity Configuration
+
+The Server API uses an Ed25519 keypair as its identity:
+
+**Development Mode** (auto-generation):
+
+```yaml
+auth:
+  enabled: true
+  management_api_url: "http://localhost:8081"
+  # Omit server_identity_private_key to auto-generate
+  server_identity_kid: "server-primary-2024"
+  server_id: "inferadb-server-dev"
+```
+
+On startup without a configured key, the server will:
+
+1. Generate a new Ed25519 keypair
+2. Log the PEM-encoded private key (WARNING level)
+3. Use this key for the current session
+4. Expose the public key via JWKS endpoint
+
+**Production Mode** (configured key):
+
+```yaml
+auth:
+  enabled: true
+  management_api_url: "https://management.example.com"
+  server_identity_private_key: |
+    -----BEGIN PRIVATE KEY-----
+    MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
+    -----END PRIVATE KEY-----
+  server_identity_kid: "server-primary-2024"
+  server_id: "inferadb-server-prod-us-east-1"
+```
+
+Key management best practices:
+
+- Store private keys in secure secret management (Vault, AWS Secrets Manager, etc.)
+- Use unique `server_id` per deployment/region
+- Rotate keys periodically (update `kid` when rotating)
+- Never commit private keys to version control
+
+### Server JWT Claims Structure
+
+Server-to-Management JWTs use the following claims:
+
+```json
+{
+  "iss": "inferadb-server:{server_id}",
+  "sub": "server:{server_id}",
+  "aud": "http://localhost:8081",
+  "iat": 1704123456,
+  "exp": 1704123756,
+  "jti": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Claim Descriptions**:
+
+- **iss** (issuer): Identifies the server instance (`inferadb-server:{server_id}`)
+- **sub** (subject): Server principal (`server:{server_id}`)
+- **aud** (audience): Management API base URL (from config)
+- **iat** (issued at): Unix timestamp of token creation
+- **exp** (expiration): 5 minutes from issuance (short-lived for security)
+- **jti** (JWT ID): Unique identifier for replay protection (UUID v4)
+
+**Security Properties**:
+
+- Short expiration (5 minutes) limits exposure if token is compromised
+- JTI enables replay attack detection (if implemented)
+- EdDSA signature ensures token integrity and authenticity
+
+### JWKS Endpoint
+
+The Server API exposes its public key at `/.well-known/jwks.json`:
+
+```bash
+curl http://localhost:8080/.well-known/jwks.json
+```
+
+Response:
+
+```json
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "alg": "EdDSA",
+      "kid": "server-primary-2024",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "use": "sig"
+    }
+  ]
+}
+```
+
+**Field Descriptions**:
+
+- **kty**: Key type (always "OKP" for Ed25519)
+- **alg**: Algorithm (always "EdDSA" for Ed25519 signatures)
+- **kid**: Key identifier (matches server_identity_kid config)
+- **crv**: Curve name (always "Ed25519")
+- **x**: Base64url-encoded public key (32 bytes)
+- **use**: Key usage (always "sig" for signature)
+
+### Dual Authentication Middleware
+
+Certain Management API endpoints accept EITHER session authentication OR server JWT authentication:
+
+**Dual-Auth Endpoints**:
+
+- `GET /v1/organizations/{org}` - Fetch organization details
+- `GET /v1/vaults/{vault}` - Fetch vault details
+
+**Authentication Logic**:
+
+```rust
+// Check if request has Bearer token (non-numeric)
+if has_bearer_token && !has_session {
+    return require_server_jwt(request);  // Server authentication
+}
+
+// Check if request has session cookie or numeric Bearer token
+if has_session {
+    return require_session(request);  // User authentication
+}
+
+// No recognizable auth
+return Err("Authentication required");
+```
+
+**User Request Example**:
+
+```bash
+curl -X GET http://localhost:8081/v1/organizations/123456789 \
+  -H "Cookie: session_id=987654321"
+```
+
+**Server Request Example**:
+
+```bash
+curl -X GET http://localhost:8081/v1/organizations/123456789 \
+  -H "Authorization: Bearer eyJhbGc...(server JWT)"
+```
+
+Both requests access the same endpoint but authenticate differently:
+
+- User requests validate session against database
+- Server requests validate JWT signature against server's JWKS
+- Authorization logic adapts to the authentication type
+
+### JWKS Caching Strategy
+
+The Management API caches server JWKS to avoid fetching on every request:
+
+```rust
+static JWKS_CACHE: once_cell::sync::Lazy<JwksCache> =
+    once_cell::sync::Lazy::new(|| JwksCache::new(900)); // 15 minutes TTL
+```
+
+**Cache Behavior**:
+
+1. First server JWT validation triggers JWKS fetch
+2. JWKS cached for 15 minutes
+3. Subsequent validations use cached keys (no network call)
+4. After TTL expires, next validation refetches JWKS
+5. Thread-safe via `Arc<RwLock<...>>`
+
+**Performance Impact**:
+
+- First validation: ~50-100ms (network roundtrip)
+- Cached validations: <1ms (local signature verification)
+- Cache hit rate: >99% in steady state
+
+### Use Cases
+
+**Vault Ownership Verification**:
+
+```rust
+// Server needs to verify vault belongs to expected organization
+let vault = management_client.get_vault(vault_id).await?;
+if vault.organization_id != expected_org_id {
+    return Err("Vault does not belong to organization");
+}
+```
+
+**Organization Status Check**:
+
+```rust
+// Server needs to verify organization is not suspended
+let org = management_client.get_organization(org_id).await?;
+if org.status != "active" {
+    return Err("Organization suspended");
+}
+```
+
+**Client Certificate Verification** (from Management-to-Server flow):
+
+```rust
+// Server validates client certificate via Management API
+let cert = management_client
+    .get_certificate(org_id, client_id, cert_id)
+    .await?;
+
+if cert.revoked {
+    return Err("Certificate revoked");
+}
+```
+
+### Security Considerations
+
+**Key Rotation**:
+
+- Generate new Ed25519 keypair
+- Update configuration with new private key
+- Change `server_identity_kid` to new value
+- Deploy updated configuration
+- Old JWKS entries expire from Management API cache (15 min)
+
+**Threat Model**:
+
+- **Server key compromise**: Attacker can impersonate server to Management API (mitigated by short JWT TTL)
+- **JWKS endpoint spoofing**: Attacker cannot spoof without DNS/network access (use HTTPS in production)
+- **Replay attacks**: JTI claim enables detection (not currently enforced)
+
+**Best Practices**:
+
+- Use HTTPS for all production traffic
+- Store server private keys in secret management systems
+- Monitor authentication failures in Management API logs
+- Implement JTI-based replay protection for high-security deployments
+- Rotate keys on a regular schedule (e.g., quarterly)
+
 ## Integration Points
 
 ### Management API Responsibilities
@@ -1112,16 +1396,22 @@ sequenceDiagram
 - User identity verification
 - Session lifecycle management
 - Vault permission checks
-- JWT issuance and signing
+- JWT issuance and signing (vault tokens for clients)
 - JWKS publication for Server API
 - Refresh token rotation
+- **Server JWT verification** (verifying server-to-management requests)
+- **Server JWKS caching** (caching server public keys with 15-min TTL)
+- **Dual authentication support** (accepting both session and server JWT)
 
 ### Server API Responsibilities
 
-- JWT signature validation
+- JWT signature validation (client vault tokens)
 - Claims verification
 - Policy evaluation
 - Authorization decisions
 - Relationship graph queries
+- **Server JWT issuance** (signing requests to Management API)
+- **Server JWKS publication** (exposing public key at `/.well-known/jwks.json`)
+- **Management API verification calls** (fetching vault/org data for verification)
 
-This clean separation allows each service to focus on its core competency while maintaining strong security guarantees across the system.
+This clean separation allows each service to focus on its core competency while maintaining strong security guarantees across the system. The bidirectional authentication architecture enables secure server-to-server communication for verification operations while preserving the stateless nature of policy evaluation.
