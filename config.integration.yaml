@@ -49,3 +49,13 @@ id_generation:
 server_api:
   grpc_endpoint: "http://server:8080" # Docker service name
   tls_enabled: false
+
+management_identity:
+  management_id: "management-integration-test"
+  kid: "mgmt-test-2024"
+
+cache_invalidation:
+  http_endpoints:
+    - "http://server:8080"
+  timeout_ms: 5000
+  retry_attempts: 0

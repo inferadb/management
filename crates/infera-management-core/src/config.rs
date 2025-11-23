@@ -30,6 +30,14 @@ pub struct ManagementConfig {
     /// Server API configuration (for gRPC communication with @server)
     pub server_api: ServerApiConfig,
 
+    /// Management identity configuration (for webhook authentication)
+    #[serde(default = "default_management_identity")]
+    pub management_identity: ManagementIdentityConfig,
+
+    /// Cache invalidation webhook configuration
+    #[serde(default = "default_cache_invalidation")]
+    pub cache_invalidation: CacheInvalidationConfig,
+
     /// Frontend base URL for email links (verification, password reset)
     /// Example: "https://app.inferadb.com" or "http://localhost:3000"
     /// Environment variable: INFERADB_MGMT__FRONTEND_BASE_URL
@@ -217,6 +225,38 @@ pub struct ServerApiConfig {
     pub tls_enabled: bool,
 }
 
+/// Management identity configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ManagementIdentityConfig {
+    /// Management instance ID (unique identifier for this management instance)
+    #[serde(default = "default_management_id")]
+    pub management_id: String,
+
+    /// Key ID for JWKS
+    #[serde(default = "default_kid")]
+    pub kid: String,
+
+    /// Ed25519 private key in PEM format (optional - will auto-generate if not provided)
+    pub private_key_pem: Option<String>,
+}
+
+/// Cache invalidation webhook configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheInvalidationConfig {
+    /// HTTP endpoints for Server API instances (for webhook calls)
+    /// Example: ["http://localhost:8080", "http://server-2:8080"]
+    #[serde(default = "default_http_endpoints")]
+    pub http_endpoints: Vec<String>,
+
+    /// Webhook request timeout in milliseconds
+    #[serde(default = "default_webhook_timeout_ms")]
+    pub timeout_ms: u64,
+
+    /// Number of retry attempts on webhook failure
+    #[serde(default = "default_webhook_retry_attempts")]
+    pub retry_attempts: u8,
+}
+
 // Default value functions
 fn default_http_host() -> String {
     "127.0.0.1".to_string()
@@ -324,6 +364,42 @@ fn default_jwt_issuer() -> String {
 
 fn default_jwt_audience() -> String {
     "https://api.inferadb.com/evaluate".to_string()
+}
+
+fn default_management_identity() -> ManagementIdentityConfig {
+    ManagementIdentityConfig {
+        management_id: "management-primary".to_string(),
+        kid: "mgmt-2024-01".to_string(),
+        private_key_pem: None, // Auto-generate on startup
+    }
+}
+
+fn default_cache_invalidation() -> CacheInvalidationConfig {
+    CacheInvalidationConfig {
+        http_endpoints: vec![], // No webhooks by default
+        timeout_ms: 5000,       // 5 seconds
+        retry_attempts: 0,      // Fire-and-forget (no retries)
+    }
+}
+
+fn default_management_id() -> String {
+    "management-primary".to_string()
+}
+
+fn default_kid() -> String {
+    "mgmt-2024-01".to_string()
+}
+
+fn default_http_endpoints() -> Vec<String> {
+    vec![] // Empty by default - webhooks disabled
+}
+
+fn default_webhook_timeout_ms() -> u64 {
+    5000 // 5 seconds
+}
+
+fn default_webhook_retry_attempts() -> u8 {
+    0 // Fire-and-forget
 }
 
 impl ManagementConfig {
@@ -478,6 +554,8 @@ mod tests {
                 grpc_endpoint: "http://localhost:8080".to_string(),
                 tls_enabled: false,
             },
+            management_identity: default_management_identity(),
+            cache_invalidation: default_cache_invalidation(),
             frontend_base_url: default_frontend_base_url(),
         };
 
@@ -546,6 +624,8 @@ mod tests {
                 grpc_endpoint: "http://localhost:8080".to_string(),
                 tls_enabled: false,
             },
+            management_identity: default_management_identity(),
+            cache_invalidation: default_cache_invalidation(),
             frontend_base_url: default_frontend_base_url(),
         };
 

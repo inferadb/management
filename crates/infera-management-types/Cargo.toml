@@ -18,6 +18,7 @@ thiserror = { workspace = true }
 
 # Cryptography (for entity types that use crypto primitives)
 base64 = { workspace = true }
+ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 sha2 = { workspace = true }
 
@@ -37,3 +38,8 @@ zeroize = { workspace = true }
 
 # Snowflake ID generation (for entity types)
 idgenerator = { workspace = true }
+
+# JWT and PEM encoding (for ManagementIdentity)
+jsonwebtoken = { workspace = true }
+pem = { workspace = true }
+uuid = { workspace = true }

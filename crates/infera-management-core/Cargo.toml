@@ -49,6 +49,10 @@ webauthn-rs = { workspace = true }
 regex = { workspace = true }
 validator = { workspace = true }
 
+# HTTP client (for webhook notifications)
+reqwest = { workspace = true }
+url = { workspace = true }
+
 # Metrics
 metrics = { workspace = true }
 

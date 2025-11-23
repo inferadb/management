@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
-use infera_management_core::{logging, ManagementConfig};
+use infera_management_api::ManagementIdentity;
+use infera_management_core::{logging, ManagementConfig, WebhookClient};
 use infera_management_grpc::ServerApiClient;
 use infera_management_storage::factory::{create_storage_backend, StorageConfig};
 use std::sync::Arc;
@@ -62,6 +63,67 @@ async fn main() -> Result<()> {
     )?);
     tracing::info!("Server API client initialized successfully");
 
+    // Initialize Management API identity for webhook authentication
+    tracing::info!(
+        management_id = %config.management_identity.management_id,
+        kid = %config.management_identity.kid,
+        "Initializing Management API identity"
+    );
+    let management_identity = if let Some(ref pem) = config.management_identity.private_key_pem {
+        tracing::info!("Loading Management identity from configured private key");
+        ManagementIdentity::from_pem(
+            config.management_identity.management_id.clone(),
+            config.management_identity.kid.clone(),
+            pem,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to load Management identity from PEM: {}", e))?
+    } else {
+        tracing::info!("Generating new Management identity (no private key configured)");
+        let identity = ManagementIdentity::generate(
+            config.management_identity.management_id.clone(),
+            config.management_identity.kid.clone(),
+        );
+
+        // Log the generated PEM for persistence (in production, save this to config)
+        let pem = identity.to_pem();
+        tracing::warn!(
+            "Generated new Ed25519 keypair for Management identity. \
+             To persist this identity across restarts, add this to your config:\n\
+             management_identity:\n  private_key_pem: |\n{}",
+            pem.lines().map(|l| format!("    {}", l)).collect::<Vec<_>>().join("\n")
+        );
+
+        identity
+    };
+    let management_identity = Arc::new(management_identity);
+    tracing::info!("Management API identity initialized successfully");
+
+    // Initialize webhook client for cache invalidation (if endpoints configured)
+    let webhook_client = if !config.cache_invalidation.http_endpoints.is_empty() {
+        tracing::info!(
+            endpoints = ?config.cache_invalidation.http_endpoints,
+            timeout_ms = config.cache_invalidation.timeout_ms,
+            retry_attempts = config.cache_invalidation.retry_attempts,
+            "Initializing webhook client for cache invalidation"
+        );
+
+        let client = WebhookClient::new(
+            config.cache_invalidation.http_endpoints.clone(),
+            Arc::clone(&management_identity),
+            config.cache_invalidation.timeout_ms,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create webhook client: {}", e))?;
+
+        tracing::info!(
+            discovered_endpoints = client.endpoint_count(),
+            "Webhook client initialized successfully"
+        );
+        Some(Arc::new(client))
+    } else {
+        tracing::info!("Webhook client disabled (no http_endpoints configured)");
+        None
+    };
+
     // Wrap config in Arc for sharing across services
     let config = Arc::new(config);
 
@@ -76,6 +138,8 @@ async fn main() -> Result<()> {
         config.id_generation.worker_id,
         None, // leader election (optional, for multi-node)
         None, // email service (optional, can be initialized later)
+        webhook_client, // cache invalidation webhooks
+        Some(management_identity), // management identity for JWKS endpoint
     )
     .await?;
 

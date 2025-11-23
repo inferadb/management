@@ -15,6 +15,7 @@ pub mod metrics;
 pub mod ratelimit;
 pub mod repository;
 pub mod repository_context;
+pub mod webhook_client;
 
 pub use auth::{hash_password, verify_password, PasswordHasher};
 pub use clock::{ClockStatus, ClockValidator};
@@ -41,3 +42,4 @@ pub use repository::{
     VaultTeamGrantRepository, VaultUserGrantRepository,
 };
 pub use repository_context::RepositoryContext;
+pub use webhook_client::WebhookClient;

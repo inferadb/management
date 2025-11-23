@@ -289,6 +289,11 @@ pub async fn update_vault(
     // Save changes
     repos.vault.update(vault.clone()).await?;
 
+    // Invalidate caches on all servers (vault metadata changed)
+    if let Some(ref webhook_client) = state.webhook_client {
+        webhook_client.invalidate_vault(vault_id).await;
+    }
+
     Ok(Json(UpdateVaultResponse {
         vault: VaultDetail {
             id: vault.id,
@@ -362,6 +367,11 @@ pub async fn delete_vault(
     // Soft delete
     vault.mark_deleted();
     repos.vault.update(vault).await?;
+
+    // Invalidate caches on all servers
+    if let Some(ref webhook_client) = state.webhook_client {
+        webhook_client.invalidate_vault(vault_id).await;
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }

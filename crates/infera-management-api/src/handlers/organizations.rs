@@ -374,6 +374,11 @@ pub async fn delete_organization(
     // Finally, soft delete the organization
     repos.org.delete(org_ctx.organization_id).await?;
 
+    // Invalidate caches on all servers
+    if let Some(ref webhook_client) = state.webhook_client {
+        webhook_client.invalidate_organization(org_ctx.organization_id).await;
+    }
+
     Ok(Json(DeleteOrganizationResponse {
         message: "Organization deleted successfully".to_string(),
     }))

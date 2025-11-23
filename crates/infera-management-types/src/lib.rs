@@ -24,6 +24,14 @@ pub mod error;
 pub use error::{Error, Result};
 
 // ============================================================================
+// Management Identity (for webhook authentication)
+// ============================================================================
+
+pub mod identity;
+
+pub use identity::{ManagementIdentity, SharedManagementIdentity};
+
+// ============================================================================
 // Pagination Types
 // ============================================================================
 

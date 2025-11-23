@@ -36,6 +36,8 @@ pub struct AppState {
     pub start_time: std::time::SystemTime,
     pub leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
     pub email_service: Option<Arc<infera_management_core::EmailService>>,
+    pub webhook_client: Option<Arc<infera_management_core::WebhookClient>>,
+    pub management_identity: Option<Arc<infera_management_types::ManagementIdentity>>,
 }
 
 impl AppState {
@@ -46,6 +48,8 @@ impl AppState {
         worker_id: u16,
         leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
         email_service: Option<Arc<infera_management_core::EmailService>>,
+        webhook_client: Option<Arc<infera_management_core::WebhookClient>>,
+        management_identity: Option<Arc<infera_management_types::ManagementIdentity>>,
     ) -> Self {
         Self {
             storage,
@@ -55,6 +59,8 @@ impl AppState {
             start_time: std::time::SystemTime::now(),
             leader,
             email_service,
+            webhook_client,
+            management_identity,
         }
     }
 
@@ -128,6 +134,8 @@ server_api:
             start_time: std::time::SystemTime::now(),
             leader: None,
             email_service: Some(Arc::new(email_service)),
+            webhook_client: None, // No webhook client in tests
+            management_identity: None, // No management identity in tests
         }
     }
 }

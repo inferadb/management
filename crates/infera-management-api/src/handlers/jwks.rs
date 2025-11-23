@@ -163,6 +163,49 @@ pub async fn get_org_jwks(
     Ok(Json(JwksResponse { keys }))
 }
 
+/// Get Management API's public JWKS (for server-to-server authentication)
+///
+/// GET /.well-known/management-jwks.json
+/// Public endpoint - no authentication required
+///
+/// This endpoint returns the Management API's own public key, which servers use
+/// to validate JWTs signed by the Management API when receiving webhook callbacks.
+pub async fn get_management_jwks(
+    State(state): State<AppState>,
+) -> Result<Json<JwksResponse>, (StatusCode, String)> {
+    // Get the management identity from AppState
+    let identity = state
+        .management_identity
+        .as_ref()
+        .ok_or_else(|| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Management identity not configured".to_string(),
+            )
+        })?;
+
+    let jwks = identity.to_jwks();
+
+    // Convert from infera_management_types::identity::Jwks to our JwksResponse
+    // The types are structurally identical, so we can convert the fields
+    let keys = jwks
+        .keys
+        .into_iter()
+        .map(|k| Jwk {
+            kty: k.kty,
+            crv: k.crv,
+            kid: k.kid,
+            x: k.x,
+            key_use: k.key_use,
+            alg: k.alg,
+        })
+        .collect();
+
+    let response = JwksResponse { keys };
+
+    Ok(Json(response))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
