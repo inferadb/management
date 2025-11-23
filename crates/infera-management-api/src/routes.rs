@@ -105,11 +105,9 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         .route("/v1/organizations/{org}/vaults", get(vaults::list_vaults))
         .route(
             "/v1/organizations/{org}/vaults/{vault}",
-            patch(vaults::update_vault),
-        )
-        .route(
-            "/v1/organizations/{org}/vaults/{vault}",
-            delete(vaults::delete_vault),
+            get(vaults::get_vault)
+                .patch(vaults::update_vault)
+                .delete(vaults::delete_vault),
         )
         // Vault user grant routes
         .route(
@@ -255,7 +253,7 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         // Organization GET endpoint - used by users and by server for verification
         .route(
             "/v1/organizations/{org}",
-            get(organizations::get_organization_by_id),
+            get(organizations::get_organization_dual_auth),
         )
         // Vault GET endpoint - used by users and by server for vault ownership verification
         .route("/v1/vaults/{vault}", get(vaults::get_vault_by_id))

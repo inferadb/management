@@ -30,10 +30,13 @@ impl WebhookClient {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
+    /// use std::sync::Arc;
+    /// use infera_management_core::{WebhookClient, ManagementIdentity};
+    ///
     /// let identity = Arc::new(ManagementIdentity::generate("mgmt-1".to_string(), "key-1".to_string()));
     /// let endpoints = vec!["http://server1:8080".to_string(), "http://server2:8080".to_string()];
-    /// let client = WebhookClient::new(endpoints, identity, 5000)?;
+    /// let client = WebhookClient::new(endpoints, identity, 5000).unwrap();
     /// ```
     pub fn new(
         server_endpoints: Vec<String>,
@@ -69,7 +72,7 @@ impl WebhookClient {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// client.invalidate_vault(12345).await;
     /// ```
     pub async fn invalidate_vault(&self, vault_id: i64) {
@@ -163,7 +166,7 @@ impl WebhookClient {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// client.invalidate_organization(67890).await;
     /// ```
     pub async fn invalidate_organization(&self, org_id: i64) {
@@ -174,7 +177,10 @@ impl WebhookClient {
 
         for endpoint in &self.server_endpoints {
             let http_client = self.http_client.clone();
-            let url = format!("{}/internal/cache/invalidate/organization/{}", endpoint, org_id);
+            let url = format!(
+                "{}/internal/cache/invalidate/organization/{}",
+                endpoint, org_id
+            );
             let endpoint_clone = endpoint.clone();
             let management_identity = Arc::clone(&self.management_identity);
 
@@ -264,7 +270,9 @@ impl WebhookClient {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
+    /// use infera_management_core::WebhookClient;
+    ///
     /// let endpoints = vec!["http://inferadb-server:8080".to_string()];
     /// let discovered = WebhookClient::discover_endpoints(endpoints).await;
     /// ```
@@ -340,7 +348,10 @@ fn is_kubernetes_service(endpoint: &str) -> bool {
             return !host.contains('.')
                 || host.ends_with(".svc.cluster.local")
                 || host.contains(".svc.")
-                || (dot_count == 1 && !host.contains(".com") && !host.contains(".io") && !host.contains(".net"));
+                || (dot_count == 1
+                    && !host.contains(".com")
+                    && !host.contains(".io")
+                    && !host.contains(".net"));
         }
     }
     false
@@ -359,8 +370,8 @@ fn is_kubernetes_service(endpoint: &str) -> bool {
 /// List of pod endpoints (e.g., ["http://10.0.1.2:8080", "http://10.0.1.3:8080"])
 async fn discover_k8s_service_endpoints(service_endpoint: &str) -> Result<Vec<String>, String> {
     // Parse the service URL
-    let url = url::Url::parse(service_endpoint)
-        .map_err(|e| format!("Invalid service URL: {}", e))?;
+    let url =
+        url::Url::parse(service_endpoint).map_err(|e| format!("Invalid service URL: {}", e))?;
 
     let service_host = url
         .host_str()
@@ -376,7 +387,8 @@ async fn discover_k8s_service_endpoints(service_endpoint: &str) -> Result<Vec<St
     // - "service-name.namespace" -> (service-name, namespace)
     // - "service-name.namespace.svc.cluster.local" -> (service-name, namespace)
     let parts: Vec<&str> = service_host.split('.').collect();
-    let default_namespace = std::env::var("KUBERNETES_NAMESPACE").unwrap_or_else(|_| "default".to_string());
+    let default_namespace =
+        std::env::var("KUBERNETES_NAMESPACE").unwrap_or_else(|_| "default".to_string());
     let (service_name, namespace) = if parts.len() >= 2 {
         (parts[0], parts[1])
     } else {
@@ -417,9 +429,7 @@ mod tests {
     fn test_is_kubernetes_service() {
         // Kubernetes services
         assert!(is_kubernetes_service("http://inferadb-server:8080"));
-        assert!(is_kubernetes_service(
-            "http://inferadb-server.default:8080"
-        ));
+        assert!(is_kubernetes_service("http://inferadb-server.default:8080"));
         assert!(is_kubernetes_service(
             "http://inferadb-server.default.svc.cluster.local:8080"
         ));

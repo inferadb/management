@@ -90,7 +90,10 @@ async fn main() -> Result<()> {
             "Generated new Ed25519 keypair for Management identity. \
              To persist this identity across restarts, add this to your config:\n\
              management_identity:\n  private_key_pem: |\n{}",
-            pem.lines().map(|l| format!("    {}", l)).collect::<Vec<_>>().join("\n")
+            pem.lines()
+                .map(|l| format!("    {}", l))
+                .collect::<Vec<_>>()
+                .join("\n")
         );
 
         identity
@@ -136,10 +139,12 @@ async fn main() -> Result<()> {
         config.clone(),
         server_client.clone(),
         config.id_generation.worker_id,
-        None, // leader election (optional, for multi-node)
-        None, // email service (optional, can be initialized later)
-        webhook_client, // cache invalidation webhooks
-        Some(management_identity), // management identity for JWKS endpoint
+        infera_management_api::ServicesConfig {
+            leader: None,                            // leader election (optional, for multi-node)
+            email_service: None,                     // email service (optional, can be initialized later)
+            webhook_client,                          // cache invalidation webhooks
+            management_identity: Some(management_identity), // management identity for JWKS endpoint
+        },
     )
     .await?;
 

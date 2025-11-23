@@ -166,8 +166,7 @@ impl ManagementIdentity {
         let encoding_key = EncodingKey::from_ed_pem(pem.as_bytes())
             .map_err(|e| format!("Failed to create encoding key: {}", e))?;
 
-        encode(&header, &claims, &encoding_key)
-            .map_err(|e| format!("Failed to sign JWT: {}", e))
+        encode(&header, &claims, &encoding_key).map_err(|e| format!("Failed to sign JWT: {}", e))
     }
 
     /// Get the JWKS representation of the public key
@@ -210,8 +209,7 @@ mod tests {
         let identity = ManagementIdentity::generate("test".to_string(), "kid-1".to_string());
         let pem = identity.to_pem();
 
-        let restored =
-            ManagementIdentity::from_pem("test".to_string(), "kid-1".to_string(), &pem);
+        let restored = ManagementIdentity::from_pem("test".to_string(), "kid-1".to_string(), &pem);
         assert!(restored.is_ok());
     }
 

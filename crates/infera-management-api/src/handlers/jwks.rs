@@ -174,15 +174,12 @@ pub async fn get_management_jwks(
     State(state): State<AppState>,
 ) -> Result<Json<JwksResponse>, (StatusCode, String)> {
     // Get the management identity from AppState
-    let identity = state
-        .management_identity
-        .as_ref()
-        .ok_or_else(|| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Management identity not configured".to_string(),
-            )
-        })?;
+    let identity = state.management_identity.as_ref().ok_or_else(|| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Management identity not configured".to_string(),
+        )
+    })?;
 
     let jwks = identity.to_jwks();
 

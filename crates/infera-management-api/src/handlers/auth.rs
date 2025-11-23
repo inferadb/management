@@ -40,28 +40,96 @@ pub struct AppState {
     pub management_identity: Option<Arc<infera_management_types::ManagementIdentity>>,
 }
 
-impl AppState {
+/// Builder for AppState to avoid too many function parameters
+pub struct AppStateBuilder {
+    storage: Arc<Backend>,
+    config: Arc<infera_management_core::ManagementConfig>,
+    server_client: Arc<ServerApiClient>,
+    worker_id: u16,
+    leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
+    email_service: Option<Arc<infera_management_core::EmailService>>,
+    webhook_client: Option<Arc<infera_management_core::WebhookClient>>,
+    management_identity: Option<Arc<infera_management_types::ManagementIdentity>>,
+}
+
+impl AppStateBuilder {
+    /// Create a new AppStateBuilder with required parameters
     pub fn new(
         storage: Arc<Backend>,
         config: Arc<infera_management_core::ManagementConfig>,
         server_client: Arc<ServerApiClient>,
         worker_id: u16,
-        leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
-        email_service: Option<Arc<infera_management_core::EmailService>>,
-        webhook_client: Option<Arc<infera_management_core::WebhookClient>>,
-        management_identity: Option<Arc<infera_management_types::ManagementIdentity>>,
     ) -> Self {
         Self {
             storage,
             config,
             server_client,
             worker_id,
-            start_time: std::time::SystemTime::now(),
-            leader,
-            email_service,
-            webhook_client,
-            management_identity,
+            leader: None,
+            email_service: None,
+            webhook_client: None,
+            management_identity: None,
         }
+    }
+
+    /// Set leader election component (optional)
+    pub fn leader(mut self, leader: Arc<infera_management_core::LeaderElection<Backend>>) -> Self {
+        self.leader = Some(leader);
+        self
+    }
+
+    /// Set email service (optional)
+    pub fn email_service(mut self, email_service: Arc<infera_management_core::EmailService>) -> Self {
+        self.email_service = Some(email_service);
+        self
+    }
+
+    /// Set webhook client (optional)
+    pub fn webhook_client(mut self, webhook_client: Arc<infera_management_core::WebhookClient>) -> Self {
+        self.webhook_client = Some(webhook_client);
+        self
+    }
+
+    /// Set management identity (optional)
+    pub fn management_identity(mut self, management_identity: Arc<infera_management_types::ManagementIdentity>) -> Self {
+        self.management_identity = Some(management_identity);
+        self
+    }
+
+    /// Build the AppState
+    pub fn build(self) -> AppState {
+        AppState {
+            storage: self.storage,
+            config: self.config,
+            server_client: self.server_client,
+            worker_id: self.worker_id,
+            start_time: std::time::SystemTime::now(),
+            leader: self.leader,
+            email_service: self.email_service,
+            webhook_client: self.webhook_client,
+            management_identity: self.management_identity,
+        }
+    }
+}
+
+impl AppState {
+    /// Create AppState using the builder pattern
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let state = AppState::builder(storage, config, server_client, worker_id)
+    ///     .email_service(email_service)
+    ///     .webhook_client(webhook_client)
+    ///     .build();
+    /// ```
+    pub fn builder(
+        storage: Arc<Backend>,
+        config: Arc<infera_management_core::ManagementConfig>,
+        server_client: Arc<ServerApiClient>,
+        worker_id: u16,
+    ) -> AppStateBuilder {
+        AppStateBuilder::new(storage, config, server_client, worker_id)
     }
 
     /// Create AppState for testing with default configuration
@@ -134,7 +202,7 @@ server_api:
             start_time: std::time::SystemTime::now(),
             leader: None,
             email_service: Some(Arc::new(email_service)),
-            webhook_client: None, // No webhook client in tests
+            webhook_client: None,      // No webhook client in tests
             management_identity: None, // No management identity in tests
         }
     }

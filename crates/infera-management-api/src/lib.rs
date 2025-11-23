@@ -13,8 +13,8 @@ pub mod pagination;
 pub mod routes;
 
 pub use handlers::AppState;
-pub use infera_management_types::identity::{ManagementIdentity, SharedManagementIdentity};
 pub use infera_management_types::dto::ErrorResponse;
+pub use infera_management_types::identity::{ManagementIdentity, SharedManagementIdentity};
 pub use middleware::{
     extract_session_context, get_user_vault_role, require_admin, require_admin_or_owner,
     require_manager, require_member, require_organization_member, require_owner, require_reader,
@@ -55,28 +55,39 @@ async fn shutdown_signal() {
     }
 }
 
+/// Configuration for optional services in the Management API
+pub struct ServicesConfig {
+    pub leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
+    pub email_service: Option<Arc<infera_management_core::EmailService>>,
+    pub webhook_client: Option<Arc<infera_management_core::WebhookClient>>,
+    pub management_identity: Option<Arc<ManagementIdentity>>,
+}
+
 /// Start the Management API HTTP server
 pub async fn serve(
     storage: Arc<Backend>,
     config: Arc<ManagementConfig>,
     server_client: Arc<ServerApiClient>,
     worker_id: u16,
-    leader: Option<Arc<infera_management_core::LeaderElection<Backend>>>,
-    email_service: Option<Arc<infera_management_core::EmailService>>,
-    webhook_client: Option<Arc<infera_management_core::WebhookClient>>,
-    management_identity: Option<Arc<ManagementIdentity>>,
+    services: ServicesConfig,
 ) -> anyhow::Result<()> {
-    // Create AppState with services
-    let state = AppState::new(
-        storage,
-        config.clone(),
-        server_client,
-        worker_id,
-        leader,
-        email_service,
-        webhook_client,
-        management_identity,
-    );
+    // Create AppState with services using the builder pattern
+    let mut builder = AppState::builder(storage, config.clone(), server_client, worker_id);
+
+    if let Some(leader) = services.leader {
+        builder = builder.leader(leader);
+    }
+    if let Some(email_service) = services.email_service {
+        builder = builder.email_service(email_service);
+    }
+    if let Some(webhook_client) = services.webhook_client {
+        builder = builder.webhook_client(webhook_client);
+    }
+    if let Some(management_identity) = services.management_identity {
+        builder = builder.management_identity(management_identity);
+    }
+
+    let state = builder.build();
 
     let app = create_router_with_state(state);
 

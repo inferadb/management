@@ -130,9 +130,9 @@ pub async fn require_server_jwt(
         .map_err(|_| CoreError::Auth("Invalid authorization header".to_string()))?;
 
     // Extract token from "Bearer <token>" format
-    let token = auth_str
-        .strip_prefix("Bearer ")
-        .ok_or_else(|| CoreError::Auth("Authorization header must use Bearer scheme".to_string()))?;
+    let token = auth_str.strip_prefix("Bearer ").ok_or_else(|| {
+        CoreError::Auth("Authorization header must use Bearer scheme".to_string())
+    })?;
 
     // Decode header to get kid
     let header = decode_header(token)
@@ -207,9 +207,7 @@ pub async fn require_server_jwt(
         .to_string();
 
     // Attach server context to request extensions
-    request
-        .extensions_mut()
-        .insert(ServerContext { server_id });
+    request.extensions_mut().insert(ServerContext { server_id });
 
     Ok(next.run(request).await)
 }

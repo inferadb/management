@@ -510,10 +510,14 @@ impl ManagementConfig {
 
         // Validate WebAuthn configuration
         if self.auth.webauthn.rp_id.is_empty() {
-            return Err(Error::Config("auth.webauthn.rp_id cannot be empty".to_string()));
+            return Err(Error::Config(
+                "auth.webauthn.rp_id cannot be empty".to_string(),
+            ));
         }
         if self.auth.webauthn.origin.is_empty() {
-            return Err(Error::Config("auth.webauthn.origin cannot be empty".to_string()));
+            return Err(Error::Config(
+                "auth.webauthn.origin cannot be empty".to_string(),
+            ));
         }
         if !self.auth.webauthn.origin.starts_with("http://")
             && !self.auth.webauthn.origin.starts_with("https://")
@@ -547,7 +551,9 @@ impl ManagementConfig {
             ));
         }
         if self.management_identity.kid.is_empty() {
-            return Err(Error::Config("management_identity.kid cannot be empty".to_string()));
+            return Err(Error::Config(
+                "management_identity.kid cannot be empty".to_string(),
+            ));
         }
 
         Ok(())
