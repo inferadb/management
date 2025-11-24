@@ -79,19 +79,28 @@ impl AppStateBuilder {
     }
 
     /// Set email service (optional)
-    pub fn email_service(mut self, email_service: Arc<infera_management_core::EmailService>) -> Self {
+    pub fn email_service(
+        mut self,
+        email_service: Arc<infera_management_core::EmailService>,
+    ) -> Self {
         self.email_service = Some(email_service);
         self
     }
 
     /// Set webhook client (optional)
-    pub fn webhook_client(mut self, webhook_client: Arc<infera_management_core::WebhookClient>) -> Self {
+    pub fn webhook_client(
+        mut self,
+        webhook_client: Arc<infera_management_core::WebhookClient>,
+    ) -> Self {
         self.webhook_client = Some(webhook_client);
         self
     }
 
     /// Set management identity (optional)
-    pub fn management_identity(mut self, management_identity: Arc<infera_management_types::ManagementIdentity>) -> Self {
+    pub fn management_identity(
+        mut self,
+        management_identity: Arc<infera_management_types::ManagementIdentity>,
+    ) -> Self {
         self.management_identity = Some(management_identity);
         self
     }

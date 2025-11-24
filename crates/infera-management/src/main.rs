@@ -140,9 +140,9 @@ async fn main() -> Result<()> {
         server_client.clone(),
         config.id_generation.worker_id,
         infera_management_api::ServicesConfig {
-            leader: None,                            // leader election (optional, for multi-node)
-            email_service: None,                     // email service (optional, can be initialized later)
-            webhook_client,                          // cache invalidation webhooks
+            leader: None,        // leader election (optional, for multi-node)
+            email_service: None, // email service (optional, can be initialized later)
+            webhook_client,      // cache invalidation webhooks
             management_identity: Some(management_identity), // management identity for JWKS endpoint
         },
     )
