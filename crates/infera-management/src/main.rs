@@ -116,7 +116,7 @@ async fn main() -> Result<()> {
             config.cache_invalidation.http_endpoints.clone(),
             Arc::clone(&management_identity),
             config.cache_invalidation.timeout_ms,
-            config.cache_invalidation.discovery.mode,
+            config.cache_invalidation.discovery.mode.clone(),
             config.cache_invalidation.discovery.cache_ttl_seconds,
         )
         .map_err(|e| anyhow::anyhow!("Failed to create webhook client: {}", e))?;

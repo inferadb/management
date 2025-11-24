@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
-use crate::config::DiscoveryMode;
+use crate::config::{DiscoveryMode, RemoteCluster};
 
 /// Discovery mode for server endpoints
 #[derive(Debug, Clone)]
@@ -21,6 +21,11 @@ enum InternalDiscoveryMode {
         service_name: String,
         namespace: String,
         port: u16,
+    },
+    /// Tailscale multi-region mesh discovery
+    Tailscale {
+        local_cluster: String,
+        remote_clusters: Vec<RemoteCluster>,
     },
 }
 
@@ -146,6 +151,21 @@ impl WebhookClient {
                     port: service_port,
                 }
             }
+            DiscoveryMode::Tailscale {
+                local_cluster,
+                remote_clusters,
+            } => {
+                info!(
+                    local_cluster = %local_cluster,
+                    remote_cluster_count = remote_clusters.len(),
+                    "Configured Tailscale multi-region discovery"
+                );
+
+                InternalDiscoveryMode::Tailscale {
+                    local_cluster,
+                    remote_clusters,
+                }
+            }
         };
 
         Ok(Self {
@@ -240,6 +260,28 @@ impl WebhookClient {
                     }
                 }
             }
+            InternalDiscoveryMode::Tailscale {
+                local_cluster,
+                remote_clusters,
+            } => match Self::discover_tailscale_endpoints(local_cluster, remote_clusters).await {
+                Ok(discovered) => {
+                    info!(
+                        count = discovered.len(),
+                        local_cluster = %local_cluster,
+                        remote_cluster_count = remote_clusters.len(),
+                        "Discovered Tailscale endpoints across clusters"
+                    );
+                    discovered
+                }
+                Err(e) => {
+                    error!(
+                        error = %e,
+                        local_cluster = %local_cluster,
+                        "Tailscale discovery failed, returning empty list"
+                    );
+                    vec![]
+                }
+            },
         };
 
         // Update cache
@@ -261,6 +303,98 @@ impl WebhookClient {
     /// Get the number of configured server endpoints (from cache or discovery)
     pub async fn endpoint_count(&self) -> usize {
         self.get_endpoints().await.len()
+    }
+
+    /// Discover Tailscale service endpoints across multiple clusters
+    async fn discover_tailscale_endpoints(
+        _local_cluster: &str,
+        remote_clusters: &[RemoteCluster],
+    ) -> Result<Vec<String>, String> {
+        use tokio::net::lookup_host;
+
+        debug!(
+            remote_cluster_count = remote_clusters.len(),
+            "Discovering Tailscale endpoints across clusters"
+        );
+
+        let mut all_endpoints = Vec::new();
+
+        // Discover endpoints for each remote cluster in parallel
+        let mut tasks = Vec::new();
+
+        for cluster in remote_clusters {
+            let cluster_clone = cluster.clone();
+
+            let task = tokio::spawn(async move {
+                let tailscale_hostname = format!(
+                    "{}.{}",
+                    cluster_clone.service_name, cluster_clone.tailscale_domain
+                );
+
+                debug!(
+                    cluster = %cluster_clone.name,
+                    hostname = %tailscale_hostname,
+                    "Resolving Tailscale MagicDNS name"
+                );
+
+                // Perform DNS lookup for the Tailscale hostname
+                let addrs: Vec<std::net::SocketAddr> =
+                    match lookup_host(format!("{}:{}", tailscale_hostname, cluster_clone.port))
+                        .await
+                    {
+                        Ok(iter) => iter.collect(),
+                        Err(e) => {
+                            warn!(
+                                cluster = %cluster_clone.name,
+                                hostname = %tailscale_hostname,
+                                error = %e,
+                                "Failed to resolve Tailscale hostname"
+                            );
+                            return vec![];
+                        }
+                    };
+
+                // Build endpoint URLs from resolved IPs
+                let mut endpoints = Vec::new();
+                for addr in addrs {
+                    let endpoint_url = format!("http://{}:{}", addr.ip(), cluster_clone.port);
+                    endpoints.push(endpoint_url);
+                }
+
+                info!(
+                    cluster = %cluster_clone.name,
+                    endpoint_count = endpoints.len(),
+                    "Discovered Tailscale endpoints for cluster"
+                );
+
+                endpoints
+            });
+
+            tasks.push(task);
+        }
+
+        // Collect results from all tasks
+        for task in tasks {
+            match task.await {
+                Ok(endpoints) => {
+                    all_endpoints.extend(endpoints);
+                }
+                Err(e) => {
+                    error!(error = %e, "Tailscale discovery task failed");
+                }
+            }
+        }
+
+        if all_endpoints.is_empty() {
+            return Err("No Tailscale endpoints discovered across any cluster".to_string());
+        }
+
+        info!(
+            total_endpoints = all_endpoints.len(),
+            "Completed Tailscale multi-cluster discovery"
+        );
+
+        Ok(all_endpoints)
     }
 
     /// Discover Kubernetes service endpoints

@@ -293,14 +293,38 @@ impl Default for DiscoveryConfig {
 }
 
 /// Service discovery mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase", tag = "type")]
 pub enum DiscoveryMode {
     /// No service discovery - use service URL directly
     #[default]
     None,
     /// Kubernetes service discovery - resolve to pod IPs
     Kubernetes,
+    /// Tailscale mesh networking for multi-region discovery
+    Tailscale {
+        /// Local cluster name (e.g., "us-west-1")
+        local_cluster: String,
+        /// Remote clusters to discover across
+        #[serde(default)]
+        remote_clusters: Vec<RemoteCluster>,
+    },
+}
+
+/// Remote cluster configuration for Tailscale mesh networking
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RemoteCluster {
+    /// Cluster name (e.g., "eu-west-1", "ap-southeast-1")
+    pub name: String,
+
+    /// Tailscale domain for this cluster (e.g., "eu-west-1.ts.net")
+    pub tailscale_domain: String,
+
+    /// Service name within the cluster (e.g., "inferadb-management-api")
+    pub service_name: String,
+
+    /// Service port
+    pub port: u16,
 }
 
 // Default value functions
