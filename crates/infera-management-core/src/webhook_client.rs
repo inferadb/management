@@ -369,6 +369,9 @@ fn is_kubernetes_service(endpoint: &str) -> bool {
 ///
 /// List of pod endpoints (e.g., ["http://10.0.1.2:8080", "http://10.0.1.3:8080"])
 async fn discover_k8s_service_endpoints(service_endpoint: &str) -> Result<Vec<String>, String> {
+    use k8s_openapi::api::core::v1::Endpoints as K8sEndpoints;
+    use kube::{Api, Client};
+
     // Parse the service URL
     let url =
         url::Url::parse(service_endpoint).map_err(|e| format!("Invalid service URL: {}", e))?;
@@ -379,7 +382,7 @@ async fn discover_k8s_service_endpoints(service_endpoint: &str) -> Result<Vec<St
     let service_port = url
         .port_or_known_default()
         .ok_or_else(|| "No port in service URL".to_string())?;
-    let _scheme = url.scheme();
+    let scheme = url.scheme();
 
     // Extract service name and namespace from hostname
     // Formats supported:
@@ -402,23 +405,58 @@ async fn discover_k8s_service_endpoints(service_endpoint: &str) -> Result<Vec<St
         "Discovering Kubernetes service endpoints"
     );
 
-    // In a real implementation, you would use the kube-rs library to query the Kubernetes API
-    // For now, we'll return a placeholder that falls back to the service URL
-    // TODO: Implement actual Kubernetes API integration using kube-rs
+    // Create Kubernetes client
+    let client = Client::try_default()
+        .await
+        .map_err(|e| format!("Failed to create Kubernetes client: {}", e))?;
 
-    // Placeholder: In production, this would use kube-rs to:
-    // 1. Get the Endpoints resource for the service
-    // 2. Extract all pod IPs
-    // 3. Return list of "http://pod-ip:port" URLs
+    // Get the Endpoints resource for this service
+    let endpoints_api: Api<K8sEndpoints> = Api::namespaced(client, namespace);
 
-    // For now, just return the original service endpoint as fallback
-    warn!(
+    let endpoints = endpoints_api.get(service_name).await.map_err(|e| {
+        if e.to_string().contains("404") {
+            format!("Service {}.{} not found", service_name, namespace)
+        } else {
+            format!(
+                "Failed to get endpoints for {}.{}: {}",
+                service_name, namespace, e
+            )
+        }
+    })?;
+
+    // Extract pod IPs from the Endpoints resource
+    let mut pod_endpoints = Vec::new();
+
+    if let Some(subsets) = endpoints.subsets {
+        for subset in subsets {
+            // Only use ready addresses (healthy pods)
+            if let Some(addresses) = subset.addresses {
+                for address in addresses {
+                    let pod_ip = &address.ip;
+                    let endpoint_url = format!("{}://{}:{}", scheme, pod_ip, service_port);
+                    pod_endpoints.push(endpoint_url);
+                }
+            }
+        }
+    }
+
+    if pod_endpoints.is_empty() {
+        warn!(
+            service_name = %service_name,
+            namespace = %namespace,
+            "No ready endpoints found for service - falling back to service URL"
+        );
+        return Ok(vec![service_endpoint.to_string()]);
+    }
+
+    info!(
         service_name = %service_name,
         namespace = %namespace,
-        "Kubernetes service discovery not yet fully implemented - using service URL as fallback"
+        endpoint_count = pod_endpoints.len(),
+        "Discovered Kubernetes service endpoints"
     );
 
-    Ok(vec![service_endpoint.to_string()])
+    Ok(pod_endpoints)
 }
 
 #[cfg(test)]

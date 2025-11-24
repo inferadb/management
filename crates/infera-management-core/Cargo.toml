@@ -53,6 +53,10 @@ validator = { workspace = true }
 reqwest = { workspace = true }
 url = { workspace = true }
 
+# Kubernetes client (for service discovery)
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+
 # Metrics
 metrics = { workspace = true }
 

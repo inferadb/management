@@ -255,6 +255,52 @@ pub struct CacheInvalidationConfig {
     /// Number of retry attempts on webhook failure
     #[serde(default = "default_webhook_retry_attempts")]
     pub retry_attempts: u8,
+
+    /// Service discovery configuration
+    #[serde(default)]
+    pub discovery: DiscoveryConfig,
+}
+
+/// Service discovery configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveryConfig {
+    /// Discovery mode (none or kubernetes)
+    #[serde(default)]
+    pub mode: DiscoveryMode,
+
+    /// Cache TTL for discovered endpoints (in seconds)
+    #[serde(default = "default_discovery_cache_ttl")]
+    pub cache_ttl_seconds: u64,
+
+    /// Whether to enable health checking of endpoints
+    #[serde(default = "default_discovery_health_check")]
+    pub enable_health_check: bool,
+
+    /// Health check interval (in seconds)
+    #[serde(default = "default_discovery_health_check_interval")]
+    pub health_check_interval_seconds: u64,
+}
+
+impl Default for DiscoveryConfig {
+    fn default() -> Self {
+        Self {
+            mode: DiscoveryMode::None,
+            cache_ttl_seconds: default_discovery_cache_ttl(),
+            enable_health_check: default_discovery_health_check(),
+            health_check_interval_seconds: default_discovery_health_check_interval(),
+        }
+    }
+}
+
+/// Service discovery mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscoveryMode {
+    /// No service discovery - use service URL directly
+    #[default]
+    None,
+    /// Kubernetes service discovery - resolve to pod IPs
+    Kubernetes,
 }
 
 // Default value functions
@@ -379,6 +425,7 @@ fn default_cache_invalidation() -> CacheInvalidationConfig {
         http_endpoints: vec![], // No webhooks by default
         timeout_ms: 5000,       // 5 seconds
         retry_attempts: 0,      // Fire-and-forget (no retries)
+        discovery: DiscoveryConfig::default(),
     }
 }
 
@@ -400,6 +447,18 @@ fn default_webhook_timeout_ms() -> u64 {
 
 fn default_webhook_retry_attempts() -> u8 {
     0 // Fire-and-forget
+}
+
+fn default_discovery_cache_ttl() -> u64 {
+    300 // 5 minutes
+}
+
+fn default_discovery_health_check() -> bool {
+    false
+}
+
+fn default_discovery_health_check_interval() -> u64 {
+    30 // 30 seconds
 }
 
 impl ManagementConfig {

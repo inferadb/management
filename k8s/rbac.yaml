@@ -1,0 +1,43 @@
+---
+# ServiceAccount for InferaDB Management API
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: inferadb-management
+  namespace: inferadb
+  labels:
+    app.kubernetes.io/name: inferadb-management
+    app.kubernetes.io/component: control-plane
+
+---
+# ClusterRole for service discovery
+# Allows reading Endpoints resources across all namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: inferadb-management-discovery
+  labels:
+    app.kubernetes.io/name: inferadb-management
+    app.kubernetes.io/component: control-plane
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding for service discovery
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: inferadb-management-discovery
+  labels:
+    app.kubernetes.io/name: inferadb-management
+    app.kubernetes.io/component: control-plane
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: inferadb-management-discovery
+subjects:
+  - kind: ServiceAccount
+    name: inferadb-management
+    namespace: inferadb
