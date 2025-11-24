@@ -23,6 +23,14 @@ pub fn init() {
             "rate_limits_exceeded_total",
             "Total number of rate limit exceeded responses"
         );
+        describe_counter!(
+            "discovery_cache_hits_total",
+            "Total cache hits for endpoint discovery"
+        );
+        describe_counter!(
+            "discovery_cache_misses_total",
+            "Total cache misses for endpoint discovery"
+        );
 
         // Histogram metrics
         describe_histogram!(
@@ -45,6 +53,10 @@ pub fn init() {
         describe_gauge!(
             "is_leader",
             "Whether this instance is the leader (1) or not (0)"
+        );
+        describe_gauge!(
+            "discovered_endpoints",
+            "Number of currently discovered server endpoints"
         );
     });
 }
@@ -133,6 +145,21 @@ pub fn set_is_leader(is_leader: bool) {
     gauge!("is_leader").set(if is_leader { 1.0 } else { 0.0 });
 }
 
+/// Record a discovery cache hit
+pub fn record_discovery_cache_hit() {
+    counter!("discovery_cache_hits_total").increment(1);
+}
+
+/// Record a discovery cache miss
+pub fn record_discovery_cache_miss() {
+    counter!("discovery_cache_misses_total").increment(1);
+}
+
+/// Set the number of discovered endpoints
+pub fn set_discovered_endpoints(count: i64) {
+    gauge!("discovered_endpoints").set(count as f64);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +223,13 @@ mod tests {
         set_vaults_total(105);
         set_is_leader(true);
         set_is_leader(false);
+    }
+
+    #[test]
+    fn test_record_discovery_metrics() {
+        init();
+        record_discovery_cache_hit();
+        record_discovery_cache_miss();
+        set_discovered_endpoints(5);
     }
 }

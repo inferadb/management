@@ -107,20 +107,21 @@ async fn main() -> Result<()> {
             endpoints = ?config.cache_invalidation.http_endpoints,
             timeout_ms = config.cache_invalidation.timeout_ms,
             retry_attempts = config.cache_invalidation.retry_attempts,
+            discovery_mode = ?config.cache_invalidation.discovery.mode,
+            cache_ttl_seconds = config.cache_invalidation.discovery.cache_ttl_seconds,
             "Initializing webhook client for cache invalidation"
         );
 
-        let client = WebhookClient::new(
+        let client = WebhookClient::new_with_discovery(
             config.cache_invalidation.http_endpoints.clone(),
             Arc::clone(&management_identity),
             config.cache_invalidation.timeout_ms,
+            config.cache_invalidation.discovery.mode,
+            config.cache_invalidation.discovery.cache_ttl_seconds,
         )
         .map_err(|e| anyhow::anyhow!("Failed to create webhook client: {}", e))?;
 
-        tracing::info!(
-            discovered_endpoints = client.endpoint_count(),
-            "Webhook client initialized successfully"
-        );
+        tracing::info!("Webhook client initialized successfully");
         Some(Arc::new(client))
     } else {
         tracing::info!("Webhook client disabled (no http_endpoints configured)");
