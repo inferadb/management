@@ -41,13 +41,32 @@ pub async fn require_session_or_server_jwt(
             .and_then(|token| token.parse::<i64>().ok())
             .is_some();
 
-    // If we have a Bearer token and it's NOT a session (numeric), try JWT auth first
+    // If we have a Bearer token and it's NOT a session (numeric), check if it's a server JWT
     if has_bearer_token && !has_session {
-        return require_server_jwt(State(state), request, next).await;
+        // Peek at the JWT to determine if it's a server JWT or client JWT
+        // We need to decode just the header to check the kid format without consuming the request
+        let is_server_jwt = request
+            .headers()
+            .get("authorization")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.strip_prefix("Bearer "))
+            .and_then(|token| {
+                use jsonwebtoken::decode_header;
+                decode_header(token).ok()
+            })
+            .and_then(|header| header.kid)
+            .map(|kid| !kid.contains("-client-"))  // Server JWTs don't have "-client-" in kid
+            .unwrap_or(false);
+
+        if is_server_jwt {
+            // This is a server JWT, use server JWT auth
+            return require_server_jwt(State(state), request, next).await;
+        }
+        // Fall through to try session auth for client JWTs
     }
 
-    // Otherwise, try session auth first
-    if has_session {
+    // Try session auth (handles cookies, numeric tokens, and client JWTs)
+    if has_session || has_bearer_token {
         return require_session(State(state), jar, request, next).await;
     }
 

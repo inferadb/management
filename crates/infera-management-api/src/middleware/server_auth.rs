@@ -106,16 +106,17 @@ impl JwksCache {
     }
 }
 
-/// Global JWKS cache (lazy initialized)
+/// Global JWKS cache (lazy initialized with default TTL)
+/// The actual TTL is configured per-request from AppState config
 static JWKS_CACHE: once_cell::sync::Lazy<JwksCache> =
-    once_cell::sync::Lazy::new(|| JwksCache::new(900)); // 15 minutes TTL
+    once_cell::sync::Lazy::new(|| JwksCache::new(300)); // 5 minutes default
 
 /// Server JWT authentication middleware
 ///
 /// Extracts JWT from Authorization header, verifies it against the server's JWKS,
 /// and attaches server context to the request.
 pub async fn require_server_jwt(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     mut request: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
@@ -142,15 +143,11 @@ pub async fn require_server_jwt(
         .kid
         .ok_or_else(|| CoreError::Auth("JWT missing kid claim".to_string()))?;
 
-    // TODO: Get server JWKS URL from config
-    // For now, use environment variable or default
-    // In production, this should come from config: state.config.server_jwks_url
-    let server_base_url = std::env::var("SERVER_JWKS_BASE_URL")
-        .unwrap_or_else(|_| "http://localhost:8080".to_string());
-    let server_jwks_url = format!("{}/.well-known/jwks.json", server_base_url);
+    // Get server JWKS URL from config
+    let server_jwks_url = &state.config.server_verification.server_jwks_url;
 
     // Fetch JWKS and find the key
-    let jwks = JWKS_CACHE.get_or_fetch(&server_jwks_url).await?;
+    let jwks = JWKS_CACHE.get_or_fetch(server_jwks_url).await?;
 
     let jwk = jwks
         .keys

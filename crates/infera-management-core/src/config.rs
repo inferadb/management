@@ -46,6 +46,10 @@ pub struct ManagementConfig {
     #[serde(default = "default_cache_invalidation")]
     pub cache_invalidation: CacheInvalidationConfig,
 
+    /// Server verification configuration (for verifying Server JWTs)
+    #[serde(default = "default_server_verification")]
+    pub server_verification: ServerVerificationConfig,
+
     /// Frontend base URL for email links (verification, password reset)
     /// Example: "https://app.inferadb.com" or "http://localhost:3000"
     /// Environment variable: INFERADB_MGMT__FRONTEND_BASE_URL
@@ -335,6 +339,24 @@ pub struct RemoteCluster {
     pub port: u16,
 }
 
+/// Server verification configuration
+/// Used by Management API to verify Server JWTs for mutual authentication
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerVerificationConfig {
+    /// Whether server verification is enabled
+    #[serde(default = "default_server_verification_enabled")]
+    pub enabled: bool,
+
+    /// Server JWKS URL for fetching server public keys
+    /// Example: "http://inferadb-server:8080/.well-known/jwks.json"
+    #[serde(default = "default_server_jwks_url")]
+    pub server_jwks_url: String,
+
+    /// Cache TTL for server JWKS (in seconds)
+    #[serde(default = "default_server_jwks_cache_ttl")]
+    pub cache_ttl_seconds: u64,
+}
+
 // Default value functions
 fn default_http_host() -> String {
     "127.0.0.1".to_string()
@@ -493,6 +515,26 @@ fn default_discovery_health_check_interval() -> u64 {
     30 // 30 seconds
 }
 
+fn default_server_verification_enabled() -> bool {
+    false // Disabled by default for backwards compatibility
+}
+
+fn default_server_jwks_url() -> String {
+    "http://localhost:8080/.well-known/jwks.json".to_string()
+}
+
+fn default_server_jwks_cache_ttl() -> u64 {
+    300 // 5 minutes
+}
+
+fn default_server_verification() -> ServerVerificationConfig {
+    ServerVerificationConfig {
+        enabled: default_server_verification_enabled(),
+        server_jwks_url: default_server_jwks_url(),
+        cache_ttl_seconds: default_server_jwks_cache_ttl(),
+    }
+}
+
 impl Default for ManagementConfig {
     fn default() -> Self {
         Self {
@@ -552,6 +594,7 @@ impl Default for ManagementConfig {
             },
             management_identity: default_management_identity(),
             cache_invalidation: default_cache_invalidation(),
+            server_verification: default_server_verification(),
             frontend_base_url: default_frontend_base_url(),
         }
     }
@@ -824,6 +867,7 @@ mod tests {
             },
             management_identity: default_management_identity(),
             cache_invalidation: default_cache_invalidation(),
+            server_verification: default_server_verification(),
             frontend_base_url: default_frontend_base_url(),
         };
 
@@ -894,6 +938,7 @@ mod tests {
             },
             management_identity: default_management_identity(),
             cache_invalidation: default_cache_invalidation(),
+            server_verification: default_server_verification(),
             frontend_base_url: default_frontend_base_url(),
         };
 

@@ -59,3 +59,8 @@ cache_invalidation:
     - "http://server:8080"
   timeout_ms: 5000
   retry_attempts: 0
+
+server_verification:
+  enabled: false  # Will be overridden by env var in K8s
+  server_jwks_url: "http://localhost:8080/.well-known/jwks.json"  # Default for Docker Compose
+  cache_ttl_seconds: 300
