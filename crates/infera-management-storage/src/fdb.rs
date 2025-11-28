@@ -125,9 +125,10 @@ impl FdbBackend {
 
                     let range_opt = RangeOption::from((start.as_slice(), end.as_slice()));
                     let kvs = trx.get_range(&range_opt, 1_000, false).await.map_err(|e| {
-                        FdbBindingError::new_custom_error(Box::new(std::io::Error::other(
-                            format!("FDB get_range failed: {}", e),
-                        )))
+                        FdbBindingError::new_custom_error(Box::new(std::io::Error::other(format!(
+                            "FDB get_range failed: {}",
+                            e
+                        ))))
                     })?;
 
                     for kv in kvs.iter() {

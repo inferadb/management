@@ -13,7 +13,7 @@ publish.workspace = true
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
-foundationdb = { workspace = true }
+foundationdb = { workspace = true, optional = true }
 parking_lot = "0.12"
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -22,3 +22,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+
+[features]
+default = []
+fdb = ["foundationdb"]

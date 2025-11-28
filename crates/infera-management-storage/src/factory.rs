@@ -1,5 +1,7 @@
 use crate::backend::{KeyValue, StorageBackend, StorageResult, Transaction};
-use crate::{FdbBackend, MemoryBackend};
+#[cfg(feature = "fdb")]
+use crate::FdbBackend;
+use crate::MemoryBackend;
 use async_trait::async_trait;
 use bytes::Bytes;
 use std::ops::RangeBounds;
@@ -44,6 +46,7 @@ impl StorageConfig {
 #[derive(Clone)]
 pub enum Backend {
     Memory(MemoryBackend),
+    #[cfg(feature = "fdb")]
     FoundationDB(FdbBackend),
 }
 
@@ -52,6 +55,7 @@ impl StorageBackend for Backend {
     async fn get(&self, key: &[u8]) -> StorageResult<Option<Bytes>> {
         match self {
             Backend::Memory(b) => b.get(key).await,
+            #[cfg(feature = "fdb")]
             Backend::FoundationDB(b) => b.get(key).await,
         }
     }
@@ -59,6 +63,7 @@ impl StorageBackend for Backend {
     async fn set(&self, key: Vec<u8>, value: Vec<u8>) -> StorageResult<()> {
         match self {
             Backend::Memory(b) => b.set(key, value).await,
+            #[cfg(feature = "fdb")]
             Backend::FoundationDB(b) => b.set(key, value).await,
         }
     }
@@ -66,6 +71,7 @@ impl StorageBackend for Backend {
     async fn delete(&self, key: &[u8]) -> StorageResult<()> {
         match self {
             Backend::Memory(b) => b.delete(key).await,
+            #[cfg(feature = "fdb")]
             Backend::FoundationDB(b) => b.delete(key).await,
         }
     }
@@ -76,6 +82,7 @@ impl StorageBackend for Backend {
     {
         match self {
             Backend::Memory(b) => b.get_range(range).await,
+            #[cfg(feature = "fdb")]
             Backend::FoundationDB(b) => b.get_range(range).await,
         }
     }
@@ -86,6 +93,7 @@ impl StorageBackend for Backend {
     {
         match self {
             Backend::Memory(b) => b.clear_range(range).await,
+            #[cfg(feature = "fdb")]
             Backend::FoundationDB(b) => b.clear_range(range).await,
         }
     }
@@ -98,6 +106,7 @@ impl StorageBackend for Backend {
     ) -> StorageResult<()> {
         match self {
             Backend::Memory(b) => b.set_with_ttl(key, value, ttl_seconds).await,
+            #[cfg(feature = "fdb")]
             Backend::FoundationDB(b) => b.set_with_ttl(key, value, ttl_seconds).await,
         }
     }
@@ -105,6 +114,7 @@ impl StorageBackend for Backend {
     async fn transaction(&self) -> StorageResult<Box<dyn Transaction>> {
         match self {
             Backend::Memory(b) => b.transaction().await,
+            #[cfg(feature = "fdb")]
             Backend::FoundationDB(b) => b.transaction().await,
         }
     }
@@ -112,6 +122,7 @@ impl StorageBackend for Backend {
     async fn health_check(&self) -> StorageResult<()> {
         match self {
             Backend::Memory(b) => b.health_check().await,
+            #[cfg(feature = "fdb")]
             Backend::FoundationDB(b) => b.health_check().await,
         }
     }
@@ -136,9 +147,17 @@ pub async fn create_storage_backend(config: &StorageConfig) -> StorageResult<Bac
             let backend = MemoryBackend::new();
             Ok(Backend::Memory(backend))
         }
+        #[cfg(feature = "fdb")]
         StorageBackendType::FoundationDB => {
             let backend = FdbBackend::with_cluster_file(config.fdb_cluster_file.clone()).await?;
             Ok(Backend::FoundationDB(backend))
+        }
+        #[cfg(not(feature = "fdb"))]
+        StorageBackendType::FoundationDB => {
+            use crate::backend::StorageError;
+            Err(StorageError::Internal(
+                "FoundationDB support not compiled. Enable the 'fdb' feature.".to_string(),
+            ))
         }
     }
 }
@@ -162,6 +181,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "fdb")]
     async fn test_create_fdb_backend_requires_fdb() {
         let config = StorageConfig::foundationdb(None);
         let result = create_storage_backend(&config).await;
