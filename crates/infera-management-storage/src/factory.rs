@@ -162,11 +162,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_fdb_backend_fails() {
+    async fn test_create_fdb_backend_requires_fdb() {
         let config = StorageConfig::foundationdb(None);
         let result = create_storage_backend(&config).await;
 
-        // FDB backend is not yet implemented, so it should fail
+        // FDB backend is fully implemented, but requires FDB to be running
+        // In dev environments without FDB, this should fail with a connection error
         assert!(result.is_err());
     }
 }

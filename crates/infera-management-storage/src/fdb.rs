@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 use std::ops::{Bound, RangeBounds};
 use std::sync::{Arc, Once};
 use tokio::time::{interval, Duration};
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 // Global initialization flag for FDB network
 // The FDB client library requires that select_api_version (called by boot())
@@ -123,12 +123,12 @@ impl FdbBackend {
                     let start = ttl_subspace.pack(&(0u64,));
                     let end = ttl_subspace.pack(&(now,));
 
-                    let range = RangeOption {
-                        begin: foundationdb::options::StreamingMode::WantAll.into(),
-                        ..RangeOption::from((start.as_ref()..end.as_ref()))
-                    };
-
-                    let kvs = trx.get_range(&range, 1_000, false).await?;
+                    let range_opt = RangeOption::from((start.as_slice(), end.as_slice()));
+                    let kvs = trx.get_range(&range_opt, 1_000, false).await.map_err(|e| {
+                        FdbBindingError::new_custom_error(Box::new(std::io::Error::other(
+                            format!("FDB get_range failed: {}", e),
+                        )))
+                    })?;
 
                     for kv in kvs.iter() {
                         // Extract the original key from the TTL index
@@ -204,13 +204,19 @@ impl StorageBackend for FdbBackend {
                 let data_key = data_key.clone();
                 move |trx, _maybe_committed| {
                     let data_key = data_key.clone();
-                    async move { trx.get(&data_key, false).await }
+                    async move {
+                        trx.get(&data_key, false).await.map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::other(
+                                format!("FDB get failed: {}", e),
+                            )))
+                        })
+                    }
                 }
             })
             .await
             .map_err(|e| StorageError::Internal(format!("FDB get failed: {}", e)))?;
 
-        Ok(result.map(Bytes::from))
+        Ok(result.map(|v| Bytes::from(v.to_vec())))
     }
 
     async fn set(&self, key: Vec<u8>, value: Vec<u8>) -> StorageResult<()> {
@@ -271,11 +277,12 @@ impl StorageBackend for FdbBackend {
                     let start = start.clone();
                     let end = end.clone();
                     async move {
-                        let range = RangeOption {
-                            begin: foundationdb::options::StreamingMode::WantAll.into(),
-                            ..RangeOption::from((start.as_ref()..end.as_ref()))
-                        };
-                        trx.get_range(&range, 0, false).await
+                        let range_opt = RangeOption::from((start.as_slice(), end.as_slice()));
+                        trx.get_range(&range_opt, 0, false).await.map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::other(
+                                format!("FDB get_range failed: {}", e),
+                            )))
+                        })
                     }
                 }
             })
@@ -401,10 +408,13 @@ impl StorageBackend for FdbBackend {
     }
 }
 
+/// Type alias for pending writes map
+type PendingWrites = Arc<Mutex<BTreeMap<Vec<u8>, Option<Vec<u8>>>>>;
+
 /// FDB transaction implementation
 struct FdbTransaction {
     backend: FdbBackend,
-    pending_writes: Arc<Mutex<BTreeMap<Vec<u8>, Option<Vec<u8>>>>>,
+    pending_writes: PendingWrites,
 }
 
 #[async_trait]
