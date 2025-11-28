@@ -137,7 +137,7 @@ pub async fn create_storage_backend(config: &StorageConfig) -> StorageResult<Bac
             Ok(Backend::Memory(backend))
         }
         StorageBackendType::FoundationDB => {
-            let backend = FdbBackend::new(config.fdb_cluster_file.clone()).await?;
+            let backend = FdbBackend::with_cluster_file(config.fdb_cluster_file.clone()).await?;
             Ok(Backend::FoundationDB(backend))
         }
     }
