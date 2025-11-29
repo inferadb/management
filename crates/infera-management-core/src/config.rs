@@ -349,12 +349,11 @@ pub struct RemoteCluster {
 
 /// Server verification configuration
 /// Used by Management API to verify Server JWTs for mutual authentication
+///
+/// Server verification is always enabled when the middleware is applied.
+/// Configure `server_jwks_url` to point to your server's JWKS endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerVerificationConfig {
-    /// Whether server verification is enabled
-    #[serde(default = "default_server_verification_enabled")]
-    pub enabled: bool,
-
     /// Server JWKS URL for fetching server public keys
     /// Example: "http://inferadb-server:8080/.well-known/jwks.json"
     #[serde(default = "default_server_jwks_url")]
@@ -531,10 +530,6 @@ fn default_discovery_health_check_interval() -> u64 {
     30 // 30 seconds
 }
 
-fn default_server_verification_enabled() -> bool {
-    false // Disabled by default for backwards compatibility
-}
-
 fn default_server_jwks_url() -> String {
     "http://localhost:8080/.well-known/jwks.json".to_string()
 }
@@ -545,7 +540,6 @@ fn default_server_jwks_cache_ttl() -> u64 {
 
 fn default_server_verification() -> ServerVerificationConfig {
     ServerVerificationConfig {
-        enabled: default_server_verification_enabled(),
         server_jwks_url: default_server_jwks_url(),
         cache_ttl_seconds: default_server_jwks_cache_ttl(),
     }

@@ -1,7 +1,9 @@
 //! Integration tests for FoundationDB backend
 //!
 //! These tests require a running FoundationDB cluster.
-//! Run with: cargo test --test fdb_integration_tests --features foundationdb
+//! Run with: cargo test --test fdb_integration_tests --features fdb
+
+#![cfg(feature = "fdb")]
 
 use bytes::Bytes;
 use infera_management_storage::{backend::StorageBackend, FdbBackend};

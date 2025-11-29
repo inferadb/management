@@ -12,8 +12,8 @@
 //!
 //! Metrics are designed to be exported to Prometheus or other monitoring systems.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::warn;
 
@@ -298,7 +298,9 @@ impl Metrics {
 
     /// Record a health check
     pub fn record_health_check(&self) {
-        self.inner.health_check_count.fetch_add(1, Ordering::Relaxed);
+        self.inner
+            .health_check_count
+            .fetch_add(1, Ordering::Relaxed);
     }
 
     /// Get a snapshot of current metrics
@@ -337,7 +339,9 @@ impl Metrics {
         self.inner.set_latency_us.store(0, Ordering::Relaxed);
         self.inner.delete_latency_us.store(0, Ordering::Relaxed);
         self.inner.get_range_latency_us.store(0, Ordering::Relaxed);
-        self.inner.transaction_latency_us.store(0, Ordering::Relaxed);
+        self.inner
+            .transaction_latency_us
+            .store(0, Ordering::Relaxed);
         self.inner.error_count.store(0, Ordering::Relaxed);
         self.inner.conflict_count.store(0, Ordering::Relaxed);
         self.inner.timeout_count.store(0, Ordering::Relaxed);
@@ -458,11 +462,15 @@ mod tests {
     fn test_error_rate() {
         let metrics = Metrics::new();
 
+        // Record 4 operations total
         metrics.record_get(Duration::from_micros(100));
         metrics.record_get(Duration::from_micros(100));
         metrics.record_get(Duration::from_micros(100));
+        metrics.record_set(Duration::from_micros(100));
+        // Record 1 error
         metrics.record_error();
 
+        // Error rate = errors / total_ops = 1/4 = 0.25
         let snapshot = metrics.snapshot();
         assert_eq!(snapshot.error_rate(), 0.25);
     }

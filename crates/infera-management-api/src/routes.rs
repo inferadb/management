@@ -282,10 +282,6 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         .route("/v1/auth/cli/token", post(cli_auth::cli_token_exchange))
         // JWKS endpoints (public, no authentication required)
         .route("/.well-known/jwks.json", get(jwks::get_global_jwks))
-        .route(
-            "/.well-known/management-jwks.json",
-            get(jwks::get_management_jwks),
-        )
         .route("/v1/organizations/{org}/jwks.json", get(jwks::get_org_jwks))
         .route(
             "/v1/organizations/{org}/.well-known/jwks.json",
@@ -316,9 +312,8 @@ pub fn public_routes(state: AppState) -> Router {
 pub fn internal_routes(state: AppState) -> Router {
     // Public JWKS endpoints (no authentication required)
     let jwks_routes = Router::new()
-        .route("/.well-known/jwks.json", get(jwks::get_global_jwks))
         .route(
-            "/.well-known/management-jwks.json",
+            "/internal/management-jwks.json",
             get(jwks::get_management_jwks),
         )
         .with_state(state.clone());

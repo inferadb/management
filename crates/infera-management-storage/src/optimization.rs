@@ -230,10 +230,7 @@ impl<B: StorageBackend> OptimizedBackend<B> {
     /// Get cache statistics
     pub fn cache_stats(&self) -> (usize, usize) {
         let cache = self.cache.lock();
-        (
-            cache.len(),
-            self.cache_config.max_entries,
-        )
+        (cache.len(), self.cache_config.max_entries)
     }
 
     /// Clear the cache

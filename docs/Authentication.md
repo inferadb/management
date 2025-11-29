@@ -1162,7 +1162,6 @@ The Server API uses an Ed25519 keypair as its identity:
 
 ```yaml
 auth:
-  enabled: true
   management_api_url: "http://localhost:8081"
   # Omit server_identity_private_key to auto-generate
   server_identity_kid: "server-primary-2024"
@@ -1180,7 +1179,6 @@ On startup without a configured key, the server will:
 
 ```yaml
 auth:
-  enabled: true
   management_api_url: "https://management.example.com"
   server_identity_private_key: |
     -----BEGIN PRIVATE KEY-----

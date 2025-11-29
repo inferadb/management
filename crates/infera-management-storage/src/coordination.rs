@@ -15,12 +15,16 @@
 //! - Worker registry uses heartbeat pattern with cleanup of stale workers
 //! - All operations are multi-instance safe with optimistic concurrency control
 
+use crate::backend::StorageResult;
+#[cfg(feature = "fdb")]
+use crate::backend::{StorageBackend, StorageError};
 #[cfg(feature = "fdb")]
 use crate::FdbBackend;
-use crate::backend::{StorageBackend, StorageError, StorageResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "fdb")]
 use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(feature = "fdb")]
 use tracing::{debug, info, warn};
 
 /// Leader election result
@@ -29,7 +33,10 @@ pub enum LeaderStatus {
     /// This instance is the leader
     Leader { lease_expiry: u64 },
     /// Another instance is the leader
-    Follower { leader_id: String, lease_expiry: u64 },
+    Follower {
+        leader_id: String,
+        lease_expiry: u64,
+    },
     /// No leader currently elected
     NoLeader,
 }
@@ -74,11 +81,7 @@ pub trait Coordinator: Send + Sync {
     ///
     /// * `resource_name` - Name of the leadership resource
     /// * `worker_id` - Unique ID for this instance (must match current leader)
-    async fn release_leadership(
-        &self,
-        resource_name: &str,
-        worker_id: &str,
-    ) -> StorageResult<()>;
+    async fn release_leadership(&self, resource_name: &str, worker_id: &str) -> StorageResult<()>;
 
     /// Check current leadership status
     async fn check_leadership(&self, resource_name: &str) -> StorageResult<LeaderStatus>;
@@ -114,6 +117,7 @@ pub trait Coordinator: Send + Sync {
 }
 
 /// Leadership lease record
+#[cfg(feature = "fdb")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct LeaderLease {
     worker_id: String,
@@ -235,11 +239,7 @@ impl Coordinator for FdbBackend {
         }
     }
 
-    async fn release_leadership(
-        &self,
-        resource_name: &str,
-        worker_id: &str,
-    ) -> StorageResult<()> {
+    async fn release_leadership(&self, resource_name: &str, worker_id: &str) -> StorageResult<()> {
         let key = format!("coordination/leader/{}", resource_name).into_bytes();
 
         // Check if we're the current leader
@@ -344,10 +344,9 @@ impl Coordinator for FdbBackend {
 
         match existing {
             Some(bytes) => {
-                let mut worker_info: WorkerInfo =
-                    serde_json::from_slice(&bytes).map_err(|e| {
-                        StorageError::Internal(format!("Failed to deserialize worker info: {}", e))
-                    })?;
+                let mut worker_info: WorkerInfo = serde_json::from_slice(&bytes).map_err(|e| {
+                    StorageError::Internal(format!("Failed to deserialize worker info: {}", e))
+                })?;
 
                 // Update last heartbeat
                 let now = SystemTime::now()
@@ -454,12 +453,11 @@ impl Coordinator for FdbBackend {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "fdb"))]
 mod tests {
     use super::*;
 
     #[tokio::test]
-    #[cfg(feature = "fdb")]
     async fn test_leadership_acquisition() {
         let backend = FdbBackend::new().await.unwrap();
 
@@ -488,7 +486,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "fdb")]
     async fn test_leadership_release() {
         let backend = FdbBackend::new().await.unwrap();
 
@@ -507,7 +504,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "fdb")]
     async fn test_worker_registry() {
         let backend = FdbBackend::new().await.unwrap();
 
