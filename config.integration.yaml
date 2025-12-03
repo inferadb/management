@@ -56,7 +56,7 @@ management_identity:
 
 cache_invalidation:
   http_endpoints:
-    - "http://server:8080"
+    - "http://inferadb-server:8080"
   timeout_ms: 5000
   retry_attempts: 0
 
