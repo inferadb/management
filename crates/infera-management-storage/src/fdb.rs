@@ -11,6 +11,7 @@ use crate::backend::{KeyValue, StorageBackend, StorageError, StorageResult, Tran
 use async_trait::async_trait;
 use bytes::Bytes;
 use foundationdb::{tuple::Subspace, Database, FdbBindingError, RangeOption};
+use futures::StreamExt;
 use parking_lot::Mutex;
 use std::collections::BTreeMap;
 use std::ops::{Bound, RangeBounds};
@@ -124,30 +125,34 @@ impl FdbBackend {
                     let end = ttl_subspace.pack(&(now,));
 
                     let range_opt = RangeOption::from((start.as_slice(), end.as_slice()));
-                    let kvs = trx.get_range(&range_opt, 1_000, false).await.map_err(|e| {
-                        FdbBindingError::new_custom_error(Box::new(std::io::Error::other(format!(
-                            "FDB get_range failed: {}",
-                            e
-                        ))))
-                    })?;
+                    // Use get_ranges to iterate through all expired keys
+                    let mut range_stream = trx.get_ranges(range_opt, false);
 
-                    for kv in kvs.iter() {
-                        // Extract the original key from the TTL index
-                        // TTL key format: ttl_subspace/{expiry_timestamp}/{original_key}
-                        let ttl_key = kv.key();
+                    while let Some(result) = range_stream.next().await {
+                        let kvs = result.map_err(|e| {
+                            FdbBindingError::new_custom_error(Box::new(std::io::Error::other(
+                                format!("FDB get_ranges failed: {}", e),
+                            )))
+                        })?;
 
-                        // Unpack to get past the subspace and timestamp
-                        if let Ok(unpacked) = foundationdb::tuple::unpack::<(u64, Vec<u8>)>(
-                            &ttl_key[ttl_subspace.bytes().len()..],
-                        ) {
-                            let original_key_bytes = unpacked.1;
+                        for kv in kvs.iter() {
+                            // Extract the original key from the TTL index
+                            // TTL key format: ttl_subspace/{expiry_timestamp}/{original_key}
+                            let ttl_key = kv.key();
 
-                            // Reconstruct the full data key
-                            let data_key = data_subspace.pack(&original_key_bytes);
+                            // Unpack to get past the subspace and timestamp
+                            if let Ok(unpacked) = foundationdb::tuple::unpack::<(u64, Vec<u8>)>(
+                                &ttl_key[ttl_subspace.bytes().len()..],
+                            ) {
+                                let original_key_bytes = unpacked.1;
 
-                            // Delete both the data and TTL index entries
-                            trx.clear(&data_key);
-                            trx.clear(ttl_key);
+                                // Reconstruct the full data key
+                                let data_key = data_subspace.pack(&original_key_bytes);
+
+                                // Delete both the data and TTL index entries
+                                trx.clear(&data_key);
+                                trx.clear(ttl_key);
+                            }
                         }
                     }
 
@@ -270,7 +275,9 @@ impl StorageBackend for FdbBackend {
         let db = Arc::clone(&self.db);
         let data_subspace = self.data_subspace.clone();
 
-        let kvs = db
+        // Use get_ranges (plural) to iterate through all pages of results
+        // The single get_range only returns the first batch
+        let all_kvs = db
             .run({
                 let start = start.clone();
                 let end = end.clone();
@@ -279,11 +286,33 @@ impl StorageBackend for FdbBackend {
                     let end = end.clone();
                     async move {
                         let range_opt = RangeOption::from((start.as_slice(), end.as_slice()));
-                        trx.get_range(&range_opt, 0, false).await.map_err(|e| {
-                            FdbBindingError::new_custom_error(Box::new(std::io::Error::other(
-                                format!("FDB get_range failed: {}", e),
-                            )))
-                        })
+                        // Use get_ranges which returns a Stream and iterate to collect all results
+                        let mut range_stream = trx.get_ranges(range_opt, false);
+                        let mut all_results = Vec::new();
+
+                        while let Some(result) = range_stream.next().await {
+                            match result {
+                                Ok(values) => {
+                                    // Each batch contains multiple key-value pairs
+                                    for kv in values.iter() {
+                                        all_results.push((
+                                            kv.key().to_vec(),
+                                            kv.value().to_vec(),
+                                        ));
+                                    }
+                                }
+                                Err(e) => {
+                                    return Err(FdbBindingError::new_custom_error(Box::new(
+                                        std::io::Error::other(format!(
+                                            "FDB get_ranges failed: {}",
+                                            e
+                                        )),
+                                    )));
+                                }
+                            }
+                        }
+
+                        Ok(all_results)
                     }
                 }
             })
@@ -292,10 +321,9 @@ impl StorageBackend for FdbBackend {
 
         // Convert FDB key-values to our KeyValue type, removing subspace prefix
         let subspace_len = data_subspace.bytes().len();
-        let result = kvs
-            .iter()
-            .filter_map(|kv| {
-                let full_key = kv.key();
+        let result = all_kvs
+            .into_iter()
+            .filter_map(|(full_key, value)| {
                 if full_key.len() > subspace_len {
                     // Unpack the key to remove subspace prefix
                     if let Ok(unpacked) =
@@ -303,7 +331,7 @@ impl StorageBackend for FdbBackend {
                     {
                         Some(KeyValue {
                             key: Bytes::from(unpacked),
-                            value: Bytes::from(kv.value().to_vec()),
+                            value: Bytes::from(value),
                         })
                     } else {
                         None
