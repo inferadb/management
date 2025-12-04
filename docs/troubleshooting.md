@@ -647,7 +647,6 @@ curl --url 'smtps://smtp.gmail.com:465' \
 If these solutions don't resolve your issue:
 
 1. **Check existing documentation**:
-
    - [Getting Started](getting-started.md)
    - [Deployment Guide](deployment.md)
    - [API Examples](examples.md)
@@ -677,7 +676,6 @@ If these solutions don't resolve your issue:
    ```
 
 4. **File an issue**:
-
    - Include diagnostic information above
    - Provide steps to reproduce
    - Note expected vs actual behavior

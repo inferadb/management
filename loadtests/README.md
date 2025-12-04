@@ -28,6 +28,7 @@ docker pull grafana/k6
 Tests user registration, login, and session management under load.
 
 **What it tests:**
+
 - User registration with concurrent users
 - Login flow with password authentication
 - Profile retrieval (authenticated requests)
@@ -35,6 +36,7 @@ Tests user registration, login, and session management under load.
 - Logout
 
 **Run:**
+
 ```bash
 # Default configuration (gradual ramp-up to 100 users)
 k6 run loadtests/auth.js
@@ -47,6 +49,7 @@ BASE_URL=https://api.example.com k6 run loadtests/auth.js
 ```
 
 **Expected performance:**
+
 - p95 latency: < 500ms
 - p99 latency: < 1000ms
 - Error rate: < 5%
@@ -56,6 +59,7 @@ BASE_URL=https://api.example.com k6 run loadtests/auth.js
 Tests vault creation, token generation, and client management.
 
 **What it tests:**
+
 - Vault creation and management
 - Client creation and certificate generation
 - Vault token generation (JWT)
@@ -63,6 +67,7 @@ Tests vault creation, token generation, and client management.
 - Access control checks
 
 **Run:**
+
 ```bash
 # Default configuration (gradual ramp-up to 50 users)
 k6 run loadtests/vaults.js
@@ -72,6 +77,7 @@ k6 run --vus 30 --duration 5m loadtests/vaults.js
 ```
 
 **Expected performance:**
+
 - p95 latency: < 1000ms
 - p99 latency: < 2000ms
 - Error rate: < 5%
@@ -81,6 +87,7 @@ k6 run --vus 30 --duration 5m loadtests/vaults.js
 Tests organization and team management operations.
 
 **What it tests:**
+
 - Organization creation
 - Organization updates
 - Member management
@@ -88,6 +95,7 @@ Tests organization and team management operations.
 - Multi-organization scenarios
 
 **Run:**
+
 ```bash
 # Default configuration
 k6 run loadtests/organizations.js
@@ -97,6 +105,7 @@ k6 run --vus 40 --duration 3m loadtests/organizations.js
 ```
 
 **Expected performance:**
+
 - p95 latency: < 800ms
 - p99 latency: < 1500ms
 - Error rate: < 5%
@@ -106,18 +115,21 @@ k6 run --vus 40 --duration 3m loadtests/organizations.js
 Tests system behavior under sudden traffic spikes.
 
 **What it tests:**
+
 - Sudden traffic increases (10 → 200 → 500 users)
 - Rate limiting behavior
 - System recovery after spike
 - Health check availability during load
 
 **Run:**
+
 ```bash
 # Run spike test
 k6 run loadtests/spike.js
 ```
 
 **Expected behavior:**
+
 - Rate limiting activates appropriately (429 responses)
 - Health checks remain available
 - System recovers gracefully
@@ -140,6 +152,7 @@ done
 ### Local Development
 
 1. Start the Management API:
+
    ```bash
    cargo run --bin inferadb-management
    ```
@@ -166,6 +179,7 @@ BASE_URL=https://api.inferadb.com k6 run --vus 10 --duration 30s loadtests/auth.
 ### Key Metrics
 
 k6 automatically tracks:
+
 - **http_req_duration**: Request latency (p50, p95, p99)
 - **http_req_failed**: Error rate percentage
 - **http_reqs**: Total requests per second
@@ -175,6 +189,7 @@ k6 automatically tracks:
 ### Custom Metrics
 
 Each test defines custom metrics:
+
 - `register_errors`, `login_errors`, etc.: Error rates for specific operations
 - `register_latency`, `token_gen_latency`, etc.: Operation-specific latency trends
 
@@ -220,12 +235,12 @@ k6 run --no-thresholds loadtests/spike.js
 
 Based on typical hardware (4 CPU, 8GB RAM):
 
-| Scenario | Concurrent Users | RPS | p95 Latency | p99 Latency |
-|----------|-----------------|-----|-------------|-------------|
-| Authentication | 100 | 150 | 400ms | 800ms |
-| Vault Operations | 50 | 80 | 900ms | 1800ms |
-| Organizations | 25 | 60 | 700ms | 1400ms |
-| Spike (200 users) | 200 | 250 | 1500ms | 3000ms |
+| Scenario          | Concurrent Users | RPS | p95 Latency | p99 Latency |
+| ----------------- | ---------------- | --- | ----------- | ----------- |
+| Authentication    | 100              | 150 | 400ms       | 800ms       |
+| Vault Operations  | 50               | 80  | 900ms       | 1800ms      |
+| Organizations     | 25               | 60  | 700ms       | 1400ms      |
+| Spike (200 users) | 200              | 250 | 1500ms      | 3000ms      |
 
 ## CI/CD Integration
 
@@ -249,6 +264,7 @@ docker run --rm -i grafana/k6 run - <loadtests/auth.js
 ### Connection Refused
 
 Ensure the Management API is running:
+
 ```bash
 curl http://localhost:3000/v1/health
 ```
@@ -256,6 +272,7 @@ curl http://localhost:3000/v1/health
 ### Rate Limiting
 
 If you see many 429 responses:
+
 - Reduce concurrent users (`--vus`)
 - Increase ramp-up time in test stages
 - Adjust rate limits in `config.yaml`
@@ -288,11 +305,11 @@ Modify test stages for specific scenarios:
 ```javascript
 export const options = {
   stages: [
-    { duration: '2m', target: 100 },   // Ramp up
-    { duration: '5m', target: 100 },   // Stay at load
-    { duration: '2m', target: 200 },   // Increase
-    { duration: '5m', target: 200 },   // Sustain
-    { duration: '2m', target: 0 },     // Ramp down
+    { duration: "2m", target: 100 }, // Ramp up
+    { duration: "5m", target: 100 }, // Stay at load
+    { duration: "2m", target: 200 }, // Increase
+    { duration: "5m", target: 200 }, // Sustain
+    { duration: "2m", target: 0 }, // Ramp down
   ],
 };
 ```

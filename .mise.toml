@@ -1,0 +1,46 @@
+# Mise configuration for InferaDB
+# https://mise.jdx.dev/
+#
+# Mise is used for:
+# - Tool installation (Rust, cargo extensions, protobuf)
+# - Environment variable configuration
+# - One-time development setup
+#
+# For daily development, use standard cargo commands.
+# See Makefile for convenient shortcuts.
+
+[tools]
+rust = "stable"
+node = "24"
+
+# Development tools (installed automatically with `mise install`)
+"cargo:cargo-watch" = "latest"    # Auto-rebuild on file changes
+"cargo:cargo-nextest" = "latest"  # Next-generation test runner
+"cargo:cargo-audit" = "latest"    # Security vulnerability scanning
+"cargo:cargo-deny" = "latest"     # Lint dependencies
+"cargo:cargo-llvm-cov" = "latest" # Code coverage
+
+# Code formatting
+"cargo:taplo-cli" = "latest" # TOML formatter and linter
+"npm:prettier" = "latest"    # Format Markdown, YAML, JSON, Rust
+
+# Protobuf compiler for gRPC
+protobuf = "latest"
+
+[env]
+# Rust optimization settings for development
+CARGO_INCREMENTAL = "1"
+CARGO_TERM_COLOR = "always"
+RUST_BACKTRACE = "1"
+
+# Performance tuning for compilation
+CARGO_BUILD_JOBS = "{{ num_cpus() }}"
+
+[tasks.setup]
+description = "One-time development environment setup"
+run = [
+  "rustup component add rustfmt clippy rust-src rust-analyzer",
+  "cargo fetch",
+  "echo '\n✅ Setup complete! Use standard cargo commands for development.'",
+  "echo 'Run \"make help\" to see available shortcuts.\n'",
+]

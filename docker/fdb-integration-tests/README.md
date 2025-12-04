@@ -122,6 +122,7 @@ INFERADB_MGMT__STORAGE__FDB_CLUSTER_FILE=/etc/foundationdb/fdb.cluster
 **Problem**: Tests timeout waiting for FDB cluster file or connection.
 
 **Solutions**:
+
 1. Check FDB container health: `docker-compose ps`
 2. View FDB logs: `docker-compose logs foundationdb`
 3. Verify cluster file exists: `docker exec inferadb-mgmt-fdb-test cat /var/fdb/fdb.cluster`
@@ -132,6 +133,7 @@ INFERADB_MGMT__STORAGE__FDB_CLUSTER_FILE=/etc/foundationdb/fdb.cluster
 **Problem**: FDB status shows "(Re)initializing" indefinitely.
 
 **Solutions**:
+
 1. Check FDB status: `docker exec inferadb-mgmt-fdb-test fdbcli --exec "status"`
 2. Re-initialize: `docker exec inferadb-mgmt-fdb-test fdbcli --exec "configure new single memory"`
 3. Clean restart: `docker-compose down -v && docker-compose up`
@@ -141,6 +143,7 @@ INFERADB_MGMT__STORAGE__FDB_CLUSTER_FILE=/etc/foundationdb/fdb.cluster
 **Problem**: FDB client installation fails.
 
 **Solution**: Verify the Dockerfile uses correct architecture detection:
+
 ```dockerfile
 ARG TARGETARCH
 # Should detect as "arm64" on Apple Silicon
@@ -151,6 +154,7 @@ ARG TARGETARCH
 **Problem**: Cannot write to FDB data directory.
 
 **Solution**:
+
 ```bash
 # Clean up volumes and restart
 docker-compose down -v
@@ -162,6 +166,7 @@ docker-compose up
 **Problem**: Race conditions or resource constraints.
 
 **Solutions**:
+
 1. Increase test timeouts in `run-tests.sh`
 2. Add `--test-threads=1` to force sequential execution
 3. Check CI runner has adequate resources (4GB RAM minimum)
@@ -229,6 +234,7 @@ jobs:
 ## Support
 
 For issues or questions:
+
 - Check [TROUBLESHOOTING.md](../../TROUBLESHOOTING.md) in the main project
 - Open an issue on GitHub
 - Review existing FDB integration test issues

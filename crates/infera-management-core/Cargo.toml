@@ -77,7 +77,12 @@ tracing-opentelemetry = { workspace = true, optional = true }
 
 [features]
 default = []
-opentelemetry = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry"]
+opentelemetry = [
+  "dep:opentelemetry",
+  "dep:opentelemetry-otlp",
+  "dep:opentelemetry_sdk",
+  "dep:tracing-opentelemetry",
+]
 
 [dev-dependencies]
 tempfile = "3.14"

@@ -176,19 +176,16 @@ Resource recommendations per instance:
 ### Application-Level
 
 1. **Connection Pooling**
-
    - Maintain persistent FoundationDB connections
    - Pool size: 10 connections per instance
    - Reuse HTTP client connections
 
 2. **Caching**
-
    - Session validation cached for 60s
    - Public keys cached for certificate verification
    - Rate limit windows in-memory
 
 3. **Async I/O**
-
    - Tokio async runtime with work-stealing scheduler
    - Non-blocking database operations
    - Parallel request processing
@@ -202,13 +199,11 @@ Resource recommendations per instance:
 ### Database-Level
 
 1. **Indexes**
-
    - Primary: Snowflake IDs (time-sortable)
    - Secondary: Email lookups, organization membership
    - Avoid full table scans
 
 2. **Transactions**
-
    - Keep transactions short (< 5s)
    - Batch related operations
    - Retry on conflicts
@@ -221,13 +216,11 @@ Resource recommendations per instance:
 ### Infrastructure-Level
 
 1. **Load Balancing**
-
    - Use health check endpoint: `/v1/health/ready`
    - Sticky sessions not required
    - Distribute evenly across instances
 
 2. **Monitoring**
-
    - Prometheus metrics at `/metrics`
    - Alert on p95 > 1000ms
    - Alert on error rate > 5%

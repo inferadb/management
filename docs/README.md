@@ -31,7 +31,6 @@ Start here: **[Getting Started Guide](getting-started.md)** - Step-by-step tutor
 ### API Features
 
 - **[Pagination](pagination.md)** - List endpoint pagination specification
-
   - Offset-based pagination
   - Query parameters and response format
   - Performance considerations
@@ -47,7 +46,6 @@ Start here: **[Getting Started Guide](getting-started.md)** - Step-by-step tutor
 ### Deployment & Performance
 
 - **[Deployment Guide](deployment.md)** - Production deployment guide
-
   - Single-instance and multi-instance (HA) setup
   - Kubernetes configuration examples
   - Health checks and graceful shutdown

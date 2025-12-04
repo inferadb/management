@@ -41,7 +41,6 @@ The **Management API** is InferaDB's control plane, providing self-service capab
 ### Core Entities
 
 - [User Management](#user-management)
-
   - [User](#user) - User accounts
   - [UserEmail](#useremail) - Email addresses and verification
   - [UserEmailVerificationToken](#useremailverificationtoken) - Email ownership verification
@@ -51,7 +50,6 @@ The **Management API** is InferaDB's control plane, providing self-service capab
   - [SessionType](#sessiontype) - Session type enumeration
 
 - [Organizations](#organizations)
-
   - [Organization](#organization) - Tenant/organization entities
   - [OrganizationMember](#organizationmember) - User membership in organizations
   - [OrganizationRole](#organizationrole) - Member, Admin, Owner roles
@@ -59,19 +57,16 @@ The **Management API** is InferaDB's control plane, providing self-service capab
   - [OrganizationTier](#organizationtier) - Billing tiers and limits
 
 - [Teams](#teams)
-
   - [OrganizationTeam](#organizationteam) - Groups of users within organizations
   - [OrganizationTeamMember](#organizationteammember) - Team membership
   - [OrganizationTeamPermission](#organizationteampermission) - Delegated permissions
   - [OrganizationPermission](#organizationpermission) - Permission enumeration
 
 - [Clients](#clients)
-
   - [Client](#client) - Service identities for backend applications
   - [ClientCertificate](#clientcertificate) - Ed25519 key pairs for JWT signing
 
 - [Vaults](#vaults)
-
   - [Vault](#vault) - Authorization policy containers
   - [VaultSyncStatus](#vaultsyncstatus) - Synchronization status with Server
   - [VaultTeamGrant](#vaultteamgrant) - Team-based vault access
@@ -79,7 +74,6 @@ The **Management API** is InferaDB's control plane, providing self-service capab
   - [VaultRole](#vaultrole) - Reader, Writer, Manager, Admin roles
 
 - [Tokens](#tokens)
-
   - [VaultRefreshToken](#vaultrefreshtoken) - Long-lived refresh tokens for vault JWTs
 
 - [Audit](#audit)
@@ -751,31 +745,26 @@ Enum defining organization-level permissions that can be delegated to teams (har
 **Client Management Permissions**:
 
 - **ORG_PERM_CLIENT_READ**: View existing Clients (list, read details, view public keys)
-
   - **Allows**: `GET /v1/organizations/:org/clients`, `GET /v1/organizations/:org/clients/:client`
   - **Denies**: Cannot view private keys (never returned by API anyway)
   - **Use case**: Security audit, monitoring which clients exist
 
 - **ORG_PERM_CLIENT_CREATE**: Create new Clients
-
   - **Allows**: `POST /v1/organizations/:org/clients`
   - **Grants**: Private key is shown once on creation (team member must save securely)
   - **Use case**: DevOps teams provisioning new service accounts
 
 - **ORG_PERM_CLIENT_ROTATE**: Rotate Client credentials (create new, revoke old)
-
   - **Allows**: `POST /v1/organizations/:org/clients/:client/rotate`
   - **Security**: Atomic operation (both create new and revoke old succeed or both fail)
   - **Use case**: Security team enforcing credential rotation policies
 
 - **ORG_PERM_CLIENT_REVOKE**: Revoke existing Clients (non-destructive, can be reversed by creating new client)
-
   - **Allows**: `POST /v1/organizations/:org/clients/:client/revoke`
   - **Note**: Cannot un-revoke, but can create new client to restore access
   - **Use case**: Security incident response team
 
 - **ORG_PERM_CLIENT_DELETE**: Permanently delete Clients (destructive, cannot be undone)
-
   - **Allows**: `DELETE /v1/organizations/:org/clients/:client`
   - **Security**: Requires confirmation parameter to prevent accidental deletion
   - **Use case**: Cleanup of deprecated service accounts
@@ -787,7 +776,6 @@ Enum defining organization-level permissions that can be delegated to teams (har
 **Vault Management Permissions**:
 
 - **ORG_PERM_VAULT_CREATE**: Create new Vaults
-
   - **Allows**: `POST /v1/vaults` (with organization_id matching the team's org)
   - **Automatically grants**: Creator receives VAULT_ROLE_ADMIN on created vault
   - **Use case**: Engineering teams creating vaults for new projects
@@ -800,12 +788,10 @@ Enum defining organization-level permissions that can be delegated to teams (har
 **Team Management Permissions**:
 
 - **ORG_PERM_TEAM_CREATE**: Create new Teams
-
   - **Allows**: `POST /v1/organizations/:org/teams`
   - **Use case**: HR or team leads organizing people
 
 - **ORG_PERM_TEAM_DELETE**: Delete Teams
-
   - **Allows**: `DELETE /v1/organizations/:org/teams/:team`
   - **Restriction**: Cannot delete team with active VaultTeamGrant entries (must revoke vault access first)
   - **Use case**: Cleanup of dissolved teams
@@ -817,7 +803,6 @@ Enum defining organization-level permissions that can be delegated to teams (har
 **Invitation Permissions**:
 
 - **ORG_PERM_INVITE_USERS**: Send invitations to join the Organization
-
   - **Allows**: `POST /v1/organizations/:org/invitations`
   - **Restriction**: Can only invite as Member role (not Admin or Owner)
   - **Use case**: Team leads onboarding new team members
@@ -948,20 +933,17 @@ Enum defining Vault access roles (hard-coded).
 **Values**:
 
 - **VAULT_ROLE_READER**: Read-only access
-
   - Can query relationships via @server API
   - Can perform authorization checks via @server API
   - Cannot modify anything
 
 - **VAULT_ROLE_WRITER**: Read and write access
-
   - All Reader permissions, plus:
   - Can write relationships via @server API
   - Can delete relationships via @server API
   - Cannot modify vault schema/policy or manage access
 
 - **VAULT_ROLE_MANAGER**: Policy management access
-
   - All Writer permissions, plus:
   - Can read and write vault policy/schema
   - Can view vault access grants
@@ -1225,25 +1207,20 @@ fn user_has_org_permission(
 **Authorization checks** (before performing operation):
 
 - **List Clients** (`GET /v1/organizations/:org/clients`):
-
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_READ`
 
 - **Get Client details** (`GET /v1/organizations/:org/clients/:client`):
-
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_READ`
 
 - **Create Client** (`POST /v1/organizations/:org/clients`):
-
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_CREATE` OR `ORG_PERM_CLIENT_MANAGE`
   - Log AuditEventType::CLIENT_CREATED with creating user
 
 - **Create certificate** (`POST /v1/organizations/:org/clients/:client/certificates`):
-
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_CREATE` OR `ORG_PERM_CLIENT_MANAGE`
   - Enables graceful zero-downtime rotation
 
 - **Revoke certificate** (`POST /v1/organizations/:org/clients/:client/certificates/:cert/revoke`):
-
   - Requires: Owner, Admin, OR `ORG_PERM_CLIENT_REVOKE` OR `ORG_PERM_CLIENT_MANAGE`
   - Cannot revoke last active certificate (must generate new one first)
 
@@ -2326,19 +2303,16 @@ class VaultClient:
 **Error Handling Best Practices**:
 
 1. **401 Unauthorized**: Token expired
-
    - Attempt refresh if refresh token available
    - Otherwise, request new tokens from Management API
    - Retry original request once
 
 2. **403 Forbidden**: Permissions changed
-
    - Clear all cached tokens (access + refresh)
    - Re-authenticate with Management API to get updated permissions
    - Do NOT retry automatically
 
 3. **`REFRESH_TOKEN_USED`**: Possible token theft
-
    - All refresh tokens for auth context have been revoked
    - User/API key must re-authenticate completely
    - Log security event
@@ -3102,7 +3076,6 @@ When manually revoking a client (without rotation):
 **Services Exposed by Management API**:
 
 1. **AuthService**: Authentication operations
-
    - `LoginPassword(LoginPasswordRequest) → Session`
    - `LoginPasskeyBegin(LoginPasskeyBeginRequest) → PasskeyChallenge`
    - `LoginPasskeyFinish(LoginPasskeyFinishRequest) → Session`
@@ -3111,7 +3084,6 @@ When manually revoking a client (without rotation):
    - `ConfirmPasswordReset(ResetToken, NewPassword) → Empty`
 
 2. **UserService**: User management
-
    - `RegisterUser(UserRegistration) → User`
    - `GetUser(UserId) → User`
    - `UpdateUser(UserId, UserUpdate) → User`
@@ -3120,7 +3092,6 @@ When manually revoking a client (without rotation):
    - `VerifyEmail(VerificationToken) → UserEmail`
 
 3. **OrganizationService**: Organization management
-
    - `CreateOrganization(OrganizationCreate) → Organization`
    - `GetOrganization(OrganizationId) → Organization`
    - `ListOrganizations(UserId, Pagination) → OrganizationList`
@@ -3137,7 +3108,6 @@ When manually revoking a client (without rotation):
    - `RotateClient(OrganizationId, OldClientId, NewClientName) → Client`
 
 4. **VaultService**: Vault management
-
    - `CreateVault(OrganizationId, VaultCreate) → Vault`
    - `GetVault(VaultId) → Vault`
    - `ListVaults(OrganizationId, Pagination) → VaultList`
@@ -3968,7 +3938,6 @@ The Management API is designed to run as multiple instances for high availabilit
 **Deployment Models**:
 
 1. **Single-instance** (development, small deployments)
-
    - Worker ID: 0 (static)
    - No coordination needed
    - Simpler configuration
@@ -4676,13 +4645,11 @@ The test suite includes dedicated multi-tenant scenarios:
 Runs daily (cron-like scheduler) and performs the following:
 
 1. **Soft-deleted entity cleanup** (90-day grace period):
-
    - Identifies entities where `deleted_at < (now - 90 days)`
    - Hard-deletes entities and all descendants
    - Logs all deletions for audit purposes
 
 2. **Expired session cleanup**:
-
    - Identifies UserSession entries where `expires_at < now`
    - Hard-deletes expired sessions immediately (no grace period needed)
    - Logs cleanup statistics (sessions deleted per run)

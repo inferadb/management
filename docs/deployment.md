@@ -9,7 +9,6 @@ This guide provides instructions for deploying the InferaDB Management API in pr
 ### Infrastructure Requirements
 
 - **Compute Resources** (single instance):
-
   - CPU: 4+ cores recommended
   - RAM: 8GB+ recommended (data stored in memory)
   - Storage: Minimal (logs only, data in RAM)

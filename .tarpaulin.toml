@@ -14,17 +14,10 @@ fail-under = 80.0
 out = ["Html", "Xml"]
 
 # Exclude patterns
-exclude = [
-    "*/tests/*",
-    "*/test_fixtures/*",
-    "*/benches/*",
-]
+exclude = ["*/tests/*", "*/test_fixtures/*", "*/benches/*"]
 
 # Exclude files from coverage
-exclude-files = [
-    "crates/*/tests/*",
-    "crates/infera-management-test-fixtures/*",
-]
+exclude-files = ["crates/*/tests/*", "crates/infera-management-test-fixtures/*"]
 
 # Run type
 run-types = ["Tests"]

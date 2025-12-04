@@ -14,7 +14,7 @@ server:
   # Always enabled for network-level security isolation
   # Runs a separate HTTP server for internal endpoints (JWKS)
   internal_host: "0.0.0.0"
-  internal_port: 9091  # Server uses 9090, Management uses 9091
+  internal_port: 9091 # Server uses 9090, Management uses 9091
 
   # gRPC server configuration
   grpc_host: "127.0.0.1"

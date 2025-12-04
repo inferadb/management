@@ -56,103 +56,103 @@ spec:
       serviceAccountName: inferadb-management
 
       containers:
-      # Main application container (existing)
-      - name: inferadb-management
-        image: inferadb-management:latest
-        ports:
-        - containerPort: 3000
-          name: http
-        - containerPort: 3001
-          name: grpc
-        # ... other container configuration ...
+        # Main application container (existing)
+        - name: inferadb-management
+          image: inferadb-management:latest
+          ports:
+            - containerPort: 3000
+              name: http
+            - containerPort: 3001
+              name: grpc
+          # ... other container configuration ...
 
-      # Tailscale sidecar container
-      - name: tailscale
-        image: tailscale/tailscale:v1.56.1
-        imagePullPolicy: IfNotPresent
+        # Tailscale sidecar container
+        - name: tailscale
+          image: tailscale/tailscale:v1.56.1
+          imagePullPolicy: IfNotPresent
 
-        env:
-        # Tailscale auth key from secret
-        - name: TS_AUTHKEY
-          valueFrom:
-            secretKeyRef:
-              name: tailscale-auth
-              key: authkey
+          env:
+            # Tailscale auth key from secret
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: tailscale-auth
+                  key: authkey
 
-        # Kubernetes secret for storing Tailscale state
-        - name: TS_KUBE_SECRET
-          value: "tailscale-state"
+            # Kubernetes secret for storing Tailscale state
+            - name: TS_KUBE_SECRET
+              value: "tailscale-state"
 
-        # Userspace networking
-        - name: TS_USERSPACE
-          value: "true"
+            # Userspace networking
+            - name: TS_USERSPACE
+              value: "true"
 
-        # Hostname for this pod in Tailscale network
-        - name: TS_HOSTNAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
+            # Hostname for this pod in Tailscale network
+            - name: TS_HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
 
-        # Accept DNS configuration from Tailscale
-        - name: TS_ACCEPT_DNS
-          value: "false"
+            # Accept DNS configuration from Tailscale
+            - name: TS_ACCEPT_DNS
+              value: "false"
 
-        # Additional Tailscale arguments
-        - name: TS_EXTRA_ARGS
-          value: "--accept-routes"
+            # Additional Tailscale arguments
+            - name: TS_EXTRA_ARGS
+              value: "--accept-routes"
 
-        # State directory
-        - name: TS_STATE_DIR
-          value: "/var/lib/tailscale"
+            # State directory
+            - name: TS_STATE_DIR
+              value: "/var/lib/tailscale"
 
-        # Security context
-        securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
+          # Security context
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
 
-        # Resource limits
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 200m
-            memory: 128Mi
+          # Resource limits
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
 
-        # Volume mounts
-        volumeMounts:
-        - name: tailscale-state
-          mountPath: /var/lib/tailscale
+          # Volume mounts
+          volumeMounts:
+            - name: tailscale-state
+              mountPath: /var/lib/tailscale
 
-        # Liveness probe
-        livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - tailscale status
-          initialDelaySeconds: 30
-          periodSeconds: 30
-          timeoutSeconds: 5
-          failureThreshold: 3
+          # Liveness probe
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - tailscale status
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
 
-        # Readiness probe
-        readinessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - tailscale status --json | grep -q '"BackendState":"Running"'
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+          # Readiness probe
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - tailscale status --json | grep -q '"BackendState":"Running"'
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
 
       # Volumes
       volumes:
-      - name: tailscale-state
-        emptyDir: {}
+        - name: tailscale-state
+          emptyDir: {}
 
 ---
 # RBAC permissions for Tailscale state management
@@ -162,10 +162,10 @@ metadata:
   name: tailscale-state-manager
   namespace: inferadb
 rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get", "list", "watch", "create", "update", "patch"]
-  resourceNames: ["tailscale-state"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+    resourceNames: ["tailscale-state"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -178,6 +178,6 @@ roleRef:
   kind: Role
   name: tailscale-state-manager
 subjects:
-- kind: ServiceAccount
-  name: inferadb-management
-  namespace: inferadb
+  - kind: ServiceAccount
+    name: inferadb-management
+    namespace: inferadb
