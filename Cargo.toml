@@ -13,6 +13,7 @@ resolver = "2"
 [workspace.package]
 authors = ["InferaDB Project"]
 edition = "2021"
+rust-version = "1.78"
 homepage = "https://inferadb.com"
 license = "BSL-1.1"
 publish = false
