@@ -307,6 +307,110 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # CLI Authorization (PKCE flow)
+  /v1/auth/cli/authorize:
+    post:
+      tags: [Authentication]
+      summary: Authorize CLI access
+      description: |
+        Initiates CLI authorization using OAuth 2.0 Authorization Code flow with PKCE.
+
+        This endpoint is called from a browser where the user has an active web session.
+        It generates an authorization code that the CLI can exchange for a session token.
+
+        ## Flow
+        1. CLI generates `code_verifier` (random string) and `code_challenge` (SHA256 hash)
+        2. CLI opens browser to this endpoint with `code_challenge`
+        3. User logs in (if not already) via web session
+        4. This endpoint generates authorization code bound to PKCE challenge
+        5. Browser redirects back to CLI with code
+        6. CLI calls `/v1/auth/cli/token` with code and `code_verifier`
+      operationId: cliAuthorize
+      security:
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code_challenge, code_challenge_method]
+              properties:
+                code_challenge:
+                  type: string
+                  description: PKCE code challenge (base64url-encoded SHA256 of code_verifier)
+                  example: E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
+                code_challenge_method:
+                  type: string
+                  enum: [S256]
+                  description: PKCE code challenge method (must be S256)
+                  example: S256
+      responses:
+        "200":
+          description: Authorization code generated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, expires_in]
+                properties:
+                  code:
+                    type: string
+                    description: Authorization code to exchange for session token
+                  expires_in:
+                    type: integer
+                    description: Code expiry time in seconds (typically 60)
+                    example: 60
+        "400":
+          description: Invalid code_challenge_method (must be S256)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/auth/cli/token:
+    post:
+      tags: [Authentication]
+      summary: Exchange CLI authorization code
+      description: |
+        Exchange authorization code for CLI session token.
+
+        The authorization code is single-use and will be invalidated after this call.
+        PKCE verification ensures the same party that requested the code is exchanging it.
+      operationId: cliTokenExchange
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, code_verifier]
+              properties:
+                code:
+                  type: string
+                  description: Authorization code from /v1/auth/cli/authorize
+                code_verifier:
+                  type: string
+                  description: PKCE code verifier (original random string)
+                  minLength: 43
+                  maxLength: 128
+      responses:
+        "200":
+          description: CLI session token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [session_token, expires_in]
+                properties:
+                  session_token:
+                    type: string
+                    description: CLI session token (session ID as string)
+                  expires_in:
+                    type: integer
+                    description: Session expiry time in seconds (7 days)
+                    example: 604800
+        "401":
+          description: Invalid or expired authorization code, or PKCE verification failed
+
   # User Endpoints
   /v1/users/me:
     get:
@@ -611,6 +715,66 @@ paths:
           description: New owner not found or not a member
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /v1/organizations/{org}/suspend:
+    post:
+      tags: [Organizations]
+      summary: Suspend organization
+      description: |
+        Suspend an organization, blocking all API access for that organization.
+        Requires owner role.
+      operationId: suspendOrganization
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Organization suspended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Organization suspended successfully
+        "400":
+          description: Organization is already suspended
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/organizations/{org}/resume:
+    post:
+      tags: [Organizations]
+      summary: Resume organization
+      description: |
+        Resume a suspended organization, restoring API access.
+        Requires owner role.
+      operationId: resumeOrganization
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Organization resumed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Organization resumed successfully
+        "400":
+          description: Organization is not suspended
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   # Organization Members
   /v1/organizations/{org}/members:
@@ -1797,6 +1961,98 @@ paths:
         "200":
           description: Member removed
 
+  # Team Permissions
+  /v1/organizations/{org}/teams/{team}/permissions:
+    get:
+      tags: [Teams]
+      summary: List team permissions
+      description: List all permissions granted to a team
+      operationId: listTeamPermissions
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/TeamId"
+      responses:
+        "200":
+          description: Permission list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permissions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamPermission"
+        "403":
+          description: Only team members or organization admins can view team permissions
+
+    post:
+      tags: [Teams]
+      summary: Grant team permission
+      description: Grant an organization permission to a team (requires owner role)
+      operationId: grantTeamPermission
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/TeamId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permission]
+              properties:
+                permission:
+                  $ref: "#/components/schemas/OrganizationPermission"
+      responses:
+        "201":
+          description: Permission granted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permission:
+                    $ref: "#/components/schemas/TeamPermission"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /v1/organizations/{org}/teams/{team}/permissions/{permission}:
+    delete:
+      tags: [Teams]
+      summary: Revoke team permission
+      description: Revoke a permission from a team (requires owner role)
+      operationId: revokeTeamPermission
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/TeamId"
+        - name: permission
+          in: path
+          required: true
+          schema:
+            type: string
+            format: snowflake
+          description: Permission ID (Snowflake ID)
+      responses:
+        "200":
+          description: Permission revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Team permission revoked successfully
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   # Session Management
   /v1/users/sessions:
     get:
@@ -2540,6 +2796,52 @@ components:
         Team roles:
         - maintainer: Can manage team members and permissions
         - member: Regular team member
+
+    OrganizationPermission:
+      type: string
+      enum:
+        - OrgPermClientCreate
+        - OrgPermClientRead
+        - OrgPermClientRevoke
+        - OrgPermClientDelete
+        - OrgPermClientManage
+        - OrgPermVaultCreate
+        - OrgPermVaultRead
+        - OrgPermVaultDelete
+      description: |
+        Organization-level permissions that can be granted to teams:
+
+        **Client Permissions:**
+        - `OrgPermClientCreate`: Create new clients
+        - `OrgPermClientRead`: Read client information
+        - `OrgPermClientRevoke`: Revoke client certificates
+        - `OrgPermClientDelete`: Delete clients
+        - `OrgPermClientManage`: All client permissions (composite)
+
+        **Vault Permissions:**
+        - `OrgPermVaultCreate`: Create new vaults
+        - `OrgPermVaultRead`: Read vault information
+        - `OrgPermVaultDelete`: Delete vaults
+
+    TeamPermission:
+      type: object
+      required: [id, team_id, permission, granted_at, granted_by_user_id]
+      properties:
+        id:
+          type: string
+          format: snowflake
+        team_id:
+          type: string
+          format: snowflake
+        permission:
+          $ref: "#/components/schemas/OrganizationPermission"
+        granted_at:
+          type: string
+          format: date-time
+        granted_by_user_id:
+          type: string
+          format: snowflake
+          description: User ID of the person who granted this permission
 
     TeamMember:
       type: object
