@@ -10,50 +10,27 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Etc/UTC"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "rust"
-      - "automated"
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "deps"
       include: "scope"
-    # Group dependency updates to reduce PR noise
     groups:
-      # Group patch updates together
+      # Group ALL patch updates into a single PR
       patch-updates:
         patterns:
           - "*"
         update-types:
           - "patch"
-      # Group minor updates by category
-      tokio-ecosystem:
+      # Group ALL minor updates into a single PR
+      minor-updates:
         patterns:
-          - "tokio*"
-          - "tower*"
-          - "hyper*"
-          - "axum*"
-          - "tonic*"
-        update-types:
-          - "minor"
-      tracing-ecosystem:
-        patterns:
-          - "tracing*"
-          - "opentelemetry*"
-        update-types:
-          - "minor"
-      serialization:
-        patterns:
-          - "serde*"
-          - "prost*"
+          - "*"
         update-types:
           - "minor"
     # Ignore major version bumps for stability (review manually)
     ignore:
-      # foundationdb-rs: breaking changes need manual review
       - dependency-name: "foundationdb"
         update-types: ["version-update:semver-major"]
-      # tonic/prost: gRPC updates need coordinated deployment
       - dependency-name: "tonic"
         update-types: ["version-update:semver-major"]
       - dependency-name: "prost"
@@ -64,47 +41,31 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "tuesday"
+      day: "monday"
       time: "09:00"
       timezone: "Etc/UTC"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "github-actions"
-      - "security"
-      - "automated"
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "ci"
       include: "scope"
+    groups:
+      # Group all GitHub Actions updates together
+      actions:
+        patterns:
+          - "*"
 
   # Docker base images
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "wednesday"
+      day: "monday"
       time: "09:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 3
-    labels:
-      - "dependencies"
-      - "docker"
-      - "automated"
     commit-message:
       prefix: "docker"
-
-  # Docker integration tests
-  - package-ecosystem: "docker"
-    directory: "/docker/fdb-integration-tests"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "09:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 3
-    labels:
-      - "dependencies"
-      - "docker"
-      - "automated"
-    commit-message:
-      prefix: "docker"
+    groups:
+      docker-images:
+        patterns:
+          - "*"
