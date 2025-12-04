@@ -1,0 +1,13 @@
+comment_width = 100
+condense_wildcard_suffixes = true
+force_explicit_abi = false
+format_macro_matchers = true
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
+match_block_trailing_comma = true
+merge_derives = false
+newline_style = "Unix"
+normalize_comments = true
+style_edition = "2024"
+use_small_heuristics = "MAX"
+wrap_comments = true

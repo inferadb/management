@@ -1,6 +1,8 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::UserEmail;
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::UserEmail,
+    error::{Error, Result},
+};
 
 /// Repository for UserEmail entity operations
 ///
@@ -52,10 +54,7 @@ impl<S: StorageBackend> UserEmailRepository<S> {
             .map_err(|e| Error::Internal(format!("Failed to check email uniqueness: {}", e)))?
             .is_some()
         {
-            return Err(Error::Validation(format!(
-                "Email '{}' is already in use",
-                email.email
-            )));
+            return Err(Error::Validation(format!("Email '{}' is already in use", email.email)));
         }
 
         // If this is a primary email, check if user already has one
@@ -68,9 +67,7 @@ impl<S: StorageBackend> UserEmailRepository<S> {
                 .map_err(|e| Error::Internal(format!("Failed to check primary email: {}", e)))?
                 .is_some()
             {
-                return Err(Error::Validation(
-                    "User already has a primary email".to_string(),
-                ));
+                return Err(Error::Validation("User already has a primary email".to_string()));
             }
         }
 
@@ -99,10 +96,7 @@ impl<S: StorageBackend> UserEmailRepository<S> {
 
         // Store primary email index if this is primary
         if email.primary {
-            txn.set(
-                Self::primary_email_index_key(email.user_id),
-                email.id.to_le_bytes().to_vec(),
-            );
+            txn.set(Self::primary_email_index_key(email.user_id), email.id.to_le_bytes().to_vec());
         }
 
         // Commit transaction
@@ -127,7 +121,7 @@ impl<S: StorageBackend> UserEmailRepository<S> {
                 let email: UserEmail = serde_json::from_slice(&bytes)
                     .map_err(|e| Error::Internal(format!("Failed to deserialize email: {}", e)))?;
                 Ok(Some(email))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -144,13 +138,11 @@ impl<S: StorageBackend> UserEmailRepository<S> {
         match id_data {
             Some(bytes) => {
                 if bytes.len() != 8 {
-                    return Err(Error::Internal(
-                        "Invalid email ID in email index".to_string(),
-                    ));
+                    return Err(Error::Internal("Invalid email ID in email index".to_string()));
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -167,13 +159,11 @@ impl<S: StorageBackend> UserEmailRepository<S> {
         match id_data {
             Some(bytes) => {
                 if bytes.len() != 8 {
-                    return Err(Error::Internal(
-                        "Invalid email ID in primary index".to_string(),
-                    ));
+                    return Err(Error::Internal("Invalid email ID in primary index".to_string()));
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -224,9 +214,7 @@ impl<S: StorageBackend> UserEmailRepository<S> {
 
         // Check if email address changed (should not be allowed in typical flows)
         if existing.email != email.email {
-            return Err(Error::Validation(
-                "Email address cannot be changed directly".to_string(),
-            ));
+            return Err(Error::Validation("Email address cannot be changed directly".to_string()));
         }
 
         // Check if primary status changed
@@ -282,10 +270,8 @@ impl<S: StorageBackend> UserEmailRepository<S> {
     /// Delete an email and all associated indexes
     pub async fn delete(&self, id: i64) -> Result<()> {
         // Get email to remove indexes
-        let email = self
-            .get(id)
-            .await?
-            .ok_or_else(|| Error::NotFound("Email not found".to_string()))?;
+        let email =
+            self.get(id).await?.ok_or_else(|| Error::NotFound("Email not found".to_string()))?;
 
         let mut txn = self
             .storage
@@ -323,8 +309,9 @@ impl<S: StorageBackend> UserEmailRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
+
+    use super::*;
 
     async fn create_test_email(id: i64, user_id: i64, email: &str, primary: bool) -> UserEmail {
         UserEmail::new(id, user_id, email.to_string(), primary).unwrap()
@@ -368,11 +355,7 @@ mod tests {
         repo.create(email.clone()).await.unwrap();
 
         // Test case-insensitive lookup
-        let retrieved = repo
-            .get_by_email("ALICE@EXAMPLE.COM")
-            .await
-            .unwrap()
-            .unwrap();
+        let retrieved = repo.get_by_email("ALICE@EXAMPLE.COM").await.unwrap().unwrap();
         assert_eq!(retrieved.email, "alice@example.com");
     }
 

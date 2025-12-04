@@ -21,8 +21,9 @@ node = "24"
 "cargo:cargo-llvm-cov" = "latest" # Code coverage
 
 # Code formatting
-"cargo:taplo-cli" = "latest" # TOML formatter and linter
-"npm:prettier" = "latest"    # Format Markdown, YAML, JSON, Rust
+"cargo:taplo-cli" = "latest"      # TOML formatter and linter
+"npm:prettier" = "latest"         # Format Markdown, YAML, JSON, Rust
+"npm:markdownlint-cli2" = "latest" # Markdown linter
 
 # Protobuf compiler for gRPC
 protobuf = "latest"

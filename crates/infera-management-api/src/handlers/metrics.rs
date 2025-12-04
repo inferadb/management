@@ -1,7 +1,10 @@
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use std::sync::OnceLock;
+
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 
 static METRICS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 
@@ -33,15 +36,11 @@ pub async fn metrics_handler() -> Response {
         Some(handle) => {
             let metrics = handle.render();
             (StatusCode::OK, metrics).into_response()
-        }
+        },
         None => {
             // If exporter wasn't initialized, return error
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Metrics exporter not initialized",
-            )
-                .into_response()
-        }
+            (StatusCode::INTERNAL_SERVER_ERROR, "Metrics exporter not initialized").into_response()
+        },
     }
 }
 

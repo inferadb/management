@@ -1,6 +1,8 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::OrganizationInvitation;
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::OrganizationInvitation,
+    error::{Error, Result},
+};
 
 /// Repository for OrganizationInvitation entity operations
 ///
@@ -110,7 +112,7 @@ impl<S: StorageBackend> OrganizationInvitationRepository<S> {
                         Error::Internal(format!("Failed to deserialize invitation: {}", e))
                     })?;
                 Ok(Some(invitation))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -126,13 +128,11 @@ impl<S: StorageBackend> OrganizationInvitationRepository<S> {
         match data {
             Some(bytes) => {
                 if bytes.len() != 8 {
-                    return Err(Error::Internal(
-                        "Invalid invitation token index data".to_string(),
-                    ));
+                    return Err(Error::Internal("Invalid invitation token index data".to_string()));
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -194,10 +194,7 @@ impl<S: StorageBackend> OrganizationInvitationRepository<S> {
         txn.delete(Self::invitation_token_index_key(&invitation.token));
 
         // Delete organization index
-        txn.delete(Self::invitation_org_index_key(
-            invitation.organization_id,
-            invitation.id,
-        ));
+        txn.delete(Self::invitation_org_index_key(invitation.organization_id, invitation.id));
 
         // Delete email+org index
         txn.delete(Self::invitation_email_org_index_key(
@@ -216,9 +213,10 @@ impl<S: StorageBackend> OrganizationInvitationRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::{Backend, MemoryBackend};
     use infera_management_types::entities::OrganizationRole;
+
+    use super::*;
 
     fn create_test_repo() -> OrganizationInvitationRepository<Backend> {
         OrganizationInvitationRepository::new(Backend::Memory(MemoryBackend::new()))
@@ -301,20 +299,11 @@ mod tests {
         let repo = create_test_repo();
         let invitation = create_test_invitation(1, 100, "test@example.com").unwrap();
 
-        assert!(!repo
-            .exists_for_email_in_org("test@example.com", 100)
-            .await
-            .unwrap());
+        assert!(!repo.exists_for_email_in_org("test@example.com", 100).await.unwrap());
 
         repo.create(invitation).await.unwrap();
 
-        assert!(repo
-            .exists_for_email_in_org("test@example.com", 100)
-            .await
-            .unwrap());
-        assert!(!repo
-            .exists_for_email_in_org("test@example.com", 200)
-            .await
-            .unwrap());
+        assert!(repo.exists_for_email_in_org("test@example.com", 100).await.unwrap());
+        assert!(!repo.exists_for_email_in_org("test@example.com", 200).await.unwrap());
     }
 }

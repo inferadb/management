@@ -1,8 +1,9 @@
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use base64::Engine;
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::PasskeyCredential;
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::PasskeyCredential,
+    error::{Error, Result},
+};
 
 /// Repository for PasskeyCredential entity operations
 ///
@@ -45,9 +46,7 @@ impl<S: StorageBackend> PasskeyCredentialRepository<S> {
         let current_credentials = self.get_user_credentials(credential.user_id).await?;
 
         if current_credentials.len() >= Self::MAX_PASSKEYS_PER_USER {
-            return Err(Error::TooManyPasskeys {
-                max: Self::MAX_PASSKEYS_PER_USER,
-            });
+            return Err(Error::TooManyPasskeys { max: Self::MAX_PASSKEYS_PER_USER });
         }
 
         // Serialize credential
@@ -79,10 +78,7 @@ impl<S: StorageBackend> PasskeyCredentialRepository<S> {
 
         // Commit transaction
         txn.commit().await.map_err(|e| {
-            Error::Internal(format!(
-                "Failed to commit passkey credential creation: {}",
-                e
-            ))
+            Error::Internal(format!("Failed to commit passkey credential creation: {}", e))
         })?;
 
         Ok(())
@@ -103,7 +99,7 @@ impl<S: StorageBackend> PasskeyCredentialRepository<S> {
                     Error::Internal(format!("Failed to deserialize passkey credential: {}", e))
                 })?;
                 Ok(Some(credential))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -122,13 +118,11 @@ impl<S: StorageBackend> PasskeyCredentialRepository<S> {
         match id_data {
             Some(bytes) => {
                 if bytes.len() != 8 {
-                    return Err(Error::Internal(
-                        "Invalid credential ID index data".to_string(),
-                    ));
+                    return Err(Error::Internal("Invalid credential ID index data".to_string()));
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -181,10 +175,8 @@ impl<S: StorageBackend> PasskeyCredentialRepository<S> {
     /// Delete a passkey credential
     pub async fn delete(&self, id: i64) -> Result<()> {
         // Get the credential first to access indexes
-        let credential = self
-            .get(id)
-            .await?
-            .ok_or_else(|| Error::NotFound("Passkey credential".to_string()))?;
+        let credential =
+            self.get(id).await?.ok_or_else(|| Error::NotFound("Passkey credential".to_string()))?;
 
         // Use transaction for atomicity
         let mut txn = self
@@ -204,10 +196,7 @@ impl<S: StorageBackend> PasskeyCredentialRepository<S> {
 
         // Commit transaction
         txn.commit().await.map_err(|e| {
-            Error::Internal(format!(
-                "Failed to commit passkey credential deletion: {}",
-                e
-            ))
+            Error::Internal(format!("Failed to commit passkey credential deletion: {}", e))
         })?;
 
         Ok(())
@@ -227,8 +216,9 @@ impl<S: StorageBackend> PasskeyCredentialRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
+
+    use super::*;
 
     async fn create_test_repo() -> PasskeyCredentialRepository<MemoryBackend> {
         let backend = MemoryBackend::new();
@@ -239,10 +229,7 @@ mod tests {
     async fn test_max_passkeys_limit() {
         // Note: Creating real Passkey objects requires the full WebAuthn flow
         // This test just verifies the constant exists
-        assert_eq!(
-            PasskeyCredentialRepository::<MemoryBackend>::MAX_PASSKEYS_PER_USER,
-            20
-        );
+        assert_eq!(PasskeyCredentialRepository::<MemoryBackend>::MAX_PASSKEYS_PER_USER, 20);
     }
 
     #[tokio::test]

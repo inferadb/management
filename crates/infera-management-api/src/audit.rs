@@ -1,10 +1,11 @@
-use crate::handlers::AppState;
 use infera_management_core::{
+    IdGenerator,
     entities::{AuditEventType, AuditLog, AuditResourceType},
     repository::AuditLogRepository,
-    IdGenerator,
 };
 use serde_json::Value as JsonValue;
+
+use crate::handlers::AppState;
 
 /// Parameters for creating an audit log entry
 #[derive(Debug, Default)]
@@ -63,17 +64,11 @@ pub fn extract_ip_address(headers: &axum::http::HeaderMap) -> Option<String> {
         .map(|s| s.trim().to_string())
         .or_else(|| {
             // Fallback to X-Real-IP
-            headers
-                .get("x-real-ip")
-                .and_then(|v| v.to_str().ok())
-                .map(|s| s.to_string())
+            headers.get("x-real-ip").and_then(|v| v.to_str().ok()).map(|s| s.to_string())
         })
 }
 
 /// Extract user agent from request headers
 pub fn extract_user_agent(headers: &axum::http::HeaderMap) -> Option<String> {
-    headers
-        .get("user-agent")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string())
+    headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string())
 }

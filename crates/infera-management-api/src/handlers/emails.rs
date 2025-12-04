@@ -1,8 +1,8 @@
 use axum::{
-    extract::{Path, State},
     Extension, Json,
+    extract::{Path, State},
 };
-use infera_management_core::{error::Error as CoreError, IdGenerator, RepositoryContext};
+use infera_management_core::{IdGenerator, RepositoryContext, error::Error as CoreError};
 use infera_management_types::{
     dto::{
         AddEmailRequest, AddEmailResponse, EmailOperationResponse, ListEmailsResponse,
@@ -12,8 +12,10 @@ use infera_management_types::{
     entities::{UserEmail, UserEmailVerificationToken},
 };
 
-use crate::handlers::auth::{AppState, Result};
-use crate::middleware::SessionContext;
+use crate::{
+    handlers::auth::{AppState, Result},
+    middleware::SessionContext,
+};
 
 fn user_email_to_info(email: UserEmail) -> UserEmailInfo {
     UserEmailInfo {
@@ -39,12 +41,7 @@ pub async fn add_email(
     let repos = RepositoryContext::new((*state.storage).clone());
 
     // Check if email already exists
-    if repos
-        .user_email
-        .get_by_email(&payload.email)
-        .await?
-        .is_some()
-    {
+    if repos.user_email.get_by_email(&payload.email).await?.is_some() {
         return Err(CoreError::Validation("Email address already in use".to_string()).into());
     }
 
@@ -59,18 +56,11 @@ pub async fn add_email(
     let verification_token =
         UserEmailVerificationToken::new(token_id, email_id, token_string.clone())?;
 
-    repos
-        .user_email_verification_token
-        .create(verification_token)
-        .await?;
+    repos.user_email_verification_token.create(verification_token).await?;
 
     // TODO: Send verification email via email service
     // For now, we'll just log the token
-    tracing::info!(
-        "Verification token for email {}: {}",
-        payload.email,
-        token_string
-    );
+    tracing::info!("Verification token for email {}: {}", payload.email, token_string);
 
     Ok(Json(AddEmailResponse {
         email: user_email_to_info(user_email),
@@ -90,9 +80,7 @@ pub async fn list_emails(
     let repos = RepositoryContext::new((*state.storage).clone());
     let emails = repos.user_email.get_user_emails(ctx.user_id).await?;
 
-    Ok(Json(ListEmailsResponse {
-        emails: emails.into_iter().map(user_email_to_info).collect(),
-    }))
+    Ok(Json(ListEmailsResponse { emails: emails.into_iter().map(user_email_to_info).collect() }))
 }
 
 /// Set an email as primary
@@ -134,9 +122,7 @@ pub async fn update_email(
         updated_email.set_primary(true);
         repos.user_email.update(updated_email).await?;
 
-        Ok(Json(EmailOperationResponse {
-            message: "Email set as primary".to_string(),
-        }))
+        Ok(Json(EmailOperationResponse { message: "Email set as primary".to_string() }))
     } else {
         Err(CoreError::Validation("Can only set emails as primary".to_string()).into())
     }
@@ -154,13 +140,10 @@ pub async fn verify_email(
     let repos = RepositoryContext::new((*state.storage).clone());
 
     // Get the token
-    let mut token = repos
-        .user_email_verification_token
-        .get_by_token(&payload.token)
-        .await?
-        .ok_or_else(|| {
-            CoreError::Validation("Invalid or expired verification token".to_string())
-        })?;
+    let mut token =
+        repos.user_email_verification_token.get_by_token(&payload.token).await?.ok_or_else(
+            || CoreError::Validation("Invalid or expired verification token".to_string()),
+        )?;
 
     // Check if token is valid (not expired and not used)
     if token.is_expired() {
@@ -169,16 +152,13 @@ pub async fn verify_email(
 
     if token.is_used() {
         return Err(
-            CoreError::Validation("Verification token has already been used".to_string()).into(),
+            CoreError::Validation("Verification token has already been used".to_string()).into()
         );
     }
 
     // Mark token as used
     token.mark_used();
-    repos
-        .user_email_verification_token
-        .update(token.clone())
-        .await?;
+    repos.user_email_verification_token.update(token.clone()).await?;
 
     // Get and verify the email
     let mut email = repos
@@ -237,10 +217,7 @@ pub async fn resend_verification(
     }
 
     // Delete any existing tokens for this email
-    let existing_tokens = repos
-        .user_email_verification_token
-        .get_by_email(email_id)
-        .await?;
+    let existing_tokens = repos.user_email_verification_token.get_by_email(email_id).await?;
     for token in existing_tokens {
         repos.user_email_verification_token.delete(token.id).await?;
     }
@@ -251,17 +228,10 @@ pub async fn resend_verification(
     let verification_token =
         UserEmailVerificationToken::new(token_id, email_id, token_string.clone())?;
 
-    repos
-        .user_email_verification_token
-        .create(verification_token)
-        .await?;
+    repos.user_email_verification_token.create(verification_token).await?;
 
     // TODO: Send verification email via email service
-    tracing::info!(
-        "Verification token for email {} (resend): {}",
-        email.email,
-        token_string
-    );
+    tracing::info!("Verification token for email {} (resend): {}", email.email, token_string);
 
     Ok(Json(ResendVerificationResponse {
         message: "Verification email sent. Please check your inbox.".to_string(),
@@ -302,28 +272,28 @@ pub async fn delete_email(
 
     repos.user_email.delete(email_id).await?;
 
-    Ok(Json(EmailOperationResponse {
-        message: "Email deleted successfully".to_string(),
-    }))
+    Ok(Json(EmailOperationResponse { message: "Email deleted successfully".to_string() }))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use axum::body::Body;
-    use axum::http::Request as HttpRequest;
-    use axum::middleware;
-    use axum::routing::{delete, get, patch, post};
+    use std::sync::Arc;
+
+    use axum::{
+        body::Body,
+        http::Request as HttpRequest,
+        middleware,
+        routing::{delete, get, patch, post},
+    };
     use infera_management_core::{
-        entities::{SessionType, User, UserSession},
         UserRepository, UserSessionRepository,
+        entities::{SessionType, User, UserSession},
     };
     use infera_management_storage::{Backend, MemoryBackend};
-    use std::sync::Arc;
     use tower::ServiceExt;
 
-    use crate::handlers::auth::SESSION_COOKIE_NAME;
-    use crate::middleware::require_session;
+    use super::*;
+    use crate::{handlers::auth::SESSION_COOKIE_NAME, middleware::require_session};
 
     fn create_test_app(storage: Arc<Backend>) -> axum::Router {
         let _ = IdGenerator::init(1);
@@ -335,10 +305,7 @@ mod tests {
             .route("/users/emails", get(list_emails))
             .route("/users/emails/{id}", patch(update_email))
             .route("/users/emails/{id}", delete(delete_email))
-            .layer(middleware::from_fn_with_state(
-                state.clone(),
-                require_session,
-            ))
+            .layer(middleware::from_fn_with_state(state.clone(), require_session))
             .with_state(state)
     }
 
@@ -381,9 +348,7 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let add_response: AddEmailResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(add_response.email.email, "newemail@example.com");
@@ -412,9 +377,7 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let list_response: ListEmailsResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(list_response.emails.len(), 1);

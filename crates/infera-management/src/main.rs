@@ -1,10 +1,11 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use clap::Parser;
 use infera_management_api::ManagementIdentity;
-use infera_management_core::{logging, ManagementConfig, WebhookClient};
+use infera_management_core::{ManagementConfig, WebhookClient, logging};
 use infera_management_grpc::ServerApiClient;
-use infera_management_storage::factory::{create_storage_backend, StorageConfig};
-use std::sync::Arc;
+use infera_management_storage::factory::{StorageConfig, create_storage_backend};
 
 #[derive(Parser, Debug)]
 #[command(name = "inferadb-management")]
@@ -65,9 +66,7 @@ async fn main() -> Result<()> {
 
     // Initialize server API client (for gRPC communication with @server)
     tracing::info!(endpoint = %config.server_api.grpc_endpoint, "Initializing server API client");
-    let server_client = Arc::new(ServerApiClient::new(
-        config.server_api.grpc_endpoint.clone(),
-    )?);
+    let server_client = Arc::new(ServerApiClient::new(config.server_api.grpc_endpoint.clone())?);
     tracing::info!("Server API client initialized successfully");
 
     // Initialize Management API identity for webhook authentication
@@ -97,10 +96,7 @@ async fn main() -> Result<()> {
             "Generated new Ed25519 keypair for Management identity. \
              To persist this identity across restarts, add this to your config:\n\
              management_identity:\n  private_key_pem: |\n{}",
-            pem.lines()
-                .map(|l| format!("    {}", l))
-                .collect::<Vec<_>>()
-                .join("\n")
+            pem.lines().map(|l| format!("    {}", l)).collect::<Vec<_>>().join("\n")
         );
 
         identity

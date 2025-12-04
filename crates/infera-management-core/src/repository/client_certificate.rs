@@ -1,6 +1,8 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::ClientCertificate;
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::ClientCertificate,
+    error::{Error, Result},
+};
 
 /// Repository for ClientCertificate entity operations
 ///
@@ -96,7 +98,7 @@ impl<S: StorageBackend> ClientCertificateRepository<S> {
                     Error::Internal(format!("Failed to deserialize certificate: {}", e))
                 })?;
                 Ok(Some(cert))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -113,13 +115,11 @@ impl<S: StorageBackend> ClientCertificateRepository<S> {
         match data {
             Some(bytes) => {
                 if bytes.len() != 8 {
-                    return Err(Error::Internal(
-                        "Invalid certificate kid index data".to_string(),
-                    ));
+                    return Err(Error::Internal("Invalid certificate kid index data".to_string()));
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -167,10 +167,7 @@ impl<S: StorageBackend> ClientCertificateRepository<S> {
             .await
             .map_err(|e| Error::Internal(format!("Failed to get all certificates: {}", e)))?;
 
-        tracing::debug!(
-            kv_count = kvs.len(),
-            "list_all_active: Retrieved KV pairs from storage"
-        );
+        tracing::debug!(kv_count = kvs.len(), "list_all_active: Retrieved KV pairs from storage");
 
         let mut certs = Vec::new();
         let mut skipped_indexes = 0;
@@ -193,7 +190,7 @@ impl<S: StorageBackend> ClientCertificateRepository<S> {
                         } else {
                             inactive_certs += 1;
                         }
-                    }
+                    },
                     Err(e) => {
                         tracing::warn!(
                             key = %key_str,
@@ -201,7 +198,7 @@ impl<S: StorageBackend> ClientCertificateRepository<S> {
                             "Failed to deserialize certificate"
                         );
                         invalid_json += 1;
-                    }
+                    },
                 }
             } else {
                 skipped_indexes += 1;
@@ -229,9 +226,7 @@ impl<S: StorageBackend> ClientCertificateRepository<S> {
 
         // Verify kid hasn't changed (kid should be immutable)
         if existing.kid != cert.kid {
-            return Err(Error::Validation(
-                "Certificate kid cannot be changed".to_string(),
-            ));
+            return Err(Error::Validation("Certificate kid cannot be changed".to_string()));
         }
 
         // Serialize updated certificate
@@ -294,8 +289,9 @@ impl<S: StorageBackend> ClientCertificateRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::{Backend, MemoryBackend};
+
+    use super::*;
 
     fn create_test_repo() -> ClientCertificateRepository<Backend> {
         ClientCertificateRepository::new(Backend::Memory(MemoryBackend::new()))

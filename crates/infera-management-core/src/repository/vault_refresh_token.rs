@@ -1,6 +1,8 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::VaultRefreshToken;
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::VaultRefreshToken,
+    error::{Error, Result},
+};
 
 /// Repository for VaultRefreshToken entity operations
 ///
@@ -62,10 +64,7 @@ impl<S: StorageBackend> VaultRefreshTokenRepository<S> {
         txn.set(Self::token_key(token.id), token_data);
 
         // Store token lookup index (for finding token by token string)
-        txn.set(
-            Self::token_lookup_key(&token.token),
-            token.id.to_le_bytes().to_vec(),
-        );
+        txn.set(Self::token_lookup_key(&token.token), token.id.to_le_bytes().to_vec());
 
         // Store vault's token index
         txn.set(
@@ -108,7 +107,7 @@ impl<S: StorageBackend> VaultRefreshTokenRepository<S> {
                 let token: VaultRefreshToken = serde_json::from_slice(&bytes)
                     .map_err(|e| Error::Internal(format!("Failed to deserialize token: {}", e)))?;
                 Ok(Some(token))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -129,7 +128,7 @@ impl<S: StorageBackend> VaultRefreshTokenRepository<S> {
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -287,9 +286,10 @@ impl<S: StorageBackend> VaultRefreshTokenRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
     use infera_management_types::entities::VaultRole;
+
+    use super::*;
 
     fn create_test_repo() -> VaultRefreshTokenRepository<MemoryBackend> {
         VaultRefreshTokenRepository::new(MemoryBackend::new())

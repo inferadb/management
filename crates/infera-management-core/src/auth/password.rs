@@ -1,8 +1,8 @@
 use argon2::{
-    password_hash::{
-        rand_core::OsRng, PasswordHash, PasswordHasher as _, PasswordVerifier, SaltString,
-    },
     Argon2,
+    password_hash::{
+        PasswordHash, PasswordHasher as _, PasswordVerifier, SaltString, rand_core::OsRng,
+    },
 };
 use infera_management_types::error::{Error, Result};
 
@@ -20,9 +20,7 @@ pub struct PasswordHasher {
 impl PasswordHasher {
     /// Create a new password hasher with default parameters
     pub fn new() -> Self {
-        Self {
-            argon2: Argon2::default(),
-        }
+        Self { argon2: Argon2::default() }
     }
 
     /// Hash a password
@@ -89,9 +87,7 @@ impl PasswordHasher {
         }
 
         if password.len() > 128 {
-            return Err(Error::Validation(
-                "Password must be 128 characters or less".to_string(),
-            ));
+            return Err(Error::Validation("Password must be 128 characters or less".to_string()));
         }
 
         Ok(())

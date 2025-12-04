@@ -1,15 +1,16 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Request, State},
     middleware::Next,
     response::Response,
 };
-use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
+use infera_management_core::error::Error as CoreError;
+use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::handlers::auth::{ApiError, AppState};
-use infera_management_core::error::Error as CoreError;
 
 /// Context for server-authenticated requests
 #[derive(Debug, Clone)]
@@ -68,10 +69,7 @@ struct JwksCache {
 
 impl JwksCache {
     fn new(ttl_seconds: u64) -> Self {
-        Self {
-            jwks: Arc::new(RwLock::new(None)),
-            ttl: std::time::Duration::from_secs(ttl_seconds),
-        }
+        Self { jwks: Arc::new(RwLock::new(None)), ttl: std::time::Duration::from_secs(ttl_seconds) }
     }
 
     async fn get_or_fetch(&self, jwks_url: &str) -> Result<Jwks, CoreError> {
@@ -139,9 +137,7 @@ pub async fn require_server_jwt(
     let header = decode_header(token)
         .map_err(|e| CoreError::Auth(format!("Failed to decode JWT header: {}", e)))?;
 
-    let kid = header
-        .kid
-        .ok_or_else(|| CoreError::Auth("JWT missing kid claim".to_string()))?;
+    let kid = header.kid.ok_or_else(|| CoreError::Auth("JWT missing kid claim".to_string()))?;
 
     // Get server JWKS URL from config
     let server_jwks_url = &state.config.server_verification.server_jwks_url;
@@ -165,7 +161,7 @@ pub async fn require_server_jwt(
     }
 
     // Construct PEM from JWK for EdDSA verification
-    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
     let public_key_bytes = URL_SAFE_NO_PAD
         .decode(&jwk.x)
         .map_err(|e| CoreError::Auth(format!("Failed to decode public key: {}", e)))?;

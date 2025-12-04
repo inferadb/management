@@ -18,11 +18,11 @@ pub mod repository;
 pub mod repository_context;
 pub mod webhook_client;
 
-pub use auth::{hash_password, verify_password, PasswordHasher};
+pub use auth::{PasswordHasher, hash_password, verify_password};
 pub use clock::{ClockStatus, ClockValidator};
 pub use config::ManagementConfig;
 pub use config_refresh::ConfigRefresher;
-pub use crypto::{keypair, PrivateKeyEncryptor};
+pub use crypto::{PrivateKeyEncryptor, keypair};
 pub use email::{
     EmailSender, EmailService, EmailTemplate, InvitationAcceptedEmailTemplate,
     InvitationEmailTemplate, MockEmailSender, OrganizationDeletionWarningEmailTemplate,
@@ -33,7 +33,7 @@ pub use id::{IdGenerator, WorkerRegistry};
 pub use jobs::BackgroundJobs;
 pub use jwt::{JwtSigner, VaultTokenClaims};
 pub use leader::LeaderElection;
-pub use ratelimit::{categories, limits, RateLimit, RateLimitResult, RateLimiter};
+pub use ratelimit::{RateLimit, RateLimitResult, RateLimiter, categories, limits};
 pub use repository::{
     AuditLogFilters, AuditLogRepository, AuthorizationCodeRepository, ClientCertificateRepository,
     ClientRepository, JtiReplayProtectionRepository, OrganizationInvitationRepository,

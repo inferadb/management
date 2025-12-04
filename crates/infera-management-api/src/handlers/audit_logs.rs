@@ -1,8 +1,8 @@
 use axum::{
+    Extension, Json,
     extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Extension, Json,
 };
 use infera_management_core::{AuditLogFilters, RepositoryContext};
 use infera_management_types::{
@@ -14,7 +14,7 @@ use infera_management_types::{
 };
 
 use super::AppState;
-use crate::middleware::{require_owner, OrganizationContext};
+use crate::middleware::{OrganizationContext, require_owner};
 
 /// Internal endpoint for recording audit log events
 ///
@@ -52,11 +52,9 @@ pub async fn create_audit_log(
     }
 
     match repos.audit_log.create(log).await {
-        Ok(_) => (
-            StatusCode::CREATED,
-            Json(CreateAuditLogResponse { success: true }),
-        )
-            .into_response(),
+        Ok(_) => {
+            (StatusCode::CREATED, Json(CreateAuditLogResponse { success: true })).into_response()
+        },
         Err(e) => {
             tracing::error!("Failed to create audit log: {:?}", e);
             (
@@ -66,7 +64,7 @@ pub async fn create_audit_log(
                 })),
             )
                 .into_response()
-        }
+        },
     }
 }
 
@@ -128,17 +126,9 @@ pub async fn list_audit_logs(
                 })
                 .collect();
 
-            (
-                StatusCode::OK,
-                Json(ListAuditLogsResponse {
-                    audit_logs,
-                    total,
-                    limit,
-                    offset,
-                }),
-            )
+            (StatusCode::OK, Json(ListAuditLogsResponse { audit_logs, total, limit, offset }))
                 .into_response()
-        }
+        },
         Err(e) => {
             tracing::error!("Failed to list audit logs: {:?}", e);
             (
@@ -148,16 +138,18 @@ pub async fn list_audit_logs(
                 })),
             )
                 .into_response()
-        }
+        },
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
     use infera_management_core::AuditEventType;
     use infera_management_storage::{Backend, MemoryBackend};
-    use std::sync::Arc;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_create_audit_log() {

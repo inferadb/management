@@ -1,6 +1,7 @@
+use std::process::Command;
+
 use chrono::{DateTime, Utc};
 use infera_management_types::error::{Error, Result};
-use std::process::Command;
 
 /// Maximum allowed clock skew in seconds (default: 1 second)
 const MAX_CLOCK_SKEW_SECONDS: i64 = 1;
@@ -20,9 +21,7 @@ pub struct ClockValidator {
 impl ClockValidator {
     /// Create a new clock validator with default settings
     pub fn new() -> Self {
-        Self {
-            max_skew_seconds: MAX_CLOCK_SKEW_SECONDS,
-        }
+        Self { max_skew_seconds: MAX_CLOCK_SKEW_SECONDS }
     }
 
     /// Create a clock validator with custom max skew threshold
@@ -48,17 +47,14 @@ impl ClockValidator {
         let ntp_time = match self.query_ntp_time().await {
             Ok(time) => time,
             Err(e) => {
-                tracing::warn!(
-                    "Failed to query NTP time: {}. Skipping clock skew validation.",
-                    e
-                );
+                tracing::warn!("Failed to query NTP time: {}. Skipping clock skew validation.", e);
                 return Ok(ClockStatus {
                     system_time,
                     ntp_time: None,
                     skew_seconds: 0,
                     within_threshold: true,
                 });
-            }
+            },
         };
 
         // Calculate skew
@@ -74,12 +70,7 @@ impl ClockValidator {
             )));
         }
 
-        Ok(ClockStatus {
-            system_time,
-            ntp_time: Some(ntp_time),
-            skew_seconds,
-            within_threshold,
-        })
+        Ok(ClockStatus { system_time, ntp_time: Some(ntp_time), skew_seconds, within_threshold })
     }
 
     /// Query NTP time using system ntpdate or similar command
@@ -98,11 +89,7 @@ impl ClockValidator {
         }
 
         // Try ntpdate as fallback
-        if let Ok(output) = Command::new("ntpdate")
-            .arg("-q")
-            .arg("pool.ntp.org")
-            .output()
-        {
+        if let Ok(output) = Command::new("ntpdate").arg("-q").arg("pool.ntp.org").output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 if let Some(time) = self.parse_ntpdate_output(&stdout) {
@@ -122,11 +109,7 @@ impl ClockValidator {
     fn parse_chrony_output(&self, output: &str) -> Option<DateTime<Utc>> {
         // Chrony doesn't provide direct NTP time, so we use system time
         // The important thing is that chrony is synchronized
-        if output.contains("Leap status     : Normal") {
-            Some(Utc::now())
-        } else {
-            None
-        }
+        if output.contains("Leap status     : Normal") { Some(Utc::now()) } else { None }
     }
 
     /// Parse ntpdate output to extract NTP time
@@ -135,11 +118,7 @@ impl ClockValidator {
         // "server 192.168.1.1, stratum 2, offset -0.003163, delay 0.02567"
         // We just verify it runs successfully, actual time parsing is complex
         // In production, use a proper NTP client library
-        if output.contains("server") {
-            Some(Utc::now())
-        } else {
-            None
-        }
+        if output.contains("server") { Some(Utc::now()) } else { None }
     }
 }
 
@@ -184,15 +163,12 @@ mod tests {
         match validator.validate().await {
             Ok(status) => {
                 assert!(status.within_threshold);
-                tracing::info!(
-                    "Clock validation passed. Skew: {} seconds",
-                    status.skew_seconds
-                );
-            }
+                tracing::info!("Clock validation passed. Skew: {} seconds", status.skew_seconds);
+            },
             Err(e) => {
                 // Expected if NTP tools not available in test environment
                 tracing::warn!("Clock validation skipped: {}", e);
-            }
+            },
         }
     }
 

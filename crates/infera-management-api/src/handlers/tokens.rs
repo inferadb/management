@@ -1,13 +1,11 @@
-use crate::handlers::auth::{AppState, Result};
-use crate::middleware::{get_user_vault_role, OrganizationContext, SessionContext};
 use axum::{
+    Extension, Form, Json,
     extract::{Path, State},
     http::StatusCode,
-    Extension, Form, Json,
 };
 use infera_management_core::{
-    error::Error as CoreError, IdGenerator, JwtSigner, PrivateKeyEncryptor, RepositoryContext,
-    VaultTokenClaims,
+    IdGenerator, JwtSigner, PrivateKeyEncryptor, RepositoryContext, VaultTokenClaims,
+    error::Error as CoreError,
 };
 use infera_management_types::{
     dto::{
@@ -18,6 +16,11 @@ use infera_management_types::{
     entities::{VaultRefreshToken, VaultRole},
 };
 use serde::Deserialize;
+
+use crate::{
+    handlers::auth::{AppState, Result},
+    middleware::{OrganizationContext, SessionContext, get_user_vault_role},
+};
 
 // ============================================================================
 // Token Generation Endpoint
@@ -65,8 +68,8 @@ pub async fn generate_vault_token(
                 return Err(CoreError::Validation(
                     "Invalid role. Must be one of: read, write, admin".to_string(),
                 )
-                .into())
-            }
+                .into());
+            },
         };
 
         // Verify requested role doesn't exceed user's actual permission level
@@ -108,28 +111,19 @@ pub async fn generate_vault_token(
         c
     } else {
         // Get first active client for this organization
-        let clients = repos
-            .client
-            .list_by_organization(org_ctx.organization_id)
-            .await?;
+        let clients = repos.client.list_by_organization(org_ctx.organization_id).await?;
 
-        clients
-            .into_iter()
-            .find(|c| !c.is_deleted())
-            .ok_or_else(|| {
-                CoreError::NotFound(
-                    "No active clients found. Create a client first to generate tokens."
-                        .to_string(),
-                )
-            })?
+        clients.into_iter().find(|c| !c.is_deleted()).ok_or_else(|| {
+            CoreError::NotFound(
+                "No active clients found. Create a client first to generate tokens.".to_string(),
+            )
+        })?
     };
 
     // Get an active certificate for the client
     let certificates = repos.client_certificate.list_by_client(client.id).await?;
-    let certificate = certificates
-        .into_iter()
-        .find(|cert| !cert.is_revoked())
-        .ok_or_else(|| {
+    let certificate =
+        certificates.into_iter().find(|cert| !cert.is_revoked()).ok_or_else(|| {
             CoreError::NotFound(
                 "No active certificates found for client. Create a certificate first.".to_string(),
             )
@@ -172,10 +166,7 @@ pub async fn generate_vault_token(
     )?;
 
     // Store refresh token
-    repos
-        .vault_refresh_token
-        .create(refresh_token.clone())
-        .await?;
+    repos.vault_refresh_token.create(refresh_token.clone()).await?;
 
     // Calculate refresh token TTL in seconds
     let refresh_ttl = (refresh_token.expires_at - refresh_token.created_at).num_seconds();
@@ -268,10 +259,7 @@ pub async fn refresh_vault_token(
         c
     } else {
         // Get first active client for this organization
-        let clients = repos
-            .client
-            .list_by_organization(old_token.organization_id)
-            .await?;
+        let clients = repos.client.list_by_organization(old_token.organization_id).await?;
 
         clients
             .into_iter()
@@ -392,7 +380,7 @@ pub async fn client_assertion_authenticate(
     // Validate grant_type
     if req.grant_type != "client_credentials" {
         return Err(
-            CoreError::Validation("grant_type must be 'client_credentials'".to_string()).into(),
+            CoreError::Validation("grant_type must be 'client_credentials'".to_string()).into()
         );
     }
 
@@ -421,8 +409,8 @@ pub async fn client_assertion_authenticate(
                 return Err(CoreError::Validation(
                     "invalid role (must be read, write, or admin)".to_string(),
                 )
-                .into())
-            }
+                .into());
+            },
         }
     } else {
         VaultRole::Reader // Default to read per spec
@@ -478,8 +466,8 @@ pub async fn client_assertion_authenticate(
     }
 
     // Verify JWT signature using certificate public key
-    use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-    use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+    use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
+    use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
 
     let public_key_bytes = BASE64
         .decode(&certificate.public_key)
@@ -522,7 +510,7 @@ pub async fn client_assertion_authenticate(
     let expected_client_id = certificate.client_id.to_string();
     if claims.iss != expected_client_id || claims.sub != expected_client_id {
         return Err(
-            CoreError::Auth("client assertion iss/sub must match client_id".to_string()).into(),
+            CoreError::Auth("client assertion iss/sub must match client_id".to_string()).into()
         );
     }
 
@@ -530,10 +518,7 @@ pub async fn client_assertion_authenticate(
     let expires_at =
         chrono::DateTime::from_timestamp(claims.exp, 0).unwrap_or_else(chrono::Utc::now);
 
-    repos
-        .jti_replay_protection
-        .check_and_mark_jti(&claims.jti, expires_at)
-        .await?;
+    repos.jti_replay_protection.check_and_mark_jti(&claims.jti, expires_at).await?;
 
     // Get client and verify it's not deleted
     let client = repos
@@ -559,7 +544,7 @@ pub async fn client_assertion_authenticate(
     // For now, we just verify the vault belongs to the same organization as the client.
     if vault.organization_id != client.organization_id {
         return Err(
-            CoreError::Authz("Client does not have access to this vault".to_string()).into(),
+            CoreError::Authz("Client does not have access to this vault".to_string()).into()
         );
     }
 
@@ -598,10 +583,7 @@ pub async fn client_assertion_authenticate(
         None, // Use default TTL (7 days)
     )?;
 
-    repos
-        .vault_refresh_token
-        .create(refresh_token.clone())
-        .await?;
+    repos.vault_refresh_token.create(refresh_token.clone()).await?;
 
     // Build scope string based on role
     let scope = match requested_role {
@@ -678,8 +660,5 @@ pub async fn revoke_vault_tokens(
     // Revoke all refresh tokens for this vault
     let revoked_count = repos.vault_refresh_token.revoke_by_vault(vault_id).await?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(RevokeTokensResponse { revoked_count }),
-    ))
+    Ok((StatusCode::CREATED, Json(RevokeTokensResponse { revoked_count })))
 }

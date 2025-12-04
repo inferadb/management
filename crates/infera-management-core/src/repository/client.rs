@@ -1,6 +1,8 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::Client;
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::Client,
+    error::{Error, Result},
+};
 
 /// Repository for Client entity operations
 ///
@@ -95,7 +97,7 @@ impl<S: StorageBackend> ClientRepository<S> {
                 let client: Client = serde_json::from_slice(&bytes)
                     .map_err(|e| Error::Internal(format!("Failed to deserialize client: {}", e)))?;
                 Ok(Some(client))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -128,10 +130,7 @@ impl<S: StorageBackend> ClientRepository<S> {
     /// List active (non-deleted) clients for an organization
     pub async fn list_active_by_organization(&self, org_id: i64) -> Result<Vec<Client>> {
         let all_clients = self.list_by_organization(org_id).await?;
-        Ok(all_clients
-            .into_iter()
-            .filter(|c| !c.is_deleted())
-            .collect())
+        Ok(all_clients.into_iter().filter(|c| !c.is_deleted()).collect())
     }
 
     /// Update a client
@@ -156,10 +155,7 @@ impl<S: StorageBackend> ClientRepository<S> {
         // If name changed, update name index
         if existing.name != client.name {
             // Delete old name index
-            txn.delete(Self::client_name_index_key(
-                existing.organization_id,
-                &existing.name,
-            ));
+            txn.delete(Self::client_name_index_key(existing.organization_id, &existing.name));
 
             // Check for duplicate new name
             let new_name_key = Self::client_name_index_key(client.organization_id, &client.name);
@@ -212,16 +208,10 @@ impl<S: StorageBackend> ClientRepository<S> {
         txn.delete(Self::client_key(id));
 
         // Delete organization index
-        txn.delete(Self::client_org_index_key(
-            client.organization_id,
-            client.id,
-        ));
+        txn.delete(Self::client_org_index_key(client.organization_id, client.id));
 
         // Delete name index
-        txn.delete(Self::client_name_index_key(
-            client.organization_id,
-            &client.name,
-        ));
+        txn.delete(Self::client_name_index_key(client.organization_id, &client.name));
 
         // Commit transaction
         txn.commit()
@@ -246,8 +236,9 @@ impl<S: StorageBackend> ClientRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::{Backend, MemoryBackend};
+
+    use super::*;
 
     fn create_test_repo() -> ClientRepository<Backend> {
         ClientRepository::new(Backend::Memory(MemoryBackend::new()))

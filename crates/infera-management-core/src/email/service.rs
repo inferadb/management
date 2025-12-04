@@ -1,8 +1,10 @@
 use async_trait::async_trait;
 use infera_management_types::error::{Error, Result};
-use lettre::message::{header::ContentType, Mailbox};
-use lettre::transport::smtp::authentication::Credentials;
-use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
+use lettre::{
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+    message::{Mailbox, header::ContentType},
+    transport::smtp::authentication::Credentials,
+};
 
 /// Email sender abstraction
 #[async_trait]
@@ -83,9 +85,8 @@ impl EmailSender for SmtpEmailService {
         body_text: &str,
     ) -> Result<()> {
         let from = self.get_from_mailbox()?;
-        let to_mailbox: Mailbox = to
-            .parse()
-            .map_err(|e| Error::Validation(format!("Invalid recipient email: {}", e)))?;
+        let to_mailbox: Mailbox =
+            to.parse().map_err(|e| Error::Validation(format!("Invalid recipient email: {}", e)))?;
 
         let email = Message::builder()
             .from(from)
@@ -124,9 +125,7 @@ impl EmailService {
         body_html: &str,
         body_text: &str,
     ) -> Result<()> {
-        self.sender
-            .send_email(to, subject, body_html, body_text)
-            .await
+        self.sender.send_email(to, subject, body_html, body_text).await
     }
 }
 
@@ -194,9 +193,8 @@ mod tests {
         let sender = Box::new(MockEmailSender::new());
         let service = EmailService::new(sender);
 
-        let result = service
-            .send_email("test@example.com", "Test Subject", "<h1>Test</h1>", "Test")
-            .await;
+        let result =
+            service.send_email("test@example.com", "Test Subject", "<h1>Test</h1>", "Test").await;
 
         assert!(result.is_ok());
     }
@@ -206,9 +204,8 @@ mod tests {
         let sender = Box::new(MockEmailSender::new_failing());
         let service = EmailService::new(sender);
 
-        let result = service
-            .send_email("test@example.com", "Test Subject", "<h1>Test</h1>", "Test")
-            .await;
+        let result =
+            service.send_email("test@example.com", "Test Subject", "<h1>Test</h1>", "Test").await;
 
         assert!(result.is_err());
     }
@@ -216,18 +213,14 @@ mod tests {
     #[tokio::test]
     async fn test_mock_email_sender() {
         let sender = MockEmailSender::new();
-        let result = sender
-            .send_email("test@example.com", "Test", "<p>HTML</p>", "Text")
-            .await;
+        let result = sender.send_email("test@example.com", "Test", "<p>HTML</p>", "Text").await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_mock_email_sender_failure() {
         let sender = MockEmailSender::new_failing();
-        let result = sender
-            .send_email("test@example.com", "Test", "<p>HTML</p>", "Text")
-            .await;
+        let result = sender.send_email("test@example.com", "Test", "<p>HTML</p>", "Text").await;
         assert!(result.is_err());
     }
 

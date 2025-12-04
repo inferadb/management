@@ -1,6 +1,8 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::{Organization, OrganizationMember, OrganizationRole};
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::{Organization, OrganizationMember, OrganizationRole},
+    error::{Error, Result},
+};
 
 /// Repository for Organization entity operations
 ///
@@ -83,7 +85,7 @@ impl<S: StorageBackend> OrganizationRepository<S> {
                     Error::Internal(format!("Failed to deserialize organization: {}", e))
                 })?;
                 Ok(Some(org))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -99,13 +101,11 @@ impl<S: StorageBackend> OrganizationRepository<S> {
         match data {
             Some(bytes) => {
                 if bytes.len() != 8 {
-                    return Err(Error::Internal(
-                        "Invalid organization index data".to_string(),
-                    ));
+                    return Err(Error::Internal("Invalid organization index data".to_string()));
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -182,7 +182,7 @@ impl<S: StorageBackend> OrganizationRepository<S> {
         match data {
             Some(bytes) if bytes.len() == 8 => {
                 Ok(i64::from_le_bytes(bytes[0..8].try_into().unwrap()))
-            }
+            },
             _ => Ok(0),
         }
     }
@@ -272,10 +272,7 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
 
         // Commit transaction
         txn.commit().await.map_err(|e| {
-            Error::Internal(format!(
-                "Failed to commit organization member creation: {}",
-                e
-            ))
+            Error::Internal(format!("Failed to commit organization member creation: {}", e))
         })?;
 
         Ok(())
@@ -295,7 +292,7 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
                     Error::Internal(format!("Failed to deserialize organization member: {}", e))
                 })?;
                 Ok(Some(member))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -308,10 +305,7 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
     ) -> Result<Option<OrganizationMember>> {
         let index_key = Self::org_user_index_key(org_id, user_id);
         let data = self.storage.get(&index_key).await.map_err(|e| {
-            Error::Internal(format!(
-                "Failed to get organization member by org+user: {}",
-                e
-            ))
+            Error::Internal(format!("Failed to get organization member by org+user: {}", e))
         })?;
 
         match data {
@@ -323,7 +317,7 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -388,7 +382,7 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
         match data {
             Some(bytes) if bytes.len() == 8 => {
                 Ok(i64::from_le_bytes(bytes[0..8].try_into().unwrap()))
-            }
+            },
             _ => Ok(0),
         }
     }
@@ -401,10 +395,7 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
     /// Count owners in an organization
     pub async fn count_owners(&self, org_id: i64) -> Result<usize> {
         let members = self.get_by_organization(org_id).await?;
-        Ok(members
-            .iter()
-            .filter(|m| m.role == OrganizationRole::Owner)
-            .count())
+        Ok(members.iter().filter(|m| m.role == OrganizationRole::Owner).count())
     }
 
     /// Update a member's role
@@ -439,16 +430,10 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
         txn.delete(Self::member_key(id));
 
         // Delete org+user index
-        txn.delete(Self::org_user_index_key(
-            member.organization_id,
-            member.user_id,
-        ));
+        txn.delete(Self::org_user_index_key(member.organization_id, member.user_id));
 
         // Delete user+org index
-        txn.delete(Self::user_org_index_key(
-            member.user_id,
-            member.organization_id,
-        ));
+        txn.delete(Self::user_org_index_key(member.user_id, member.organization_id));
 
         // Decrement user's org count
         let count_key = Self::user_org_count_key(member.user_id);
@@ -459,10 +444,7 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
 
         // Commit transaction
         txn.commit().await.map_err(|e| {
-            Error::Internal(format!(
-                "Failed to commit organization member deletion: {}",
-                e
-            ))
+            Error::Internal(format!("Failed to commit organization member deletion: {}", e))
         })?;
 
         Ok(())
@@ -471,10 +453,11 @@ impl<S: StorageBackend> OrganizationMemberRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::IdGenerator;
     use infera_management_storage::{Backend, MemoryBackend};
     use infera_management_types::entities::OrganizationTier;
+
+    use super::*;
+    use crate::IdGenerator;
 
     async fn create_test_org_repo() -> OrganizationRepository<Backend> {
         let storage = Backend::Memory(MemoryBackend::new());

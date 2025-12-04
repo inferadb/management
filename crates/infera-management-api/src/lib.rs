@@ -1,9 +1,10 @@
 // REST API handlers and routes
 
+use std::sync::Arc;
+
 use infera_management_core::ManagementConfig;
 use infera_management_grpc::ServerApiClient;
 use infera_management_storage::Backend;
-use std::sync::Arc;
 use tracing::info;
 
 pub mod audit;
@@ -13,13 +14,15 @@ pub mod pagination;
 pub mod routes;
 
 pub use handlers::AppState;
-pub use infera_management_types::dto::ErrorResponse;
-pub use infera_management_types::identity::{ManagementIdentity, SharedManagementIdentity};
+pub use infera_management_types::{
+    dto::ErrorResponse,
+    identity::{ManagementIdentity, SharedManagementIdentity},
+};
 pub use middleware::{
-    extract_session_context, get_user_vault_role, require_admin, require_admin_or_owner,
-    require_manager, require_member, require_organization_member, require_owner, require_reader,
-    require_session, require_vault_access, require_writer, OrganizationContext, SessionContext,
-    VaultContext,
+    OrganizationContext, SessionContext, VaultContext, extract_session_context,
+    get_user_vault_role, require_admin, require_admin_or_owner, require_manager, require_member,
+    require_organization_member, require_owner, require_reader, require_session,
+    require_vault_access, require_writer,
 };
 pub use pagination::{Paginated, PaginationMeta, PaginationParams, PaginationQuery};
 pub use routes::create_router_with_state;
@@ -29,9 +32,7 @@ async fn shutdown_signal() {
     use tokio::signal;
 
     let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
+        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
     };
 
     #[cfg(unix)]
@@ -72,12 +73,8 @@ pub async fn serve(
     services: ServicesConfig,
 ) -> anyhow::Result<()> {
     // Create AppState with services using the builder pattern
-    let mut builder = AppState::builder(
-        storage.clone(),
-        config.clone(),
-        server_client.clone(),
-        worker_id,
-    );
+    let mut builder =
+        AppState::builder(storage.clone(), config.clone(), server_client.clone(), worker_id);
 
     if let Some(leader) = services.leader {
         builder = builder.leader(leader);
@@ -108,10 +105,7 @@ pub async fn serve(
 
     // Bind listeners
     let public_addr = format!("{}:{}", config.server.http_host, config.server.http_port);
-    let internal_addr = format!(
-        "{}:{}",
-        config.server.internal_host, config.server.internal_port
-    );
+    let internal_addr = format!("{}:{}", config.server.internal_host, config.server.internal_port);
 
     info!("Binding public server to {}", public_addr);
     let public_listener = tokio::net::TcpListener::bind(&public_addr).await?;

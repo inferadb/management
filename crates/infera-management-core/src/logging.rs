@@ -1,5 +1,6 @@
+use tracing_subscriber::{EnvFilter, Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+
 use crate::config::ObservabilityConfig;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 /// Initialize structured logging based on configuration
 ///
@@ -115,16 +116,11 @@ pub fn init_with_tracing(
 
     // Set up OpenTelemetry if tracing is enabled
     if config.tracing_enabled {
-        let otlp_endpoint = config
-            .otlp_endpoint
-            .as_ref()
-            .ok_or("OTLP endpoint not configured")?;
+        let otlp_endpoint = config.otlp_endpoint.as_ref().ok_or("OTLP endpoint not configured")?;
 
         // Build the OTLP exporter
-        let exporter = SpanExporter::builder()
-            .with_tonic()
-            .with_endpoint(otlp_endpoint.clone())
-            .build()?;
+        let exporter =
+            SpanExporter::builder().with_tonic().with_endpoint(otlp_endpoint.clone()).build()?;
 
         // Build the resource with service name
         let resource = opentelemetry_sdk::Resource::builder()
@@ -156,10 +152,7 @@ pub fn init_with_tracing(
         // Initialize with logging only
         subscriber.init();
 
-        tracing::info!(
-            service = service_name,
-            "Tracing initialized without OpenTelemetry"
-        );
+        tracing::info!(service = service_name, "Tracing initialized without OpenTelemetry");
     }
 
     Ok(())

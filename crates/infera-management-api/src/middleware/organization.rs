@@ -4,13 +4,15 @@ use axum::{
     response::Response,
 };
 use infera_management_core::{
+    OrganizationMemberRepository, OrganizationRepository,
     entities::{OrganizationMember, OrganizationRole},
     error::Error as CoreError,
-    OrganizationMemberRepository, OrganizationRepository,
 };
 
-use crate::handlers::auth::{ApiError, AppState};
-use crate::middleware::SessionContext;
+use crate::{
+    handlers::auth::{ApiError, AppState},
+    middleware::SessionContext,
+};
 
 /// Context for organization-scoped requests
 #[derive(Debug, Clone)]
@@ -71,13 +73,9 @@ pub async fn require_organization_member(
     };
 
     // Get session context (should be set by require_session middleware)
-    let session_ctx = request
-        .extensions()
-        .get::<SessionContext>()
-        .cloned()
-        .ok_or_else(|| {
-            CoreError::Internal("Session context not found in request extensions".to_string())
-        })?;
+    let session_ctx = request.extensions().get::<SessionContext>().cloned().ok_or_else(|| {
+        CoreError::Internal("Session context not found in request extensions".to_string())
+    })?;
 
     // Check if user is a member of the organization
     let member_repo = OrganizationMemberRepository::new((*state.storage).clone());
@@ -98,10 +96,7 @@ pub async fn require_organization_member(
     }
 
     // Attach organization context to request extensions
-    request.extensions_mut().insert(OrganizationContext {
-        organization_id: org_id,
-        member,
-    });
+    request.extensions_mut().insert(OrganizationContext { organization_id: org_id, member });
 
     Ok(next.run(request).await)
 }

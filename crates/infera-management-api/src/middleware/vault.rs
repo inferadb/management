@@ -4,11 +4,13 @@ use axum::{
     response::Response,
 };
 use infera_management_core::{
-    entities::VaultRole, error::Error as CoreError, VaultRepository, VaultUserGrantRepository,
+    VaultRepository, VaultUserGrantRepository, entities::VaultRole, error::Error as CoreError,
 };
 
-use crate::handlers::auth::{ApiError, AppState};
-use crate::middleware::OrganizationContext;
+use crate::{
+    handlers::auth::{ApiError, AppState},
+    middleware::OrganizationContext,
+};
 
 /// Context for vault-scoped requests
 #[derive(Debug, Clone)]
@@ -61,16 +63,13 @@ pub async fn require_vault_access(
     next: Next,
 ) -> Result<Response, ApiError> {
     // Get organization context (should be set by require_organization_member middleware)
-    let org_ctx = request
-        .extensions()
-        .get::<OrganizationContext>()
-        .cloned()
-        .ok_or_else(|| {
-            CoreError::Internal("Organization context not found in request extensions".to_string())
-        })?;
+    let org_ctx = request.extensions().get::<OrganizationContext>().cloned().ok_or_else(|| {
+        CoreError::Internal("Organization context not found in request extensions".to_string())
+    })?;
 
     // Extract vault_id from the URI path manually
-    // Routes are of the form /v1/organizations/{org}/vaults/{vault}/... where {vault} is the 4th segment
+    // Routes are of the form /v1/organizations/{org}/vaults/{vault}/... where {vault} is the 4th
+    // segment
     let uri_path = request.uri().path();
     let segments: Vec<&str> = uri_path.split('/').collect();
 
@@ -84,7 +83,7 @@ pub async fn require_vault_access(
             .map_err(|_| CoreError::Validation("Invalid vault ID in path".to_string()))?
     } else {
         return Err(
-            CoreError::Internal("Vault middleware applied to invalid route".to_string()).into(),
+            CoreError::Internal("Vault middleware applied to invalid route".to_string()).into()
         );
     };
 
@@ -132,10 +131,7 @@ pub async fn get_user_vault_role(
 
     // Check direct user grant first
     let user_grant_repo = VaultUserGrantRepository::new((*state.storage).clone());
-    if let Some(grant) = user_grant_repo
-        .get_by_vault_and_user(vault_id, user_id)
-        .await?
-    {
+    if let Some(grant) = user_grant_repo.get_by_vault_and_user(vault_id, user_id).await? {
         return Ok(Some(grant.role));
     }
 
@@ -150,9 +146,8 @@ pub async fn get_user_vault_role(
     let mut highest_role: Option<VaultRole> = None;
 
     for membership in user_teams {
-        if let Some(team_grant) = team_grant_repo
-            .get_by_vault_and_team(vault_id, membership.team_id)
-            .await?
+        if let Some(team_grant) =
+            team_grant_repo.get_by_vault_and_team(vault_id, membership.team_id).await?
         {
             match highest_role {
                 None => highest_role = Some(team_grant.role),
@@ -160,7 +155,7 @@ pub async fn get_user_vault_role(
                     if team_grant.role > current_role {
                         highest_role = Some(team_grant.role);
                     }
-                }
+                },
             }
         }
     }

@@ -2,8 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-use crate::error::{Error, Result};
-use crate::id::IdGenerator;
+use crate::{
+    error::{Error, Result},
+    id::IdGenerator,
+};
 
 /// Audit event type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -227,8 +229,9 @@ impl AuditLog {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn test_create_audit_log() {
@@ -251,15 +254,11 @@ mod tests {
 
     #[test]
     fn test_audit_log_with_data() {
-        let log = AuditLog::new(
-            AuditEventType::OrganizationMemberRoleChanged,
-            Some(1),
-            Some(100),
-        )
-        .with_data(json!({
-            "old_role": "member",
-            "new_role": "admin"
-        }));
+        let log = AuditLog::new(AuditEventType::OrganizationMemberRoleChanged, Some(1), Some(100))
+            .with_data(json!({
+                "old_role": "member",
+                "new_role": "admin"
+            }));
 
         assert!(log.event_data.is_some());
     }

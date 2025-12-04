@@ -1,6 +1,7 @@
-use crate::error::{Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::error::{Error, Result};
 
 /// Organization team entity for grouping users
 ///
@@ -146,16 +147,11 @@ impl OrganizationTeam {
         }
 
         if trimmed.len() > 100 {
-            return Err(Error::Validation(
-                "Team name must be 100 characters or less".to_string(),
-            ));
+            return Err(Error::Validation("Team name must be 100 characters or less".to_string()));
         }
 
         // Must be alphanumeric, hyphens, underscores, spaces
-        if !trimmed
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == ' ')
-        {
+        if !trimmed.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == ' ') {
             return Err(Error::Validation(
                 "Team name must contain only alphanumeric characters, hyphens, underscores, and spaces".to_string(),
             ));
@@ -185,13 +181,7 @@ impl OrganizationTeam {
 impl OrganizationTeamMember {
     /// Create a new team member
     pub fn new(id: i64, team_id: i64, user_id: i64, manager: bool) -> Self {
-        Self {
-            id,
-            team_id,
-            user_id,
-            manager,
-            created_at: Utc::now(),
-        }
+        Self { id, team_id, user_id, manager, created_at: Utc::now() }
     }
 
     /// Set the manager flag
@@ -208,13 +198,7 @@ impl OrganizationTeamPermission {
         permission: OrganizationPermission,
         granted_by_user_id: i64,
     ) -> Self {
-        Self {
-            id,
-            team_id,
-            permission,
-            granted_by_user_id,
-            granted_at: Utc::now(),
-        }
+        Self { id, team_id, permission, granted_by_user_id, granted_at: Utc::now() }
     }
 }
 
@@ -301,34 +285,45 @@ mod tests {
         );
         assert_eq!(permission.id, 1);
         assert_eq!(permission.team_id, 100);
-        assert_eq!(
-            permission.permission,
-            OrganizationPermission::OrgPermClientCreate
-        );
+        assert_eq!(permission.permission, OrganizationPermission::OrgPermClientCreate);
         assert_eq!(permission.granted_by_user_id, 999);
     }
 
     #[test]
     fn test_permission_grants() {
         // Self-granting
-        assert!(OrganizationPermission::OrgPermClientCreate
-            .grants(OrganizationPermission::OrgPermClientCreate));
+        assert!(
+            OrganizationPermission::OrgPermClientCreate
+                .grants(OrganizationPermission::OrgPermClientCreate)
+        );
 
         // Composite permission granting
-        assert!(OrganizationPermission::OrgPermClientManage
-            .grants(OrganizationPermission::OrgPermClientCreate));
-        assert!(OrganizationPermission::OrgPermClientManage
-            .grants(OrganizationPermission::OrgPermClientRead));
-        assert!(OrganizationPermission::OrgPermClientManage
-            .grants(OrganizationPermission::OrgPermClientRevoke));
-        assert!(OrganizationPermission::OrgPermClientManage
-            .grants(OrganizationPermission::OrgPermClientDelete));
+        assert!(
+            OrganizationPermission::OrgPermClientManage
+                .grants(OrganizationPermission::OrgPermClientCreate)
+        );
+        assert!(
+            OrganizationPermission::OrgPermClientManage
+                .grants(OrganizationPermission::OrgPermClientRead)
+        );
+        assert!(
+            OrganizationPermission::OrgPermClientManage
+                .grants(OrganizationPermission::OrgPermClientRevoke)
+        );
+        assert!(
+            OrganizationPermission::OrgPermClientManage
+                .grants(OrganizationPermission::OrgPermClientDelete)
+        );
 
         // Non-granting
-        assert!(!OrganizationPermission::OrgPermClientCreate
-            .grants(OrganizationPermission::OrgPermClientDelete));
-        assert!(!OrganizationPermission::OrgPermClientManage
-            .grants(OrganizationPermission::OrgPermVaultCreate));
+        assert!(
+            !OrganizationPermission::OrgPermClientCreate
+                .grants(OrganizationPermission::OrgPermClientDelete)
+        );
+        assert!(
+            !OrganizationPermission::OrgPermClientManage
+                .grants(OrganizationPermission::OrgPermVaultCreate)
+        );
     }
 
     #[test]

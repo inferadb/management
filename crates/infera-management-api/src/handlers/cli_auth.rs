@@ -1,8 +1,8 @@
 use axum::{
+    Extension, Json,
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Extension, Json,
 };
 use base64::Engine;
 use chrono::Utc;
@@ -12,8 +12,7 @@ use infera_management_types::{
     entities::{AuthorizationCode, UserSession},
 };
 
-use crate::handlers::AppState;
-use crate::middleware::session::SessionContext;
+use crate::{handlers::AppState, middleware::session::SessionContext};
 
 /// Authorize CLI access (browser-based OAuth flow)
 ///
@@ -36,10 +35,7 @@ pub async fn cli_authorize(
 ) -> Result<Json<CliAuthorizeResponse>, Response> {
     // Validate code_challenge_method
     if req.code_challenge_method != "S256" {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "code_challenge_method must be 'S256'".to_string(),
-        )
+        return Err((StatusCode::BAD_REQUEST, "code_challenge_method must be 'S256'".to_string())
             .into_response());
     }
 
@@ -61,22 +57,12 @@ pub async fn cli_authorize(
 
     // Store the authorization code
     let repos = RepositoryContext::new((*state.storage).clone());
-    repos
-        .authorization_code
-        .create(auth_code.clone())
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to create authorization code: {}", e),
-            )
-                .into_response()
-        })?;
+    repos.authorization_code.create(auth_code.clone()).await.map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create authorization code: {}", e))
+            .into_response()
+    })?;
 
-    Ok(Json(CliAuthorizeResponse {
-        code,
-        expires_in: AuthorizationCode::TTL_SECONDS,
-    }))
+    Ok(Json(CliAuthorizeResponse { code, expires_in: AuthorizationCode::TTL_SECONDS }))
 }
 
 /// Exchange authorization code for CLI session token
@@ -102,17 +88,11 @@ pub async fn cli_token_exchange(
         .get_by_code(&req.code)
         .await
         .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to get authorization code: {}", e),
-            )
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to get authorization code: {}", e))
                 .into_response()
         })?
         .ok_or_else(|| {
-            (
-                StatusCode::UNAUTHORIZED,
-                "Invalid or expired authorization code".to_string(),
-            )
+            (StatusCode::UNAUTHORIZED, "Invalid or expired authorization code".to_string())
                 .into_response()
         })?;
 
@@ -131,17 +111,11 @@ pub async fn cli_token_exchange(
         .get(auth_code.session_id)
         .await
         .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to get session: {}", e),
-            )
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to get session: {}", e))
                 .into_response()
         })?
         .ok_or_else(|| {
-            (
-                StatusCode::UNAUTHORIZED,
-                "Original session expired or not found".to_string(),
-            )
+            (StatusCode::UNAUTHORIZED, "Original session expired or not found".to_string())
                 .into_response()
         })?;
 
@@ -158,39 +132,22 @@ pub async fn cli_token_exchange(
     );
 
     // Store CLI session
-    repos
-        .user_session
-        .create(cli_session.clone())
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to create CLI session: {}", e),
-            )
-                .into_response()
-        })?;
+    repos.user_session.create(cli_session.clone()).await.map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create CLI session: {}", e))
+            .into_response()
+    })?;
 
     // Mark authorization code as used (prevent replay)
     auth_code.mark_used();
-    repos
-        .authorization_code
-        .update(auth_code)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to mark code as used: {}", e),
-            )
-                .into_response()
-        })?;
+    repos.authorization_code.update(auth_code).await.map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to mark code as used: {}", e))
+            .into_response()
+    })?;
 
     // Calculate expires_in
     let expires_in = (cli_session.expires_at - Utc::now()).num_seconds();
 
-    Ok(Json(CliTokenResponse {
-        session_token: cli_session_id.to_string(),
-        expires_in,
-    }))
+    Ok(Json(CliTokenResponse { session_token: cli_session_id.to_string(), expires_in }))
 }
 
 /// Generate a cryptographically secure random code
@@ -202,9 +159,11 @@ fn generate_secure_code(length: usize) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use infera_management_storage::{Backend, MemoryBackend};
     use std::sync::Arc;
+
+    use infera_management_storage::{Backend, MemoryBackend};
+
+    use super::*;
 
     #[test]
     fn test_generate_secure_code() {
@@ -221,10 +180,7 @@ mod tests {
         let storage = Arc::new(Backend::Memory(MemoryBackend::new()));
         let state = crate::handlers::AppState::new_test(storage);
 
-        let session_ctx = SessionContext {
-            session_id: 1,
-            user_id: 100,
-        };
+        let session_ctx = SessionContext { session_id: 1, user_id: 100 };
 
         let req = CliAuthorizeRequest {
             code_challenge: "test-challenge".to_string(),

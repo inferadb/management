@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use infera_management_types::error::{Error, Result};
+use serde::{Deserialize, Serialize};
 
 /// Root configuration for the Management API
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -557,10 +557,7 @@ impl Default for ManagementConfig {
                 grpc_port: default_grpc_port(),
                 worker_threads: default_worker_threads(),
             },
-            storage: StorageConfig {
-                backend: default_storage_backend(),
-                fdb_cluster_file: None,
-            },
+            storage: StorageConfig { backend: default_storage_backend(), fdb_cluster_file: None },
             auth: AuthConfig {
                 session_ttl_web: default_session_ttl_web(),
                 session_ttl_cli: default_session_ttl_cli(),
@@ -631,14 +628,11 @@ impl ManagementConfig {
 
         // Layer 3: Add environment variables (highest precedence)
         let builder = builder.add_source(
-            config::Environment::with_prefix("INFERADB_MGMT")
-                .separator("__")
-                .try_parsing(true),
+            config::Environment::with_prefix("INFERADB_MGMT").separator("__").try_parsing(true),
         );
 
-        let config = builder
-            .build()
-            .map_err(|e| Error::Config(format!("Failed to build config: {}", e)))?;
+        let config =
+            builder.build().map_err(|e| Error::Config(format!("Failed to build config: {}", e)))?;
 
         config
             .try_deserialize()
@@ -654,7 +648,7 @@ impl ManagementConfig {
             Ok(config) => {
                 tracing::info!("Configuration loaded successfully from {:?}", path.as_ref());
                 config
-            }
+            },
             Err(e) => {
                 tracing::warn!(
                     error = %e,
@@ -664,7 +658,7 @@ impl ManagementConfig {
 
                 // Even if file loading fails, apply env vars to defaults
                 Self::default()
-            }
+            },
         }
     }
 
@@ -756,14 +750,10 @@ impl ManagementConfig {
 
         // Validate WebAuthn configuration
         if self.auth.webauthn.rp_id.is_empty() {
-            return Err(Error::Config(
-                "auth.webauthn.rp_id cannot be empty".to_string(),
-            ));
+            return Err(Error::Config("auth.webauthn.rp_id cannot be empty".to_string()));
         }
         if self.auth.webauthn.origin.is_empty() {
-            return Err(Error::Config(
-                "auth.webauthn.origin cannot be empty".to_string(),
-            ));
+            return Err(Error::Config("auth.webauthn.origin cannot be empty".to_string()));
         }
         if !self.auth.webauthn.origin.starts_with("http://")
             && !self.auth.webauthn.origin.starts_with("https://")
@@ -797,9 +787,7 @@ impl ManagementConfig {
             ));
         }
         if self.management_identity.kid.is_empty() {
-            return Err(Error::Config(
-                "management_identity.kid cannot be empty".to_string(),
-            ));
+            return Err(Error::Config("management_identity.kid cannot be empty".to_string()));
         }
 
         Ok(())
@@ -832,10 +820,7 @@ mod tests {
                 grpc_port: default_grpc_port(),
                 worker_threads: default_worker_threads(),
             },
-            storage: StorageConfig {
-                backend: "memory".to_string(),
-                fdb_cluster_file: None,
-            },
+            storage: StorageConfig { backend: "memory".to_string(), fdb_cluster_file: None },
             auth: AuthConfig {
                 session_ttl_web: default_session_ttl_web(),
                 session_ttl_cli: default_session_ttl_cli(),
@@ -905,10 +890,7 @@ mod tests {
                 grpc_port: default_grpc_port(),
                 worker_threads: default_worker_threads(),
             },
-            storage: StorageConfig {
-                backend: "invalid".to_string(),
-                fdb_cluster_file: None,
-            },
+            storage: StorageConfig { backend: "invalid".to_string(), fdb_cluster_file: None },
             auth: AuthConfig {
                 session_ttl_web: default_session_ttl_web(),
                 session_ttl_cli: default_session_ttl_cli(),

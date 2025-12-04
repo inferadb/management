@@ -1,5 +1,6 @@
-use metrics::{counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram};
 use std::sync::Once;
+
+use metrics::{counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram};
 
 static METRICS_INIT: Once = Once::new();
 
@@ -10,54 +11,30 @@ static METRICS_INIT: Once = Once::new();
 pub fn init() {
     METRICS_INIT.call_once(|| {
         // Counter metrics
-        describe_counter!(
-            "http_requests_total",
-            "Total number of HTTP requests received"
-        );
-        describe_counter!(
-            "auth_attempts_total",
-            "Total number of authentication attempts"
-        );
+        describe_counter!("http_requests_total", "Total number of HTTP requests received");
+        describe_counter!("auth_attempts_total", "Total number of authentication attempts");
         describe_counter!("registrations_total", "Total number of user registrations");
         describe_counter!(
             "rate_limits_exceeded_total",
             "Total number of rate limit exceeded responses"
         );
-        describe_counter!(
-            "discovery_cache_hits_total",
-            "Total cache hits for endpoint discovery"
-        );
+        describe_counter!("discovery_cache_hits_total", "Total cache hits for endpoint discovery");
         describe_counter!(
             "discovery_cache_misses_total",
             "Total cache misses for endpoint discovery"
         );
 
         // Histogram metrics
-        describe_histogram!(
-            "http_request_duration_seconds",
-            "HTTP request duration in seconds"
-        );
-        describe_histogram!(
-            "db_query_duration_seconds",
-            "Database query duration in seconds"
-        );
-        describe_histogram!(
-            "grpc_request_duration_seconds",
-            "gRPC request duration in seconds"
-        );
+        describe_histogram!("http_request_duration_seconds", "HTTP request duration in seconds");
+        describe_histogram!("db_query_duration_seconds", "Database query duration in seconds");
+        describe_histogram!("grpc_request_duration_seconds", "gRPC request duration in seconds");
 
         // Gauge metrics
         describe_gauge!("active_sessions", "Number of currently active sessions");
         describe_gauge!("organizations_total", "Total number of organizations");
         describe_gauge!("vaults_total", "Total number of vaults");
-        describe_gauge!(
-            "is_leader",
-            "Whether this instance is the leader (1) or not (0)"
-        );
-        describe_gauge!(
-            "discovered_endpoints",
-            "Number of currently discovered server endpoints"
-        );
+        describe_gauge!("is_leader", "Whether this instance is the leader (1) or not (0)");
+        describe_gauge!("discovered_endpoints", "Number of currently discovered server endpoints");
     });
 }
 

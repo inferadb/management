@@ -29,9 +29,7 @@ async fn test_create_team() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -58,9 +56,7 @@ async fn test_create_team() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["team"]["name"], "engineering");
@@ -73,13 +69,8 @@ async fn test_list_teams() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let session = register_user(
-        &app,
-        "multiteam",
-        "multiteam@example.com",
-        "securepassword123",
-    )
-    .await;
+    let session =
+        register_user(&app, "multiteam", "multiteam@example.com", "securepassword123").await;
 
     // Get organization ID
     let response = app
@@ -95,18 +86,14 @@ async fn test_list_teams() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
     // Create multiple teams
-    for (name, desc) in [
-        ("backend", "Backend team"),
-        ("frontend", "Frontend team"),
-        ("devops", "DevOps team"),
-    ] {
+    for (name, desc) in
+        [("backend", "Backend team"), ("frontend", "Frontend team"), ("devops", "DevOps team")]
+    {
         app.clone()
             .oneshot(
                 Request::builder()
@@ -143,9 +130,7 @@ async fn test_list_teams() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let teams = json["teams"].as_array().expect("Should have teams");
 
@@ -158,20 +143,10 @@ async fn test_add_team_member() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let owner_session = register_user(
-        &app,
-        "teamowner2",
-        "teamowner2@example.com",
-        "securepassword123",
-    )
-    .await;
-    let member_session = register_user(
-        &app,
-        "teammember",
-        "teammember@example.com",
-        "securepassword123",
-    )
-    .await;
+    let owner_session =
+        register_user(&app, "teamowner2", "teamowner2@example.com", "securepassword123").await;
+    let member_session =
+        register_user(&app, "teammember", "teammember@example.com", "securepassword123").await;
 
     // Get owner's organization
     let response = app
@@ -187,9 +162,7 @@ async fn test_add_team_member() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -207,9 +180,7 @@ async fn test_add_team_member() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let member_user_id = json["user"]["id"].as_i64().unwrap();
 
@@ -234,9 +205,7 @@ async fn test_add_team_member() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let invitation_token = json["invitation"]["token"].as_str().unwrap().to_string();
 
@@ -280,9 +249,7 @@ async fn test_add_team_member() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let team_id = json["team"]["id"].as_i64().unwrap();
 
@@ -292,10 +259,7 @@ async fn test_add_team_member() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/teams/{}/members",
-                    org_id, team_id
-                ))
+                .uri(format!("/v1/organizations/{}/teams/{}/members", org_id, team_id))
                 .header("cookie", format!("infera_session={}", owner_session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -311,9 +275,7 @@ async fn test_add_team_member() {
         .unwrap();
 
     let status = response.status();
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let body_str = String::from_utf8_lossy(&body);
 
     if status != StatusCode::CREATED {
@@ -350,9 +312,7 @@ async fn test_grant_team_permission() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -377,9 +337,7 @@ async fn test_grant_team_permission() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let team_id = json["team"]["id"].as_i64().unwrap();
 
@@ -389,10 +347,7 @@ async fn test_grant_team_permission() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/teams/{}/permissions",
-                    org_id, team_id
-                ))
+                .uri(format!("/v1/organizations/{}/teams/{}/permissions", org_id, team_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -408,9 +363,7 @@ async fn test_grant_team_permission() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["permission"]["permission"], "ORG_PERM_VAULT_CREATE");
@@ -422,13 +375,8 @@ async fn test_grant_team_vault_access() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let session = register_user(
-        &app,
-        "teamvault",
-        "teamvault@example.com",
-        "securepassword123",
-    )
-    .await;
+    let session =
+        register_user(&app, "teamvault", "teamvault@example.com", "securepassword123").await;
 
     // Get organization ID
     let response = app
@@ -444,9 +392,7 @@ async fn test_grant_team_vault_access() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -471,9 +417,7 @@ async fn test_grant_team_vault_access() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let team_id = json["team"]["id"].as_i64().unwrap();
 
@@ -498,9 +442,7 @@ async fn test_grant_team_vault_access() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -510,10 +452,7 @@ async fn test_grant_team_vault_access() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/team-grants",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/team-grants", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -530,9 +469,7 @@ async fn test_grant_team_vault_access() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["grant"]["role"], "WRITER");

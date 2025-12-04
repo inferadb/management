@@ -3,11 +3,14 @@
 //! This module provides a client for sending cache invalidation webhooks to InferaDB server
 //! instances when vaults or organizations are updated in the Management API.
 
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use infera_management_types::ManagementIdentity;
 use parking_lot::RwLock;
 use reqwest::Client as HttpClient;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
 use crate::config::{DiscoveryMode, RemoteCluster};
@@ -18,16 +21,9 @@ enum InternalDiscoveryMode {
     /// Static endpoints (no discovery)
     Static(Vec<String>),
     /// Kubernetes service discovery
-    Kubernetes {
-        service_name: String,
-        namespace: String,
-        port: u16,
-    },
+    Kubernetes { service_name: String, namespace: String, port: u16 },
     /// Tailscale multi-region mesh discovery
-    Tailscale {
-        local_cluster: String,
-        remote_clusters: Vec<RemoteCluster>,
-    },
+    Tailscale { local_cluster: String, remote_clusters: Vec<RemoteCluster> },
 }
 
 /// Cached endpoints with TTL validation
@@ -122,9 +118,8 @@ impl WebhookClient {
                 let url = url::Url::parse(service_endpoint)
                     .map_err(|e| format!("Invalid service URL: {}", e))?;
 
-                let service_host = url
-                    .host_str()
-                    .ok_or_else(|| "No host in service URL".to_string())?;
+                let service_host =
+                    url.host_str().ok_or_else(|| "No host in service URL".to_string())?;
                 let service_port = url
                     .port_or_known_default()
                     .ok_or_else(|| "No port in service URL".to_string())?;
@@ -146,27 +141,17 @@ impl WebhookClient {
                     "Configured Kubernetes service discovery"
                 );
 
-                InternalDiscoveryMode::Kubernetes {
-                    service_name,
-                    namespace,
-                    port: service_port,
-                }
-            }
-            DiscoveryMode::Tailscale {
-                local_cluster,
-                remote_clusters,
-            } => {
+                InternalDiscoveryMode::Kubernetes { service_name, namespace, port: service_port }
+            },
+            DiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
                 info!(
                     local_cluster = %local_cluster,
                     remote_cluster_count = remote_clusters.len(),
                     "Configured Tailscale multi-region discovery"
                 );
 
-                InternalDiscoveryMode::Tailscale {
-                    local_cluster,
-                    remote_clusters,
-                }
-            }
+                InternalDiscoveryMode::Tailscale { local_cluster, remote_clusters }
+            },
         };
 
         Ok(Self {
@@ -233,12 +218,8 @@ impl WebhookClient {
             InternalDiscoveryMode::Static(endpoints) => {
                 debug!(count = endpoints.len(), "Using static endpoints");
                 endpoints.clone()
-            }
-            InternalDiscoveryMode::Kubernetes {
-                service_name,
-                namespace,
-                port,
-            } => {
+            },
+            InternalDiscoveryMode::Kubernetes { service_name, namespace, port } => {
                 let service_url = format!("http://{}:{}", service_name, port);
                 match Self::discover_k8s_endpoints(service_name, namespace, *port).await {
                     Ok(discovered) => {
@@ -249,7 +230,7 @@ impl WebhookClient {
                             "Discovered Kubernetes endpoints"
                         );
                         discovered
-                    }
+                    },
                     Err(e) => {
                         error!(
                             error = %e,
@@ -258,29 +239,28 @@ impl WebhookClient {
                             "Discovery failed, using service URL fallback"
                         );
                         vec![service_url]
-                    }
+                    },
                 }
-            }
-            InternalDiscoveryMode::Tailscale {
-                local_cluster,
-                remote_clusters,
-            } => match Self::discover_tailscale_endpoints(local_cluster, remote_clusters).await {
-                Ok(discovered) => {
-                    info!(
-                        count = discovered.len(),
-                        local_cluster = %local_cluster,
-                        remote_cluster_count = remote_clusters.len(),
-                        "Discovered Tailscale endpoints across clusters"
-                    );
-                    discovered
-                }
-                Err(e) => {
-                    error!(
-                        error = %e,
-                        local_cluster = %local_cluster,
-                        "Tailscale discovery failed, returning empty list"
-                    );
-                    vec![]
+            },
+            InternalDiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
+                match Self::discover_tailscale_endpoints(local_cluster, remote_clusters).await {
+                    Ok(discovered) => {
+                        info!(
+                            count = discovered.len(),
+                            local_cluster = %local_cluster,
+                            remote_cluster_count = remote_clusters.len(),
+                            "Discovered Tailscale endpoints across clusters"
+                        );
+                        discovered
+                    },
+                    Err(e) => {
+                        error!(
+                            error = %e,
+                            local_cluster = %local_cluster,
+                            "Tailscale discovery failed, returning empty list"
+                        );
+                        vec![]
+                    },
                 }
             },
         };
@@ -327,10 +307,8 @@ impl WebhookClient {
             let cluster_clone = cluster.clone();
 
             let task = tokio::spawn(async move {
-                let tailscale_hostname = format!(
-                    "{}.{}",
-                    cluster_clone.service_name, cluster_clone.tailscale_domain
-                );
+                let tailscale_hostname =
+                    format!("{}.{}", cluster_clone.service_name, cluster_clone.tailscale_domain);
 
                 debug!(
                     cluster = %cluster_clone.name,
@@ -352,7 +330,7 @@ impl WebhookClient {
                                 "Failed to resolve Tailscale hostname"
                             );
                             return vec![];
-                        }
+                        },
                     };
 
                 // Build endpoint URLs from resolved IPs
@@ -379,10 +357,10 @@ impl WebhookClient {
             match task.await {
                 Ok(endpoints) => {
                     all_endpoints.extend(endpoints);
-                }
+                },
                 Err(e) => {
                     error!(error = %e, "Tailscale discovery task failed");
-                }
+                },
             }
         }
 
@@ -390,10 +368,7 @@ impl WebhookClient {
             return Err("No Tailscale endpoints discovered across any cluster".to_string());
         }
 
-        info!(
-            total_endpoints = all_endpoints.len(),
-            "Completed Tailscale multi-cluster discovery"
-        );
+        info!(total_endpoints = all_endpoints.len(), "Completed Tailscale multi-cluster discovery");
 
         Ok(all_endpoints)
     }
@@ -426,10 +401,7 @@ impl WebhookClient {
             if e.to_string().contains("404") {
                 format!("Service {}.{} not found", service_name, namespace)
             } else {
-                format!(
-                    "Failed to get endpoints for {}.{}: {}",
-                    service_name, namespace, e
-                )
+                format!("Failed to get endpoints for {}.{}: {}", service_name, namespace, e)
             }
         })?;
 
@@ -523,12 +495,11 @@ impl WebhookClient {
                             "Failed to sign JWT for vault invalidation webhook"
                         );
                         return;
-                    }
+                    },
                 };
 
-                let request = http_client
-                    .post(&url)
-                    .header("Authorization", format!("Bearer {}", jwt));
+                let request =
+                    http_client.post(&url).header("Authorization", format!("Bearer {}", jwt));
 
                 match request.send().await {
                     Ok(response) => {
@@ -546,7 +517,7 @@ impl WebhookClient {
                                 "Vault invalidation webhook returned non-success status"
                             );
                         }
-                    }
+                    },
                     Err(e) => {
                         error!(
                             vault_id = %vault_id,
@@ -554,7 +525,7 @@ impl WebhookClient {
                             error = %e,
                             "Failed to send vault invalidation webhook"
                         );
-                    }
+                    },
                 }
             });
 
@@ -606,10 +577,7 @@ impl WebhookClient {
 
         for endpoint in &endpoints {
             let http_client = self.http_client.clone();
-            let url = format!(
-                "{}/internal/cache/invalidate/organization/{}",
-                endpoint, org_id
-            );
+            let url = format!("{}/internal/cache/invalidate/organization/{}", endpoint, org_id);
             let endpoint_clone = endpoint.clone();
             let management_identity = Arc::clone(&self.management_identity);
 
@@ -631,12 +599,11 @@ impl WebhookClient {
                             "Failed to sign JWT for organization invalidation webhook"
                         );
                         return;
-                    }
+                    },
                 };
 
-                let request = http_client
-                    .post(&url)
-                    .header("Authorization", format!("Bearer {}", jwt));
+                let request =
+                    http_client.post(&url).header("Authorization", format!("Bearer {}", jwt));
 
                 match request.send().await {
                     Ok(response) => {
@@ -654,7 +621,7 @@ impl WebhookClient {
                                 "Organization invalidation webhook returned non-success status"
                             );
                         }
-                    }
+                    },
                     Err(e) => {
                         error!(
                             org_id = %org_id,
@@ -662,7 +629,7 @@ impl WebhookClient {
                             error = %e,
                             "Failed to send organization invalidation webhook"
                         );
-                    }
+                    },
                 }
             });
 
@@ -752,12 +719,11 @@ impl WebhookClient {
                             "Failed to sign JWT for certificate invalidation webhook"
                         );
                         return;
-                    }
+                    },
                 };
 
-                let request = http_client
-                    .post(&url)
-                    .header("Authorization", format!("Bearer {}", jwt));
+                let request =
+                    http_client.post(&url).header("Authorization", format!("Bearer {}", jwt));
 
                 match request.send().await {
                     Ok(response) => {
@@ -779,7 +745,7 @@ impl WebhookClient {
                                 "Certificate invalidation webhook returned non-success status"
                             );
                         }
-                    }
+                    },
                     Err(e) => {
                         error!(
                             org_id = %org_id,
@@ -789,7 +755,7 @@ impl WebhookClient {
                             error = %e,
                             "Failed to send certificate invalidation webhook"
                         );
-                    }
+                    },
                 }
             });
 
@@ -839,10 +805,7 @@ impl WebhookClient {
         let in_kubernetes = std::env::var("KUBERNETES_SERVICE_HOST").is_ok();
 
         if !in_kubernetes {
-            debug!(
-                "Not running in Kubernetes - using static endpoints: {:?}",
-                endpoints
-            );
+            debug!("Not running in Kubernetes - using static endpoints: {:?}", endpoints);
             return endpoints;
         }
 
@@ -861,7 +824,7 @@ impl WebhookClient {
                             "Discovered Kubernetes service endpoints"
                         );
                         discovered_endpoints.extend(pod_endpoints);
-                    }
+                    },
                     Err(e) => {
                         warn!(
                             service = %endpoint,
@@ -869,7 +832,7 @@ impl WebhookClient {
                             "Failed to discover Kubernetes endpoints, falling back to service URL"
                         );
                         discovered_endpoints.push(endpoint.clone());
-                    }
+                    },
                 }
             } else {
                 // Not a k8s service, use as-is
@@ -934,12 +897,9 @@ async fn discover_k8s_service_endpoints(service_endpoint: &str) -> Result<Vec<St
     let url =
         url::Url::parse(service_endpoint).map_err(|e| format!("Invalid service URL: {}", e))?;
 
-    let service_host = url
-        .host_str()
-        .ok_or_else(|| "No host in service URL".to_string())?;
-    let service_port = url
-        .port_or_known_default()
-        .ok_or_else(|| "No port in service URL".to_string())?;
+    let service_host = url.host_str().ok_or_else(|| "No host in service URL".to_string())?;
+    let service_port =
+        url.port_or_known_default().ok_or_else(|| "No port in service URL".to_string())?;
     let scheme = url.scheme();
 
     // Extract service name and namespace from hostname
@@ -975,10 +935,7 @@ async fn discover_k8s_service_endpoints(service_endpoint: &str) -> Result<Vec<St
         if e.to_string().contains("404") {
             format!("Service {}.{} not found", service_name, namespace)
         } else {
-            format!(
-                "Failed to get endpoints for {}.{}: {}",
-                service_name, namespace, e
-            )
+            format!("Failed to get endpoints for {}.{}: {}", service_name, namespace, e)
         }
     })?;
 
@@ -1027,9 +984,7 @@ mod tests {
         // Kubernetes services
         assert!(is_kubernetes_service("http://inferadb-server:8080"));
         assert!(is_kubernetes_service("http://inferadb-server.default:8080"));
-        assert!(is_kubernetes_service(
-            "http://inferadb-server.default.svc.cluster.local:8080"
-        ));
+        assert!(is_kubernetes_service("http://inferadb-server.default.svc.cluster.local:8080"));
 
         // Not Kubernetes services
         assert!(!is_kubernetes_service("http://192.168.1.1:8080"));
@@ -1039,10 +994,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_webhook_client_creation() {
-        let identity = Arc::new(ManagementIdentity::generate(
-            "test-mgmt".to_string(),
-            "test-key".to_string(),
-        ));
+        let identity =
+            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
         let endpoints = vec!["http://localhost:8080".to_string()];
         let client = WebhookClient::new(endpoints, identity, 5000);
         assert!(client.is_ok());
@@ -1050,10 +1003,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_webhook_client_creation_with_discovery() {
-        let identity = Arc::new(ManagementIdentity::generate(
-            "test-mgmt".to_string(),
-            "test-key".to_string(),
-        ));
+        let identity =
+            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
         let endpoints = vec!["http://localhost:8080".to_string()];
 
         // Test with DiscoveryMode::None
@@ -1079,10 +1030,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_discover_endpoints_static() {
-        let endpoints = vec![
-            "http://server1:8080".to_string(),
-            "http://server2:8080".to_string(),
-        ];
+        let endpoints = vec!["http://server1:8080".to_string(), "http://server2:8080".to_string()];
 
         // When not in Kubernetes, should return static endpoints as-is
         std::env::remove_var("KUBERNETES_SERVICE_HOST");
@@ -1110,14 +1058,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_endpoints_caching() {
-        let identity = Arc::new(ManagementIdentity::generate(
-            "test-mgmt".to_string(),
-            "test-key".to_string(),
-        ));
-        let endpoints = vec![
-            "http://server1:8080".to_string(),
-            "http://server2:8080".to_string(),
-        ];
+        let identity =
+            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
+        let endpoints = vec!["http://server1:8080".to_string(), "http://server2:8080".to_string()];
 
         let client = WebhookClient::new_with_discovery(
             endpoints.clone(),
@@ -1139,10 +1082,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_endpoint_count() {
-        let identity = Arc::new(ManagementIdentity::generate(
-            "test-mgmt".to_string(),
-            "test-key".to_string(),
-        ));
+        let identity =
+            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
         let endpoints = vec![
             "http://server1:8080".to_string(),
             "http://server2:8080".to_string(),
@@ -1163,10 +1104,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_kubernetes_discovery_mode_parsing() {
-        let identity = Arc::new(ManagementIdentity::generate(
-            "test-mgmt".to_string(),
-            "test-key".to_string(),
-        ));
+        let identity =
+            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
 
         // Simple service name
         let client = WebhookClient::new_with_discovery(
@@ -1201,10 +1140,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_kubernetes_discovery_mode_empty_endpoints() {
-        let identity = Arc::new(ManagementIdentity::generate(
-            "test-mgmt".to_string(),
-            "test-key".to_string(),
-        ));
+        let identity =
+            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
 
         let client = WebhookClient::new_with_discovery(
             vec![],
@@ -1215,8 +1152,6 @@ mod tests {
         );
 
         assert!(client.is_err());
-        assert!(client
-            .unwrap_err()
-            .contains("requires at least one service URL"));
+        assert!(client.unwrap_err().contains("requires at least one service URL"));
     }
 }

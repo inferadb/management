@@ -15,16 +15,22 @@
 //! let optimized = OptimizedBackend::new(base_backend, cache_config, batch_config);
 //! ```
 
-use crate::backend::{KeyValue, StorageBackend, StorageResult, Transaction};
-use crate::metrics::{Metrics, MetricsCollector};
+use std::{
+    collections::{HashMap, VecDeque},
+    ops::RangeBounds,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use parking_lot::Mutex;
-use std::collections::{HashMap, VecDeque};
-use std::ops::RangeBounds;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 use tracing::{debug, trace};
+
+use crate::{
+    backend::{KeyValue, StorageBackend, StorageResult, Transaction},
+    metrics::{Metrics, MetricsCollector},
+};
 
 /// Configuration for read caching
 #[derive(Debug, Clone)]
@@ -39,31 +45,19 @@ pub struct CacheConfig {
 
 impl Default for CacheConfig {
     fn default() -> Self {
-        Self {
-            max_entries: 10_000,
-            ttl_secs: 60,
-            enabled: true,
-        }
+        Self { max_entries: 10_000, ttl_secs: 60, enabled: true }
     }
 }
 
 impl CacheConfig {
     /// Create a disabled cache config
     pub fn disabled() -> Self {
-        Self {
-            max_entries: 0,
-            ttl_secs: 0,
-            enabled: false,
-        }
+        Self { max_entries: 0, ttl_secs: 0, enabled: false }
     }
 
     /// Create a cache config with custom settings
     pub fn new(max_entries: usize, ttl_secs: u64) -> Self {
-        Self {
-            max_entries,
-            ttl_secs,
-            enabled: true,
-        }
+        Self { max_entries, ttl_secs, enabled: true }
     }
 }
 
@@ -80,31 +74,19 @@ pub struct BatchConfig {
 
 impl Default for BatchConfig {
     fn default() -> Self {
-        Self {
-            max_batch_size: 100,
-            max_wait_ms: 100,
-            enabled: true,
-        }
+        Self { max_batch_size: 100, max_wait_ms: 100, enabled: true }
     }
 }
 
 impl BatchConfig {
     /// Create a disabled batch config
     pub fn disabled() -> Self {
-        Self {
-            max_batch_size: 0,
-            max_wait_ms: 0,
-            enabled: false,
-        }
+        Self { max_batch_size: 0, max_wait_ms: 0, enabled: false }
     }
 
     /// Create a batch config with custom settings
     pub fn new(max_batch_size: usize, max_wait_ms: u64) -> Self {
-        Self {
-            max_batch_size,
-            max_wait_ms,
-            enabled: true,
-        }
+        Self { max_batch_size, max_wait_ms, enabled: true }
     }
 }
 
@@ -168,13 +150,7 @@ impl LruCache {
         }
 
         // Insert new entry
-        self.entries.insert(
-            key.clone(),
-            CacheEntry {
-                value,
-                expires_at: now + self.ttl,
-            },
-        );
+        self.entries.insert(key.clone(), CacheEntry { value, expires_at: now + self.ttl });
         self.access_order.push_back(key);
     }
 
@@ -210,21 +186,12 @@ impl<B: StorageBackend> OptimizedBackend<B> {
     /// Create a new optimized backend wrapper
     pub fn new(backend: B, cache_config: CacheConfig, batch_config: BatchConfig) -> Self {
         let cache = if cache_config.enabled {
-            Arc::new(Mutex::new(LruCache::new(
-                cache_config.max_entries,
-                cache_config.ttl_secs,
-            )))
+            Arc::new(Mutex::new(LruCache::new(cache_config.max_entries, cache_config.ttl_secs)))
         } else {
             Arc::new(Mutex::new(LruCache::new(0, 0)))
         };
 
-        Self {
-            backend,
-            cache,
-            cache_config,
-            batch_config,
-            metrics: Metrics::new(),
-        }
+        Self { backend, cache, cache_config, batch_config, metrics: Metrics::new() }
     }
 
     /// Get cache statistics
@@ -433,10 +400,7 @@ mod tests {
         let optimized = OptimizedBackend::new(backend, cache_config, batch_config);
 
         // First get - cache miss
-        optimized
-            .set(b"key1".to_vec(), b"value1".to_vec())
-            .await
-            .unwrap();
+        optimized.set(b"key1".to_vec(), b"value1".to_vec()).await.unwrap();
         let val1 = optimized.get(b"key1").await.unwrap();
         assert_eq!(val1, Some(Bytes::from("value1")));
 
@@ -456,17 +420,11 @@ mod tests {
         let optimized = OptimizedBackend::new(backend, cache_config, batch_config);
 
         // Set and cache
-        optimized
-            .set(b"key1".to_vec(), b"value1".to_vec())
-            .await
-            .unwrap();
+        optimized.set(b"key1".to_vec(), b"value1".to_vec()).await.unwrap();
         optimized.get(b"key1").await.unwrap();
 
         // Update value - should invalidate cache
-        optimized
-            .set(b"key1".to_vec(), b"value2".to_vec())
-            .await
-            .unwrap();
+        optimized.set(b"key1".to_vec(), b"value2".to_vec()).await.unwrap();
 
         // Next get should fetch new value
         let val = optimized.get(b"key1").await.unwrap();
@@ -481,22 +439,13 @@ mod tests {
         let optimized = OptimizedBackend::new(backend, cache_config, batch_config);
 
         // Add 3 entries - oldest should be evicted
-        optimized
-            .set(b"key1".to_vec(), b"value1".to_vec())
-            .await
-            .unwrap();
+        optimized.set(b"key1".to_vec(), b"value1".to_vec()).await.unwrap();
         optimized.get(b"key1").await.unwrap();
 
-        optimized
-            .set(b"key2".to_vec(), b"value2".to_vec())
-            .await
-            .unwrap();
+        optimized.set(b"key2".to_vec(), b"value2".to_vec()).await.unwrap();
         optimized.get(b"key2").await.unwrap();
 
-        optimized
-            .set(b"key3".to_vec(), b"value3".to_vec())
-            .await
-            .unwrap();
+        optimized.set(b"key3".to_vec(), b"value3".to_vec()).await.unwrap();
         optimized.get(b"key3").await.unwrap();
 
         let (cache_size, _) = optimized.cache_stats();
@@ -510,10 +459,7 @@ mod tests {
         let batch_config = BatchConfig::disabled();
         let optimized = OptimizedBackend::new(backend, cache_config, batch_config);
 
-        optimized
-            .set(b"key1".to_vec(), b"value1".to_vec())
-            .await
-            .unwrap();
+        optimized.set(b"key1".to_vec(), b"value1".to_vec()).await.unwrap();
         optimized.get(b"key1").await.unwrap();
         optimized.get(b"key1").await.unwrap();
 
@@ -528,10 +474,7 @@ mod tests {
         let batch_config = BatchConfig::disabled();
         let optimized = OptimizedBackend::new(backend, cache_config, batch_config);
 
-        optimized
-            .set(b"key1".to_vec(), b"value1".to_vec())
-            .await
-            .unwrap();
+        optimized.set(b"key1".to_vec(), b"value1".to_vec()).await.unwrap();
         optimized.get(b"key1").await.unwrap();
         optimized.delete(b"key1").await.unwrap();
 

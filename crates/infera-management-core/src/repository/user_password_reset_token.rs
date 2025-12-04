@@ -1,6 +1,8 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::UserPasswordResetToken;
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::UserPasswordResetToken,
+    error::{Error, Result},
+};
 
 /// Repository for UserPasswordResetToken entity operations
 ///
@@ -55,10 +57,7 @@ impl<S: StorageBackend> UserPasswordResetTokenRepository<S> {
         txn.set(Self::token_key(token.id), token_data);
 
         // Store token string index (for lookup by token)
-        txn.set(
-            Self::token_string_index_key(&token.token),
-            token.id.to_le_bytes().to_vec(),
-        );
+        txn.set(Self::token_string_index_key(&token.token), token.id.to_le_bytes().to_vec());
 
         // Store user's token index
         txn.set(
@@ -91,7 +90,7 @@ impl<S: StorageBackend> UserPasswordResetTokenRepository<S> {
                     .map_err(|e| Error::Internal(format!("Failed to deserialize token: {}", e)))?;
 
                 Ok(Some(token))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -114,7 +113,7 @@ impl<S: StorageBackend> UserPasswordResetTokenRepository<S> {
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -199,9 +198,10 @@ impl<S: StorageBackend> UserPasswordResetTokenRepository<S> {
 
 #[cfg(test)]
 mod tests {
+    use infera_management_storage::{Backend, MemoryBackend};
+
     use super::*;
     use crate::IdGenerator;
-    use infera_management_storage::{Backend, MemoryBackend};
 
     async fn create_test_repo() -> UserPasswordResetTokenRepository<Backend> {
         let storage = Backend::Memory(MemoryBackend::new());

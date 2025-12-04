@@ -1,6 +1,8 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::UserSession;
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::UserSession,
+    error::{Error, Result},
+};
 
 /// Repository for UserSession entity operations
 ///
@@ -61,10 +63,8 @@ impl<S: StorageBackend> UserSessionRepository<S> {
             .map_err(|e| Error::Internal(format!("Failed to serialize session: {}", e)))?;
 
         // Calculate TTL in seconds from now until expiry
-        let _ttl_seconds = session
-            .time_until_expiry()
-            .map(|d| d.num_seconds().max(0) as u64)
-            .unwrap_or(0);
+        let _ttl_seconds =
+            session.time_until_expiry().map(|d| d.num_seconds().max(0) as u64).unwrap_or(0);
 
         // TODO: Use set_with_ttl for automatic expiry once we have a proper TTL implementation
         // For now, expired sessions are filtered out in the get() method
@@ -86,10 +86,7 @@ impl<S: StorageBackend> UserSessionRepository<S> {
         );
 
         // Store active session index with TTL
-        txn.set(
-            Self::active_session_index_key(session.id),
-            session.id.to_le_bytes().to_vec(),
-        );
+        txn.set(Self::active_session_index_key(session.id), session.id.to_le_bytes().to_vec());
 
         // Commit transaction
         txn.commit()
@@ -117,12 +114,8 @@ impl<S: StorageBackend> UserSessionRepository<S> {
                 })?;
 
                 // Only return active sessions
-                if session.is_active() {
-                    Ok(Some(session))
-                } else {
-                    Ok(None)
-                }
-            }
+                if session.is_active() { Ok(Some(session)) } else { Ok(None) }
+            },
             None => Ok(None),
         }
     }
@@ -292,9 +285,10 @@ impl<S: StorageBackend> UserSessionRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
     use infera_management_types::entities::SessionType;
+
+    use super::*;
 
     async fn create_test_session(id: i64, user_id: i64, session_type: SessionType) -> UserSession {
         UserSession::new(id, user_id, session_type, None, None)

@@ -75,9 +75,7 @@ async fn test_create_and_list_invitations() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -104,9 +102,7 @@ async fn test_create_and_list_invitations() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["invitation"]["email"], "invite@example.com");
     assert_eq!(json["invitation"]["role"], "MEMBER");
@@ -127,14 +123,10 @@ async fn test_create_and_list_invitations() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-    let invitations = json["invitations"]
-        .as_array()
-        .expect("Should have invitations");
+    let invitations = json["invitations"].as_array().expect("Should have invitations");
     assert_eq!(invitations.len(), 1);
 }
 
@@ -205,9 +197,7 @@ async fn test_delete_invitation() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -232,9 +222,7 @@ async fn test_delete_invitation() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let invitation_id = json["invitation"]["id"].as_i64().unwrap();
 
@@ -244,10 +232,7 @@ async fn test_delete_invitation() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(format!(
-                    "/v1/organizations/{}/invitations/{}",
-                    org_id, invitation_id
-                ))
+                .uri(format!("/v1/organizations/{}/invitations/{}", org_id, invitation_id))
                 .header("cookie", format!("infera_session={}", session_cookie))
                 .body(Body::empty())
                 .unwrap(),
@@ -271,9 +256,7 @@ async fn test_delete_invitation() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let invitations = json["invitations"].as_array().unwrap();
     assert_eq!(invitations.len(), 0);

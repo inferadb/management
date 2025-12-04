@@ -1,7 +1,9 @@
 use chrono::{DateTime, Utc};
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::{AuditEventType, AuditLog, AuditResourceType};
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::{AuditEventType, AuditLog, AuditResourceType},
+    error::{Error, Result},
+};
 
 const PREFIX_AUDIT_LOG: &[u8] = b"audit_log:";
 // For future index implementation
@@ -53,7 +55,7 @@ impl<S: StorageBackend> AuditLogRepository<S> {
                     Error::Internal(format!("Failed to deserialize audit log: {}", e))
                 })?;
                 Ok(Some(log))
-            }
+            },
             Ok(None) => Ok(None),
             Err(e) => Err(Error::Internal(format!("Failed to get audit log: {}", e))),
         }
@@ -87,10 +89,8 @@ impl<S: StorageBackend> AuditLogRepository<S> {
             .await
             .map_err(|e| Error::Internal(format!("Failed to scan audit logs: {}", e)))?;
 
-        let mut all_logs: Vec<AuditLog> = kvs
-            .into_iter()
-            .filter_map(|kv| serde_json::from_slice(&kv.value).ok())
-            .collect();
+        let mut all_logs: Vec<AuditLog> =
+            kvs.into_iter().filter_map(|kv| serde_json::from_slice(&kv.value).ok()).collect();
 
         // Filter by organization
         all_logs.retain(|log| log.organization_id == Some(organization_id));
@@ -123,11 +123,7 @@ impl<S: StorageBackend> AuditLogRepository<S> {
 
         // Apply pagination
         let start = offset as usize;
-        let paginated_logs = all_logs
-            .into_iter()
-            .skip(start)
-            .take(limit as usize)
-            .collect();
+        let paginated_logs = all_logs.into_iter().skip(start).take(limit as usize).collect();
 
         Ok((paginated_logs, total))
     }
@@ -173,9 +169,10 @@ impl<S: StorageBackend> AuditLogRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
     use infera_management_types::entities::AuditEventType;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_create_and_get_audit_log() {

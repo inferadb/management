@@ -9,7 +9,7 @@ pub mod optimization;
 
 pub use backend::{KeyValue, StorageBackend, StorageError, StorageResult, Transaction};
 pub use coordination::{Coordinator, LeaderStatus, WorkerInfo};
-pub use factory::{create_storage_backend, Backend, StorageBackendType, StorageConfig};
+pub use factory::{Backend, StorageBackendType, StorageConfig, create_storage_backend};
 #[cfg(feature = "fdb")]
 pub use fdb::FdbBackend;
 pub use memory::MemoryBackend;

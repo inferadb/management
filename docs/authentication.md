@@ -581,7 +581,7 @@ app.get("/api/documents/:id", async (req, res) => {
         user_agent: req.headers["user-agent"],
       },
     },
-    vaultToken,
+    vaultToken
   );
 
   // 5. Enforce decision
@@ -651,7 +651,7 @@ const decision = await inferadb.check(
       session_id: user.sessionId,
     },
   },
-  vaultToken,
+  vaultToken
 );
 ```
 
@@ -693,7 +693,7 @@ async function handleEmailChange(userId, oldEmail, newEmail) {
   await inferadb.migrateRelations(
     `user:${oldEmail}`,
     `user:${newEmail}`,
-    vaultToken,
+    vaultToken
   );
 
   // Or keep using stable ID-based subjects (no migration needed!)

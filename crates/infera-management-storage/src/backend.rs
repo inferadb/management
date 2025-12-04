@@ -1,6 +1,7 @@
+use std::ops::RangeBounds;
+
 use async_trait::async_trait;
 use bytes::Bytes;
-use std::ops::RangeBounds;
 
 /// Result type for storage operations
 pub type StorageResult<T> = Result<T, StorageError>;

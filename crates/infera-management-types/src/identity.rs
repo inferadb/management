@@ -3,10 +3,11 @@
 //! This module handles the Management API's Ed25519 keypair used to sign JWTs when
 //! making authenticated requests to Server APIs for cache invalidation webhooks.
 
-use ed25519_dalek::{SigningKey, VerifyingKey};
-use jsonwebtoken::{encode, EncodingKey, Header};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+use ed25519_dalek::{SigningKey, VerifyingKey};
+use jsonwebtoken::{EncodingKey, Header, encode};
+use serde::{Deserialize, Serialize};
 
 /// Management API identity containing Ed25519 keypair for signing JWTs
 #[derive(Clone)]
@@ -74,12 +75,7 @@ impl ManagementIdentity {
         let signing_key = SigningKey::from_bytes(&secret_bytes);
         let verifying_key = signing_key.verifying_key();
 
-        Self {
-            management_id,
-            kid,
-            signing_key,
-            verifying_key,
-        }
+        Self { management_id, kid, signing_key, verifying_key }
     }
 
     /// Create management identity from an existing Ed25519 private key (PEM format)
@@ -88,10 +84,7 @@ impl ManagementIdentity {
         let pem = pem::parse(pem).map_err(|e| format!("Failed to parse PEM: {}", e))?;
 
         if pem.tag() != "PRIVATE KEY" {
-            return Err(format!(
-                "Invalid PEM tag: expected 'PRIVATE KEY', got '{}'",
-                pem.tag()
-            ));
+            return Err(format!("Invalid PEM tag: expected 'PRIVATE KEY', got '{}'", pem.tag()));
         }
 
         // Ed25519 private keys are 32 bytes
@@ -108,12 +101,7 @@ impl ManagementIdentity {
         let signing_key = SigningKey::from_bytes(&private_key_bytes);
         let verifying_key = signing_key.verifying_key();
 
-        Ok(Self {
-            management_id,
-            kid,
-            signing_key,
-            verifying_key,
-        })
+        Ok(Self { management_id, kid, signing_key, verifying_key })
     }
 
     /// Export the private key as PEM format (for saving to config)
@@ -121,7 +109,8 @@ impl ManagementIdentity {
         let key_bytes = self.signing_key.to_bytes();
 
         // PKCS#8 format for Ed25519 private key
-        // This is a simplified version - in production you might want to use a proper PKCS#8 encoder
+        // This is a simplified version - in production you might want to use a proper PKCS#8
+        // encoder
         let mut pkcs8_bytes = vec![
             0x30, 0x2e, // SEQUENCE, length 46
             0x02, 0x01, 0x00, // INTEGER 0 (version)
@@ -171,7 +160,7 @@ impl ManagementIdentity {
 
     /// Get the JWKS representation of the public key
     pub fn to_jwks(&self) -> Jwks {
-        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+        use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 
         let public_key_bytes = self.verifying_key.as_bytes();
         let x = URL_SAFE_NO_PAD.encode(public_key_bytes);

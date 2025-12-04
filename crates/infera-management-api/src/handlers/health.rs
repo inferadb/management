@@ -1,7 +1,8 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use std::time::SystemTime;
+
+use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use infera_management_storage::StorageBackend;
 use serde::{Deserialize, Serialize};
-use std::time::SystemTime;
 
 use crate::handlers::AppState;
 
@@ -62,11 +63,7 @@ pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
     // Check storage health by doing a simple operation
     let storage_healthy = state.storage.get(b"health_check".as_ref()).await.is_ok();
 
-    if storage_healthy {
-        StatusCode::OK
-    } else {
-        StatusCode::SERVICE_UNAVAILABLE
-    }
+    if storage_healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE }
 }
 
 /// Startup probe
@@ -106,17 +103,10 @@ pub async fn health_detailed(State(state): State<AppState>) -> impl IntoResponse
         .unwrap_or(false);
 
     // Calculate uptime
-    let uptime = SystemTime::now()
-        .duration_since(start_time)
-        .unwrap_or_default()
-        .as_secs();
+    let uptime = SystemTime::now().duration_since(start_time).unwrap_or_default().as_secs();
 
     // Determine overall status
-    let status = if storage_healthy {
-        HealthStatus::Healthy
-    } else {
-        HealthStatus::Unhealthy
-    };
+    let status = if storage_healthy { HealthStatus::Healthy } else { HealthStatus::Unhealthy };
 
     let response = HealthResponse {
         status,
@@ -133,9 +123,11 @@ pub async fn health_detailed(State(state): State<AppState>) -> impl IntoResponse
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use infera_management_storage::{Backend, MemoryBackend};
     use std::sync::Arc;
+
+    use infera_management_storage::{Backend, MemoryBackend};
+
+    use super::*;
 
     #[tokio::test]
     async fn test_health_live() {

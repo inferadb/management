@@ -1,6 +1,7 @@
-use crate::error::{Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::error::{Error, Result};
 
 /// UserEmail entity representing a user's email address
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -120,14 +121,8 @@ mod tests {
 
     #[test]
     fn test_normalize_email() {
-        assert_eq!(
-            UserEmail::normalize_email("Test@Example.COM").unwrap(),
-            "test@example.com"
-        );
-        assert_eq!(
-            UserEmail::normalize_email("  user@domain.com  ").unwrap(),
-            "user@domain.com"
-        );
+        assert_eq!(UserEmail::normalize_email("Test@Example.COM").unwrap(), "test@example.com");
+        assert_eq!(UserEmail::normalize_email("  user@domain.com  ").unwrap(), "user@domain.com");
     }
 
     #[test]

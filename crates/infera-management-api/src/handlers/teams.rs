@@ -1,12 +1,7 @@
-use crate::handlers::auth::Result;
-use crate::middleware::{
-    require_admin_or_owner, require_member, require_owner, OrganizationContext,
-};
-use crate::AppState;
 use axum::{
+    Extension, Json,
     extract::{Path, State},
     http::StatusCode,
-    Extension, Json,
 };
 use infera_management_core::{Error as CoreError, IdGenerator, RepositoryContext};
 use infera_management_types::{
@@ -19,6 +14,12 @@ use infera_management_types::{
         UpdateTeamMemberRequest, UpdateTeamMemberResponse, UpdateTeamRequest, UpdateTeamResponse,
     },
     entities::{OrganizationTeam, OrganizationTeamMember, OrganizationTeamPermission},
+};
+
+use crate::{
+    AppState,
+    handlers::auth::Result,
+    middleware::{OrganizationContext, require_admin_or_owner, require_member, require_owner},
 };
 
 // ============================================================================
@@ -81,10 +82,8 @@ pub async fn create_team(
         .ok_or_else(|| CoreError::NotFound("Organization not found".to_string()))?;
 
     // Check tier limits
-    let current_count = repos
-        .org_team
-        .count_active_by_organization(org_ctx.organization_id)
-        .await?;
+    let current_count =
+        repos.org_team.count_active_by_organization(org_ctx.organization_id).await?;
 
     if current_count >= organization.tier.max_teams() {
         return Err(CoreError::Validation(format!(
@@ -131,10 +130,7 @@ pub async fn list_teams(
     let params = pagination.0.validate();
 
     let repos = RepositoryContext::new((*state.storage).clone());
-    let all_teams = repos
-        .org_team
-        .list_active_by_organization(org_ctx.organization_id)
-        .await?;
+    let all_teams = repos.org_team.list_active_by_organization(org_ctx.organization_id).await?;
 
     // Apply pagination
     let total = all_teams.len();
@@ -152,10 +148,7 @@ pub async fn list_teams(
         teams.len(),
     );
 
-    Ok(Json(ListTeamsResponse {
-        teams,
-        pagination: Some(pagination_meta),
-    }))
+    Ok(Json(ListTeamsResponse { teams, pagination: Some(pagination_meta) }))
 }
 
 /// Get team details
@@ -243,10 +236,7 @@ pub async fn update_team(
     team.set_name(payload.name)?;
     repos.org_team.update(team.clone()).await?;
 
-    Ok(Json(UpdateTeamResponse {
-        id: team.id,
-        name: team.name,
-    }))
+    Ok(Json(UpdateTeamResponse { id: team.id, name: team.name }))
 }
 
 /// Delete a team
@@ -284,9 +274,7 @@ pub async fn delete_team(
     // Delete all team permissions
     repos.org_team_permission.delete_by_team(team_id).await?;
 
-    Ok(Json(DeleteTeamResponse {
-        message: "Team deleted successfully".to_string(),
-    }))
+    Ok(Json(DeleteTeamResponse { message: "Team deleted successfully".to_string() }))
 }
 
 // ============================================================================
@@ -471,10 +459,7 @@ pub async fn update_team_member(
     member.set_manager(payload.manager);
     repos.org_team_member.update(member.clone()).await?;
 
-    Ok(Json(UpdateTeamMemberResponse {
-        id: member.id,
-        manager: member.manager,
-    }))
+    Ok(Json(UpdateTeamMemberResponse { id: member.id, manager: member.manager }))
 }
 
 /// Remove a member from a team
@@ -538,9 +523,7 @@ pub async fn remove_team_member(
 
     repos.org_team_member.delete(member_id).await?;
 
-    Ok(Json(RemoveTeamMemberResponse {
-        message: "Team member removed successfully".to_string(),
-    }))
+    Ok(Json(RemoveTeamMemberResponse { message: "Team member removed successfully".to_string() }))
 }
 
 // ============================================================================
@@ -633,11 +616,7 @@ pub async fn list_team_permissions(
         || org_ctx.member.role == infera_management_core::OrganizationRole::Owner;
 
     let is_team_member = if !is_admin_or_owner {
-        repos
-            .org_team_member
-            .get_by_team_and_user(team_id, org_ctx.member.user_id)
-            .await?
-            .is_some()
+        repos.org_team_member.get_by_team_and_user(team_id, org_ctx.member.user_id).await?.is_some()
     } else {
         false
     };
@@ -653,10 +632,7 @@ pub async fn list_team_permissions(
     let permissions = repos.org_team_permission.list_by_team(team_id).await?;
 
     Ok(Json(ListTeamPermissionsResponse {
-        permissions: permissions
-            .into_iter()
-            .map(team_permission_to_response)
-            .collect(),
+        permissions: permissions.into_iter().map(team_permission_to_response).collect(),
     }))
 }
 

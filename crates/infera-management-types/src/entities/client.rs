@@ -1,6 +1,7 @@
-use crate::error::{Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::error::{Error, Result};
 
 /// A client represents a backend service or application that can authenticate
 /// with the InferaDB system using certificates.
@@ -46,9 +47,7 @@ impl Client {
             return Err(Error::Validation("Client name cannot be empty".to_string()));
         }
         if name.len() > 100 {
-            return Err(Error::Validation(
-                "Client name cannot exceed 100 characters".to_string(),
-            ));
+            return Err(Error::Validation("Client name cannot exceed 100 characters".to_string()));
         }
         Ok(())
     }
@@ -126,18 +125,13 @@ impl ClientCertificate {
 
     /// Generate a kid (key ID) in the format: org-<org_id>-client-<client_id>-cert-<cert_id>
     pub fn generate_kid(organization_id: i64, client_id: i64, cert_id: i64) -> String {
-        format!(
-            "org-{}-client-{}-cert-{}",
-            organization_id, client_id, cert_id
-        )
+        format!("org-{}-client-{}-cert-{}", organization_id, client_id, cert_id)
     }
 
     /// Validate certificate name
     pub fn validate_name(name: &str) -> Result<()> {
         if name.is_empty() {
-            return Err(Error::Validation(
-                "Certificate name cannot be empty".to_string(),
-            ));
+            return Err(Error::Validation("Certificate name cannot be empty".to_string()));
         }
         if name.len() > 100 {
             return Err(Error::Validation(

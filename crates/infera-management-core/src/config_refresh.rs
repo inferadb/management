@@ -43,11 +43,7 @@ impl ConfigRefresher {
         config_path: PathBuf,
         env_poll_interval_secs: u64,
     ) -> Self {
-        Self {
-            config,
-            config_path,
-            env_poll_interval: Duration::from_secs(env_poll_interval_secs),
-        }
+        Self { config, config_path, env_poll_interval: Duration::from_secs(env_poll_interval_secs) }
     }
 
     /// Spawn the background refresh task
@@ -72,10 +68,8 @@ impl ConfigRefresher {
         // Spawn file watcher in a separate thread (notify requires std::sync)
         std::thread::spawn(move || {
             let rt = tokio::runtime::Handle::current();
-            let config_file_name = config_path_clone
-                .file_name()
-                .and_then(|n| n.to_str())
-                .map(|s| s.to_string());
+            let config_file_name =
+                config_path_clone.file_name().and_then(|n| n.to_str()).map(|s| s.to_string());
 
             let mut watcher = match RecommendedWatcher::new(
                 move |res: Result<Event, notify::Error>| {
@@ -98,7 +92,7 @@ impl ConfigRefresher {
                                 // Send notification (ignore errors if channel is closed)
                                 let _ = rt.block_on(tx.send(()));
                             }
-                        }
+                        },
                         Err(e) => error!(error = %e, "File watch error"),
                     }
                 },
@@ -108,22 +102,16 @@ impl ConfigRefresher {
                 Err(e) => {
                     error!(error = %e, "Failed to create file watcher");
                     return;
-                }
+                },
             };
 
             // Try to watch the config file directly if it exists
             // Otherwise, watch the parent directory to detect when the file is created
             let watch_path = if config_path_clone.exists() {
-                info!(
-                    "Config file exists, watching directly: {:?}",
-                    config_path_clone
-                );
+                info!("Config file exists, watching directly: {:?}", config_path_clone);
                 config_path_clone.clone()
             } else if let Some(parent) = config_path_clone.parent() {
-                info!(
-                    "Config file doesn't exist, watching parent directory: {:?}",
-                    parent
-                );
+                info!("Config file doesn't exist, watching parent directory: {:?}", parent);
                 parent.to_path_buf()
             } else {
                 error!(
@@ -198,14 +186,14 @@ impl ConfigRefresher {
                 } else {
                     debug!(trigger = trigger, "No configuration changes detected");
                 }
-            }
+            },
             Err(e) => {
                 warn!(
                     error = %e,
                     trigger = trigger,
                     "Failed to reload configuration, keeping current config"
                 );
-            }
+            },
         }
     }
 
@@ -350,10 +338,7 @@ server_api:
 
         // Verify port was updated
         let current = config.read();
-        assert_eq!(
-            current.server.http_port, 3002,
-            "Port should be updated to 3002"
-        );
+        assert_eq!(current.server.http_port, 3002, "Port should be updated to 3002");
     }
 
     #[tokio::test]
@@ -466,9 +451,6 @@ server_api:
 
         // Verify config was updated
         let current = config.read();
-        assert_eq!(
-            current.server.http_port, 3002,
-            "Port should be updated to 3002"
-        );
+        assert_eq!(current.server.http_port, 3002, "Port should be updated to 3002");
     }
 }

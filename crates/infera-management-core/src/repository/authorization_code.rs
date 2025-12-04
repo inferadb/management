@@ -1,6 +1,8 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::AuthorizationCode;
-use infera_management_types::error::{Error, Result};
+use infera_management_types::{
+    entities::AuthorizationCode,
+    error::{Error, Result},
+};
 
 /// Repository for AuthorizationCode entity operations
 ///
@@ -98,12 +100,8 @@ impl<S: StorageBackend> AuthorizationCodeRepository<S> {
                     .map_err(|e| Error::Internal(format!("Failed to deserialize code: {}", e)))?;
 
                 // Only return valid codes
-                if auth_code.is_valid() {
-                    Ok(Some(auth_code))
-                } else {
-                    Ok(None)
-                }
-            }
+                if auth_code.is_valid() { Ok(Some(auth_code)) } else { Ok(None) }
+            },
             None => Ok(None),
         }
     }
@@ -121,10 +119,8 @@ impl<S: StorageBackend> AuthorizationCodeRepository<S> {
             .map_err(|e| Error::Internal(format!("Failed to serialize code: {}", e)))?;
 
         // Calculate TTL in seconds from now until expiry
-        let ttl_seconds = code
-            .time_until_expiry()
-            .map(|d| d.num_seconds().max(0) as u64)
-            .unwrap_or(1); // Minimum 1 second to ensure it gets written
+        let ttl_seconds =
+            code.time_until_expiry().map(|d| d.num_seconds().max(0) as u64).unwrap_or(1); // Minimum 1 second to ensure it gets written
 
         // Update code record with TTL
         self.storage
@@ -180,8 +176,9 @@ impl<S: StorageBackend> AuthorizationCodeRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
+
+    use super::*;
 
     fn create_test_code(id: i64, code: &str, session_id: i64) -> AuthorizationCode {
         AuthorizationCode::new(

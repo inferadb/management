@@ -57,14 +57,7 @@ impl UserEmailVerificationToken {
         let now = Utc::now();
         let expires_at = now + Duration::hours(TOKEN_EXPIRY_HOURS);
 
-        Ok(Self {
-            id,
-            user_email_id,
-            token,
-            created_at: now,
-            expires_at,
-            used_at: None,
-        })
+        Ok(Self { id, user_email_id, token, created_at: now, expires_at, used_at: None })
     }
 
     /// Generate a random verification token

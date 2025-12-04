@@ -12,20 +12,17 @@ pub mod tokens;
 pub mod users;
 pub mod vaults;
 
+pub use audit_logs::{
+    AuditLogInfo, CreateAuditLogRequest, CreateAuditLogResponse, ListAuditLogsQuery,
+    ListAuditLogsResponse,
+};
 pub use auth::{
     ErrorResponse, LoginRequest, LoginResponse, LogoutResponse, PasswordResetConfirmRequest,
     PasswordResetConfirmResponse, PasswordResetRequestRequest, PasswordResetRequestResponse,
     RegisterRequest, RegisterResponse, VerifyEmailRequest as AuthVerifyEmailRequest,
     VerifyEmailResponse as AuthVerifyEmailResponse,
 };
-
-pub use audit_logs::{
-    AuditLogInfo, CreateAuditLogRequest, CreateAuditLogResponse, ListAuditLogsQuery,
-    ListAuditLogsResponse,
-};
-
 pub use cli_auth::{CliAuthorizeRequest, CliAuthorizeResponse, CliTokenRequest, CliTokenResponse};
-
 pub use clients::{
     CertificateDetail, CertificateInfo, ClientDetail, ClientInfo, CreateCertificateRequest,
     CreateCertificateResponse, CreateClientRequest, CreateClientResponse,
@@ -33,13 +30,11 @@ pub use clients::{
     ListCertificatesResponse, ListClientsResponse, RevokeCertificateResponse, UpdateClientRequest,
     UpdateClientResponse,
 };
-
 pub use emails::{
     AddEmailRequest, AddEmailResponse, EmailOperationResponse, ListEmailsResponse,
     ResendVerificationResponse, SetPrimaryEmailRequest, UserEmailInfo, VerifyEmailRequest,
     VerifyEmailResponse,
 };
-
 pub use organizations::{
     AcceptInvitationRequest, AcceptInvitationResponse, CreateInvitationRequest,
     CreateInvitationResponse, CreateOrganizationRequest, CreateOrganizationResponse,
@@ -51,9 +46,7 @@ pub use organizations::{
     UpdateMemberRoleRequest, UpdateMemberRoleResponse, UpdateOrganizationRequest,
     UpdateOrganizationResponse,
 };
-
 pub use sessions::{ListSessionsResponse, RevokeSessionResponse, SessionInfo};
-
 pub use teams::{
     AddTeamMemberRequest, AddTeamMemberResponse, CreateTeamRequest, CreateTeamResponse,
     DeleteTeamResponse, GrantTeamPermissionRequest, GrantTeamPermissionResponse,
@@ -62,17 +55,14 @@ pub use teams::{
     TeamMemberResponse, TeamPermissionInfo, TeamPermissionResponse, TeamResponse,
     UpdateTeamMemberRequest, UpdateTeamMemberResponse, UpdateTeamRequest, UpdateTeamResponse,
 };
-
 pub use tokens::{
     ClientAssertionRequest, ClientAssertionResponse, GenerateVaultTokenRequest,
     GenerateVaultTokenResponse, RefreshTokenRequest, RefreshTokenResponse, RevokeTokensResponse,
 };
-
 pub use users::{
     DeleteUserResponse, GetUserProfileResponse, UpdateProfileRequest, UpdateProfileResponse,
     UserProfile,
 };
-
 pub use vaults::{
     CreateTeamGrantRequest, CreateTeamGrantResponse, CreateUserGrantRequest,
     CreateUserGrantResponse, CreateVaultRequest, CreateVaultResponse, DeleteTeamGrantResponse,

@@ -1,15 +1,16 @@
-use crate::AppState;
 use axum::{
+    Json,
     extract::{Path, State},
     http::StatusCode,
-    Json,
 };
 use base64::{
-    engine::general_purpose::{STANDARD as BASE64, URL_SAFE_NO_PAD},
     Engine,
+    engine::general_purpose::{STANDARD as BASE64, URL_SAFE_NO_PAD},
 };
 use infera_management_core::RepositoryContext;
 use serde::{Deserialize, Serialize};
+
+use crate::AppState;
 
 /// JSON Web Key Set (JWKS) response format
 /// This follows the RFC 7517 specification for JWK Set
@@ -95,7 +96,7 @@ pub async fn get_global_jwks(
             Err(e) => {
                 tracing::warn!("Skipping invalid certificate {}: {}", cert.kid, e);
                 continue;
-            }
+            },
         }
     }
 
@@ -135,10 +136,8 @@ pub async fn get_org_jwks(
 
     // Filter by organization (kid format: org-<org_id>-client-<client_id>-cert-<cert_id>)
     let org_prefix = format!("org-{}-", org_id);
-    let org_certs: Vec<_> = all_certs
-        .into_iter()
-        .filter(|cert| cert.kid.starts_with(&org_prefix))
-        .collect();
+    let org_certs: Vec<_> =
+        all_certs.into_iter().filter(|cert| cert.kid.starts_with(&org_prefix)).collect();
 
     tracing::debug!(
         org_id = %org_id,
@@ -156,7 +155,7 @@ pub async fn get_org_jwks(
             Err(e) => {
                 tracing::warn!("Skipping invalid certificate {}: {}", cert.kid, e);
                 continue;
-            }
+            },
         }
     }
 
@@ -175,10 +174,7 @@ pub async fn get_management_jwks(
 ) -> Result<Json<JwksResponse>, (StatusCode, String)> {
     // Get the management identity from AppState
     let identity = state.management_identity.as_ref().ok_or_else(|| {
-        (
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Management identity not configured".to_string(),
-        )
+        (StatusCode::SERVICE_UNAVAILABLE, "Management identity not configured".to_string())
     })?;
 
     let jwks = identity.to_jwks();
@@ -188,14 +184,7 @@ pub async fn get_management_jwks(
     let keys = jwks
         .keys
         .into_iter()
-        .map(|k| Jwk {
-            kty: k.kty,
-            crv: k.crv,
-            kid: k.kid,
-            x: k.x,
-            key_use: k.key_use,
-            alg: k.alg,
-        })
+        .map(|k| Jwk { kty: k.kty, crv: k.crv, kid: k.kid, x: k.x, key_use: k.key_use, alg: k.alg })
         .collect();
 
     let response = JwksResponse { keys };

@@ -43,20 +43,14 @@ impl<S: StorageBackend> JtiReplayProtectionRepository<S> {
         let ttl_seconds = (expires_at - now).num_seconds();
 
         if ttl_seconds > 0 {
-            self.storage
-                .set_with_ttl(key, value, ttl_seconds as u64)
-                .await
-                .map_err(|e| {
-                    crate::error::Error::Internal(format!("Failed to mark JTI as used: {}", e))
-                })?;
+            self.storage.set_with_ttl(key, value, ttl_seconds as u64).await.map_err(|e| {
+                crate::error::Error::Internal(format!("Failed to mark JTI as used: {}", e))
+            })?;
         } else {
             // If already expired, still set it with 1 second TTL to prevent race conditions
-            self.storage
-                .set_with_ttl(key, value, 1)
-                .await
-                .map_err(|e| {
-                    crate::error::Error::Internal(format!("Failed to mark JTI as used: {}", e))
-                })?;
+            self.storage.set_with_ttl(key, value, 1).await.map_err(|e| {
+                crate::error::Error::Internal(format!("Failed to mark JTI as used: {}", e))
+            })?;
         }
 
         Ok(())
@@ -80,9 +74,10 @@ impl<S: StorageBackend> JtiReplayProtectionRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Duration;
     use infera_management_storage::{Backend, MemoryBackend};
+
+    use super::*;
 
     #[tokio::test]
     async fn test_jti_not_used_initially() {
@@ -98,9 +93,7 @@ mod tests {
         let repo = JtiReplayProtectionRepository::new(storage);
 
         let expires_at = Utc::now() + Duration::hours(1);
-        repo.mark_jti_used("test-jti-123", expires_at)
-            .await
-            .unwrap();
+        repo.mark_jti_used("test-jti-123", expires_at).await.unwrap();
 
         assert!(repo.is_jti_used("test-jti-123").await.unwrap());
     }
@@ -126,17 +119,12 @@ mod tests {
         let expires_at = Utc::now() + Duration::hours(1);
 
         // First use should succeed
-        repo.check_and_mark_jti("test-jti-789", expires_at)
-            .await
-            .unwrap();
+        repo.check_and_mark_jti("test-jti-789", expires_at).await.unwrap();
 
         // Second use should fail (replay attack)
         let result = repo.check_and_mark_jti("test-jti-789", expires_at).await;
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("replay attack detected"));
+        assert!(result.unwrap_err().to_string().contains("replay attack detected"));
     }
 
     #[tokio::test]

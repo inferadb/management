@@ -15,17 +15,19 @@
 //! - Worker registry uses heartbeat pattern with cleanup of stale workers
 //! - All operations are multi-instance safe with optimistic concurrency control
 
-use crate::backend::StorageResult;
 #[cfg(feature = "fdb")]
-use crate::backend::{StorageBackend, StorageError};
-#[cfg(feature = "fdb")]
-use crate::FdbBackend;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "fdb")]
-use std::time::{SystemTime, UNIX_EPOCH};
-#[cfg(feature = "fdb")]
 use tracing::{debug, info, warn};
+
+#[cfg(feature = "fdb")]
+use crate::FdbBackend;
+use crate::backend::StorageResult;
+#[cfg(feature = "fdb")]
+use crate::backend::{StorageBackend, StorageError};
 
 /// Leader election result
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,10 +35,7 @@ pub enum LeaderStatus {
     /// This instance is the leader
     Leader { lease_expiry: u64 },
     /// Another instance is the leader
-    Follower {
-        leader_id: String,
-        lease_expiry: u64,
-    },
+    Follower { leader_id: String, lease_expiry: u64 },
     /// No leader currently elected
     NoLeader,
 }
@@ -134,10 +133,7 @@ impl Coordinator for FdbBackend {
         worker_id: &str,
         lease_duration_secs: u64,
     ) -> StorageResult<LeaderStatus> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let lease_expiry = now + lease_duration_secs;
 
         let key = format!("coordination/leader/{}", resource_name).into_bytes();
@@ -158,8 +154,7 @@ impl Coordinator for FdbBackend {
                 })?;
 
                 // Write with TTL
-                self.set_with_ttl(key.clone(), value, lease_duration_secs)
-                    .await?;
+                self.set_with_ttl(key.clone(), value, lease_duration_secs).await?;
 
                 info!(
                     worker_id = worker_id,
@@ -169,7 +164,7 @@ impl Coordinator for FdbBackend {
                 );
 
                 Ok(LeaderStatus::Leader { lease_expiry })
-            }
+            },
             Some(existing_bytes) => {
                 let existing_lease: LeaderLease =
                     serde_json::from_slice(&existing_bytes).map_err(|e| {
@@ -187,8 +182,7 @@ impl Coordinator for FdbBackend {
                         StorageError::Internal(format!("Failed to serialize lease: {}", e))
                     })?;
 
-                    self.set_with_ttl(key.clone(), value, lease_duration_secs)
-                        .await?;
+                    self.set_with_ttl(key.clone(), value, lease_duration_secs).await?;
 
                     info!(
                         worker_id = worker_id,
@@ -209,8 +203,7 @@ impl Coordinator for FdbBackend {
                         StorageError::Internal(format!("Failed to serialize lease: {}", e))
                     })?;
 
-                    self.set_with_ttl(key.clone(), value, lease_duration_secs)
-                        .await?;
+                    self.set_with_ttl(key.clone(), value, lease_duration_secs).await?;
 
                     debug!(
                         worker_id = worker_id,
@@ -235,7 +228,7 @@ impl Coordinator for FdbBackend {
                         lease_expiry: existing_lease.lease_expiry,
                     })
                 }
-            }
+            },
         }
     }
 
@@ -254,11 +247,7 @@ impl Coordinator for FdbBackend {
                 if lease.worker_id == worker_id {
                     // We're the leader - release the lease
                     self.delete(&key).await?;
-                    info!(
-                        worker_id = worker_id,
-                        resource = resource_name,
-                        "Released leadership"
-                    );
+                    info!(worker_id = worker_id, resource = resource_name, "Released leadership");
                 } else {
                     warn!(
                         worker_id = worker_id,
@@ -267,14 +256,10 @@ impl Coordinator for FdbBackend {
                         "Attempted to release leadership but not current leader"
                     );
                 }
-            }
+            },
             None => {
-                debug!(
-                    worker_id = worker_id,
-                    resource = resource_name,
-                    "No leadership to release"
-                );
-            }
+                debug!(worker_id = worker_id, resource = resource_name, "No leadership to release");
+            },
         }
 
         Ok(())
@@ -282,10 +267,7 @@ impl Coordinator for FdbBackend {
 
     async fn check_leadership(&self, resource_name: &str) -> StorageResult<LeaderStatus> {
         let key = format!("coordination/leader/{}", resource_name).into_bytes();
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
         match self.get(&key).await? {
             None => Ok(LeaderStatus::NoLeader),
@@ -302,7 +284,7 @@ impl Coordinator for FdbBackend {
                         lease_expiry: lease.lease_expiry,
                     })
                 }
-            }
+            },
         }
     }
 
@@ -311,10 +293,7 @@ impl Coordinator for FdbBackend {
         worker_id: &str,
         metadata: serde_json::Value,
     ) -> StorageResult<()> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
         let worker_info = WorkerInfo {
             worker_id: worker_id.to_string(),
@@ -349,10 +328,7 @@ impl Coordinator for FdbBackend {
                 })?;
 
                 // Update last heartbeat
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs();
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
                 worker_info.last_heartbeat = now;
 
                 let value = serde_json::to_vec(&worker_info).map_err(|e| {
@@ -365,14 +341,11 @@ impl Coordinator for FdbBackend {
                 debug!(worker_id = worker_id, "Heartbeat sent");
 
                 Ok(())
-            }
+            },
             None => {
                 // Worker not registered - this shouldn't happen
-                Err(StorageError::NotFound(format!(
-                    "Worker {} not registered",
-                    worker_id
-                )))
-            }
+                Err(StorageError::NotFound(format!("Worker {} not registered", worker_id)))
+            },
         }
     }
 
@@ -385,10 +358,7 @@ impl Coordinator for FdbBackend {
             key
         };
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let cutoff = now - max_age_secs;
 
         let results = self.get_range(start_key..end_key).await?;
@@ -419,10 +389,7 @@ impl Coordinator for FdbBackend {
             key
         };
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let cutoff = now - max_age_secs;
 
         let results = self.get_range(start_key..end_key).await?;
@@ -461,26 +428,19 @@ mod tests {
     async fn test_leadership_acquisition() {
         let backend = FdbBackend::new().await.unwrap();
 
-        let status = backend
-            .try_acquire_leadership("test-resource", "worker-1", 60)
-            .await
-            .unwrap();
+        let status = backend.try_acquire_leadership("test-resource", "worker-1", 60).await.unwrap();
 
         assert!(matches!(status, LeaderStatus::Leader { .. }));
 
         // Second attempt should show we're already leader
-        let status2 = backend
-            .try_acquire_leadership("test-resource", "worker-1", 60)
-            .await
-            .unwrap();
+        let status2 =
+            backend.try_acquire_leadership("test-resource", "worker-1", 60).await.unwrap();
 
         assert!(matches!(status2, LeaderStatus::Leader { .. }));
 
         // Different worker should see worker-1 as leader
-        let status3 = backend
-            .try_acquire_leadership("test-resource", "worker-2", 60)
-            .await
-            .unwrap();
+        let status3 =
+            backend.try_acquire_leadership("test-resource", "worker-2", 60).await.unwrap();
 
         assert!(matches!(status3, LeaderStatus::Follower { .. }));
     }
@@ -489,15 +449,9 @@ mod tests {
     async fn test_leadership_release() {
         let backend = FdbBackend::new().await.unwrap();
 
-        backend
-            .try_acquire_leadership("test-resource-2", "worker-1", 60)
-            .await
-            .unwrap();
+        backend.try_acquire_leadership("test-resource-2", "worker-1", 60).await.unwrap();
 
-        backend
-            .release_leadership("test-resource-2", "worker-1")
-            .await
-            .unwrap();
+        backend.release_leadership("test-resource-2", "worker-1").await.unwrap();
 
         let status = backend.check_leadership("test-resource-2").await.unwrap();
         assert!(matches!(status, LeaderStatus::NoLeader));
@@ -512,10 +466,7 @@ mod tests {
             "capabilities": ["cleanup", "notifications"]
         });
 
-        backend
-            .register_worker("test-worker-1", metadata.clone())
-            .await
-            .unwrap();
+        backend.register_worker("test-worker-1", metadata.clone()).await.unwrap();
 
         let workers = backend.list_active_workers(300).await.unwrap();
         assert_eq!(workers.len(), 1);

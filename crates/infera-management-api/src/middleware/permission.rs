@@ -1,10 +1,9 @@
-use crate::handlers::auth::ApiError;
-use crate::middleware::OrganizationContext;
-use crate::AppState;
 use infera_management_core::{
     Error as CoreError, OrganizationPermission, OrganizationRole, OrganizationTeamMemberRepository,
     OrganizationTeamPermissionRepository,
 };
+
+use crate::{AppState, handlers::auth::ApiError, middleware::OrganizationContext};
 
 /// Check if the current user has the specified permission in the organization
 ///
@@ -22,32 +21,28 @@ pub async fn has_organization_permission(
         OrganizationRole::Owner => {
             // Owners have all permissions
             return Ok(true);
-        }
+        },
         OrganizationRole::Admin => {
             // Admins have all permissions except owner actions
             if required_permission == OrganizationPermission::OrgPermOwnerActions {
                 return Ok(false);
             }
             return Ok(true);
-        }
+        },
         OrganizationRole::Member => {
             // Members need to check team permissions
-        }
+        },
     }
 
     // Get user's team memberships
     let team_member_repo = OrganizationTeamMemberRepository::new((*state.storage).clone());
-    let memberships = team_member_repo
-        .list_by_user(org_ctx.member.user_id)
-        .await?;
+    let memberships = team_member_repo.list_by_user(org_ctx.member.user_id).await?;
 
     // For each team, check if the team has the required permission
     let team_permission_repo = OrganizationTeamPermissionRepository::new((*state.storage).clone());
 
     for membership in memberships {
-        let team_permissions = team_permission_repo
-            .list_by_team(membership.team_id)
-            .await?;
+        let team_permissions = team_permission_repo.list_by_team(membership.team_id).await?;
 
         for perm in team_permissions {
             // Check if this permission grants the required permission
@@ -107,7 +102,7 @@ pub async fn get_user_permissions(
                 OrgPermOwnerActions,
             ]);
             return Ok(permissions);
-        }
+        },
         OrganizationRole::Admin => {
             // Admins have all permissions except owner actions
             use OrganizationPermission::*;
@@ -126,26 +121,22 @@ pub async fn get_user_permissions(
                 OrgPermRevokeInvitations,
             ]);
             return Ok(permissions);
-        }
+        },
         OrganizationRole::Member => {
             // Members get permissions from teams
-        }
+        },
     }
 
     // Get user's team memberships
     let team_member_repo = OrganizationTeamMemberRepository::new((*state.storage).clone());
-    let memberships = team_member_repo
-        .list_by_user(org_ctx.member.user_id)
-        .await?;
+    let memberships = team_member_repo.list_by_user(org_ctx.member.user_id).await?;
 
     // Collect all unique permissions from all teams
     let team_permission_repo = OrganizationTeamPermissionRepository::new((*state.storage).clone());
     let mut seen = std::collections::HashSet::new();
 
     for membership in memberships {
-        let team_permissions = team_permission_repo
-            .list_by_team(membership.team_id)
-            .await?;
+        let team_permissions = team_permission_repo.list_by_team(membership.team_id).await?;
 
         for perm in team_permissions {
             // Add the permission and all permissions it grants
@@ -162,16 +153,17 @@ pub async fn get_user_permissions(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::handlers::auth::AppState;
-    use crate::middleware::OrganizationContext;
+    use std::sync::Arc;
+
     use infera_management_core::{
         OrganizationMember, OrganizationPermission, OrganizationRole, OrganizationTeam,
         OrganizationTeamMember, OrganizationTeamMemberRepository, OrganizationTeamPermission,
         OrganizationTeamPermissionRepository, OrganizationTeamRepository,
     };
     use infera_management_storage::Backend;
-    use std::sync::Arc;
+
+    use super::*;
+    use crate::{handlers::auth::AppState, middleware::OrganizationContext};
 
     #[tokio::test]
     async fn test_owner_has_all_permissions() {
@@ -185,20 +177,24 @@ mod tests {
         };
 
         // Owner should have all permissions
-        assert!(has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermClientCreate
-        )
-        .await
-        .unwrap());
-        assert!(has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermOwnerActions
-        )
-        .await
-        .unwrap());
+        assert!(
+            has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermClientCreate
+            )
+            .await
+            .unwrap()
+        );
+        assert!(
+            has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermOwnerActions
+            )
+            .await
+            .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -213,22 +209,26 @@ mod tests {
         };
 
         // Admin should have most permissions
-        assert!(has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermClientCreate
-        )
-        .await
-        .unwrap());
+        assert!(
+            has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermClientCreate
+            )
+            .await
+            .unwrap()
+        );
 
         // But not owner actions
-        assert!(!has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermOwnerActions
-        )
-        .await
-        .unwrap());
+        assert!(
+            !has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermOwnerActions
+            )
+            .await
+            .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -260,22 +260,26 @@ mod tests {
         perm_repo.create(permission).await.unwrap();
 
         // Member should now have the permission
-        assert!(has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermClientCreate
-        )
-        .await
-        .unwrap());
+        assert!(
+            has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermClientCreate
+            )
+            .await
+            .unwrap()
+        );
 
         // But not other permissions
-        assert!(!has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermVaultCreate
-        )
-        .await
-        .unwrap());
+        assert!(
+            !has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermVaultCreate
+            )
+            .await
+            .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -305,33 +309,41 @@ mod tests {
         perm_repo.create(permission).await.unwrap();
 
         // CLIENT_MANAGE should grant all client permissions
-        assert!(has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermClientCreate
-        )
-        .await
-        .unwrap());
-        assert!(has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermClientRead
-        )
-        .await
-        .unwrap());
-        assert!(has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermClientRevoke
-        )
-        .await
-        .unwrap());
-        assert!(has_organization_permission(
-            &state,
-            &org_ctx,
-            OrganizationPermission::OrgPermClientDelete
-        )
-        .await
-        .unwrap());
+        assert!(
+            has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermClientCreate
+            )
+            .await
+            .unwrap()
+        );
+        assert!(
+            has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermClientRead
+            )
+            .await
+            .unwrap()
+        );
+        assert!(
+            has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermClientRevoke
+            )
+            .await
+            .unwrap()
+        );
+        assert!(
+            has_organization_permission(
+                &state,
+                &org_ctx,
+                OrganizationPermission::OrgPermClientDelete
+            )
+            .await
+            .unwrap()
+        );
     }
 }

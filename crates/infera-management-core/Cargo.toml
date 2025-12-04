@@ -1,13 +1,13 @@
 [package]
-name = "infera-management-core"
-version.workspace = true
-edition.workspace = true
 authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition.workspace = true
 homepage.workspace = true
+license.workspace = true
+name = "infera-management-core"
 publish.workspace = true
+repository.workspace = true
 rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
 # Core dependencies
@@ -57,8 +57,8 @@ reqwest = { workspace = true }
 url = { workspace = true }
 
 # Kubernetes client (for service discovery)
-kube = { workspace = true }
 k8s-openapi = { workspace = true }
+kube = { workspace = true }
 
 # Metrics
 metrics = { workspace = true }

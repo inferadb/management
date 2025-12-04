@@ -2474,8 +2474,7 @@ components:
 
     ClientCertificate:
       type: object
-      required:
-        [id, client_id, name, public_key_pem, kid, is_active, created_at]
+      required: [id, client_id, name, public_key_pem, kid, is_active, created_at]
       properties:
         id:
           type: string
@@ -2565,8 +2564,7 @@ components:
 
     AuditLog:
       type: object
-      required:
-        [id, organization_id, actor_id, action, resource_type, timestamp]
+      required: [id, organization_id, actor_id, action, resource_type, timestamp]
       properties:
         id:
           type: string

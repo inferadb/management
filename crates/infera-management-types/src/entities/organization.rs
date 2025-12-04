@@ -1,6 +1,7 @@
-use crate::error::{Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::error::{Error, Result};
 
 /// Organization tier enum defining resource limits
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,9 +100,7 @@ impl Organization {
         let trimmed = name.trim();
 
         if trimmed.is_empty() {
-            return Err(Error::Validation(
-                "Organization name cannot be empty".to_string(),
-            ));
+            return Err(Error::Validation("Organization name cannot be empty".to_string()));
         }
 
         if trimmed.len() > 100 {
@@ -176,7 +175,7 @@ impl OrganizationRole {
             OrganizationRole::Member => true,
             OrganizationRole::Admin => {
                 matches!(self, OrganizationRole::Admin | OrganizationRole::Owner)
-            }
+            },
             OrganizationRole::Owner => matches!(self, OrganizationRole::Owner),
         }
     }
@@ -200,13 +199,7 @@ pub struct OrganizationMember {
 impl OrganizationMember {
     /// Create a new organization member
     pub fn new(id: i64, organization_id: i64, user_id: i64, role: OrganizationRole) -> Self {
-        Self {
-            id,
-            organization_id,
-            user_id,
-            role,
-            created_at: Utc::now(),
-        }
+        Self { id, organization_id, user_id, role, created_at: Utc::now() }
     }
 
     /// Update the member's role

@@ -1,8 +1,8 @@
 use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit, OsRng},
     Aes256Gcm, Nonce,
+    aead::{Aead, AeadCore, KeyInit, OsRng},
 };
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use infera_management_types::error::{Error, Result};
 use sha2::{Digest, Sha256};
 
@@ -21,9 +21,7 @@ impl PrivateKeyEncryptor {
     /// INFERADB_MGMT_KEY_ENCRYPTION_SECRET environment variable.
     pub fn new(master_secret: &[u8]) -> Result<Self> {
         if master_secret.len() < 32 {
-            return Err(Error::Validation(
-                "Master secret must be at least 32 bytes".to_string(),
-            ));
+            return Err(Error::Validation("Master secret must be at least 32 bytes".to_string()));
         }
 
         // Derive a 256-bit key from the master secret using SHA-256
@@ -42,9 +40,7 @@ impl PrivateKeyEncryptor {
     /// Returns base64-encoded ciphertext with nonce prepended (12 bytes nonce + ciphertext)
     pub fn encrypt(&self, private_key: &[u8]) -> Result<String> {
         if private_key.len() != 32 {
-            return Err(Error::Validation(
-                "Private key must be 32 bytes (Ed25519)".to_string(),
-            ));
+            return Err(Error::Validation("Private key must be 32 bytes (Ed25519)".to_string()));
         }
 
         // Generate a random 96-bit nonce (12 bytes)
@@ -68,7 +64,8 @@ impl PrivateKeyEncryptor {
     ///
     /// Takes base64-encoded string with nonce prepended, returns the 32-byte private key
     ///
-    /// IMPORTANT: The returned Vec contains sensitive key material and should be zeroized when no longer needed.
+    /// IMPORTANT: The returned Vec contains sensitive key material and should be zeroized when no
+    /// longer needed.
     pub fn decrypt(&self, encrypted_base64: &str) -> Result<Vec<u8>> {
         // Decode from base64
         let combined = BASE64
@@ -77,9 +74,7 @@ impl PrivateKeyEncryptor {
 
         // Split nonce and ciphertext (first 12 bytes are nonce)
         if combined.len() < 12 {
-            return Err(Error::Internal(
-                "Encrypted data too short (missing nonce)".to_string(),
-            ));
+            return Err(Error::Internal("Encrypted data too short (missing nonce)".to_string()));
         }
 
         let (nonce_bytes, ciphertext) = combined.split_at(12);
@@ -105,8 +100,9 @@ impl PrivateKeyEncryptor {
 
 /// Generate a new Ed25519 key pair
 pub mod keypair {
-    use super::*;
     use ed25519_dalek::{SigningKey, VerifyingKey};
+
+    use super::*;
 
     /// Generate a new Ed25519 key pair
     ///

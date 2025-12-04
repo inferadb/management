@@ -97,7 +97,7 @@ impl<S: StorageBackend> VaultRepository<S> {
                 let vault: Vault = serde_json::from_slice(&bytes)
                     .map_err(|e| Error::Internal(format!("Failed to deserialize vault: {}", e)))?;
                 Ok(Some(vault))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -155,10 +155,7 @@ impl<S: StorageBackend> VaultRepository<S> {
         // If name changed, update name index
         if existing.name != vault.name {
             // Delete old name index
-            txn.delete(Self::vault_name_index_key(
-                existing.organization_id,
-                &existing.name,
-            ));
+            txn.delete(Self::vault_name_index_key(existing.organization_id, &existing.name));
 
             // Check for duplicate new name
             let new_name_key = Self::vault_name_index_key(vault.organization_id, &vault.name);
@@ -214,10 +211,7 @@ impl<S: StorageBackend> VaultRepository<S> {
         txn.delete(Self::vault_org_index_key(vault.organization_id, vault.id));
 
         // Delete name index
-        txn.delete(Self::vault_name_index_key(
-            vault.organization_id,
-            &vault.name,
-        ));
+        txn.delete(Self::vault_name_index_key(vault.organization_id, &vault.name));
 
         // Commit transaction
         txn.commit()
@@ -293,9 +287,7 @@ impl<S: StorageBackend> VaultUserGrantRepository<S> {
             .map_err(|e| Error::Internal(format!("Failed to check duplicate grant: {}", e)))?
             .is_some()
         {
-            return Err(Error::AlreadyExists(
-                "User already has access to this vault".to_string(),
-            ));
+            return Err(Error::AlreadyExists("User already has access to this vault".to_string()));
         }
 
         // Store grant record
@@ -332,7 +324,7 @@ impl<S: StorageBackend> VaultUserGrantRepository<S> {
                 let grant: VaultUserGrant = serde_json::from_slice(&bytes)
                     .map_err(|e| Error::Internal(format!("Failed to deserialize grant: {}", e)))?;
                 Ok(Some(grant))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -356,7 +348,7 @@ impl<S: StorageBackend> VaultUserGrantRepository<S> {
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -519,9 +511,7 @@ impl<S: StorageBackend> VaultTeamGrantRepository<S> {
             .map_err(|e| Error::Internal(format!("Failed to check duplicate grant: {}", e)))?
             .is_some()
         {
-            return Err(Error::AlreadyExists(
-                "Team already has access to this vault".to_string(),
-            ));
+            return Err(Error::AlreadyExists("Team already has access to this vault".to_string()));
         }
 
         // Store grant record
@@ -558,7 +548,7 @@ impl<S: StorageBackend> VaultTeamGrantRepository<S> {
                 let grant: VaultTeamGrant = serde_json::from_slice(&bytes)
                     .map_err(|e| Error::Internal(format!("Failed to deserialize grant: {}", e)))?;
                 Ok(Some(grant))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -582,7 +572,7 @@ impl<S: StorageBackend> VaultTeamGrantRepository<S> {
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -694,9 +684,10 @@ impl<S: StorageBackend> VaultTeamGrantRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::{Backend, MemoryBackend};
     use infera_management_types::entities::{VaultRole, VaultSyncStatus};
+
+    use super::*;
 
     fn create_test_vault_repo() -> VaultRepository<Backend> {
         VaultRepository::new(Backend::Memory(MemoryBackend::new()))
@@ -901,11 +892,7 @@ mod tests {
 
         repo.delete(1).await.unwrap();
         assert!(repo.get(1).await.unwrap().is_none());
-        assert!(repo
-            .get_by_vault_and_user(100, 200)
-            .await
-            .unwrap()
-            .is_none());
+        assert!(repo.get_by_vault_and_user(100, 200).await.unwrap().is_none());
     }
 
     #[tokio::test]

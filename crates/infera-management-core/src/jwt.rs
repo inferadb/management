@@ -1,10 +1,13 @@
-use crate::crypto::PrivateKeyEncryptor;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use chrono::{DateTime, Duration, Utc};
-use infera_management_types::entities::{ClientCertificate, VaultRole};
-use infera_management_types::error::{Error, Result};
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use infera_management_types::{
+    entities::{ClientCertificate, VaultRole},
+    error::{Error, Result},
+};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
+
+use crate::crypto::PrivateKeyEncryptor;
 
 /// JWT claims for vault-scoped access tokens
 ///
@@ -56,10 +59,22 @@ impl VaultTokenClaims {
         let exp = now + Duration::seconds(ttl_seconds);
 
         let (vault_role_str, scope) = match vault_role {
-            VaultRole::Reader => ("read", "inferadb.check inferadb.read inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources"),
-            VaultRole::Writer => ("write", "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources"),
-            VaultRole::Manager => ("manage", "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage"),
-            VaultRole::Admin => ("admin", "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage inferadb.admin"),
+            VaultRole::Reader => (
+                "read",
+                "inferadb.check inferadb.read inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources",
+            ),
+            VaultRole::Writer => (
+                "write",
+                "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources",
+            ),
+            VaultRole::Manager => (
+                "manage",
+                "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage",
+            ),
+            VaultRole::Admin => (
+                "admin",
+                "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage inferadb.admin",
+            ),
         };
 
         Self {
@@ -207,7 +222,7 @@ impl JwtSigner {
         token: &str,
         certificate: &ClientCertificate,
     ) -> Result<VaultTokenClaims> {
-        use jsonwebtoken::{decode, DecodingKey, Validation};
+        use jsonwebtoken::{DecodingKey, Validation, decode};
 
         // Decode the public key
         let public_key_bytes = BASE64
@@ -283,7 +298,10 @@ mod tests {
         assert_eq!(claims.org_id, "123");
         assert_eq!(claims.vault_id, "456");
         assert_eq!(claims.vault_role, "read");
-        assert_eq!(claims.scope, "inferadb.check inferadb.read inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources");
+        assert_eq!(
+            claims.scope,
+            "inferadb.check inferadb.read inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources"
+        );
         assert!(!claims.is_expired());
     }
 
@@ -298,7 +316,10 @@ mod tests {
             "https://api.inferadb.com",
             "https://api.inferadb.com/evaluate",
         );
-        assert_eq!(reader.scope, "inferadb.check inferadb.read inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources");
+        assert_eq!(
+            reader.scope,
+            "inferadb.check inferadb.read inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources"
+        );
         assert_eq!(reader.vault_role, "read");
 
         let writer = VaultTokenClaims::new(
@@ -310,7 +331,10 @@ mod tests {
             "https://api.inferadb.com",
             "https://api.inferadb.com/evaluate",
         );
-        assert_eq!(writer.scope, "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources");
+        assert_eq!(
+            writer.scope,
+            "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources"
+        );
         assert_eq!(writer.vault_role, "write");
 
         let manager = VaultTokenClaims::new(
@@ -322,7 +346,10 @@ mod tests {
             "https://api.inferadb.com",
             "https://api.inferadb.com/evaluate",
         );
-        assert_eq!(manager.scope, "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage");
+        assert_eq!(
+            manager.scope,
+            "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage"
+        );
         assert_eq!(manager.vault_role, "manage");
 
         let admin = VaultTokenClaims::new(

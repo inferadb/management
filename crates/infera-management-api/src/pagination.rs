@@ -21,19 +21,13 @@ impl PaginationParams {
     /// Validate and normalize pagination parameters
     pub fn validate(self) -> Self {
         let limit = self.limit.clamp(1, 100);
-        Self {
-            limit,
-            offset: self.offset,
-        }
+        Self { limit, offset: self.offset }
     }
 }
 
 impl Default for PaginationParams {
     fn default() -> Self {
-        Self {
-            limit: default_limit(),
-            offset: 0,
-        }
+        Self { limit: default_limit(), offset: 0 }
     }
 }
 
@@ -60,26 +54,14 @@ pub struct PaginationMeta {
 impl PaginationMeta {
     /// Create pagination metadata from total count
     pub fn from_total(total: usize, offset: usize, limit: usize, count: usize) -> Self {
-        Self {
-            total: Some(total),
-            count,
-            offset,
-            limit,
-            has_more: offset + count < total,
-        }
+        Self { total: Some(total), count, offset, limit, has_more: offset + count < total }
     }
 
     /// Create pagination metadata without total count (streaming pagination)
     pub fn from_count(count: usize, offset: usize, limit: usize) -> Self {
         // If we got exactly limit items, there might be more
         let has_more = count == limit;
-        Self {
-            total: None,
-            count,
-            offset,
-            limit,
-            has_more,
-        }
+        Self { total: None, count, offset, limit, has_more }
     }
 }
 
@@ -103,10 +85,7 @@ impl<T> Paginated<T> {
     /// Create a paginated response without total (streaming pagination)
     pub fn from_data(data: Vec<T>, params: &PaginationParams) -> Self {
         let count = data.len();
-        Self {
-            data,
-            pagination: PaginationMeta::from_count(count, params.offset, params.limit),
-        }
+        Self { data, pagination: PaginationMeta::from_count(count, params.offset, params.limit) }
     }
 }
 

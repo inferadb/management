@@ -1,6 +1,7 @@
-use crate::error::{Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::error::{Error, Result};
 
 /// User entity representing a registered user
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -63,9 +64,7 @@ impl User {
         let trimmed = name.trim();
 
         if trimmed.is_empty() {
-            return Err(Error::Validation(
-                "Name cannot be empty or only whitespace".to_string(),
-            ));
+            return Err(Error::Validation("Name cannot be empty or only whitespace".to_string()));
         }
 
         if trimmed.len() > 100 {

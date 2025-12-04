@@ -1,14 +1,16 @@
-use crate::handlers::{
-    audit_logs, auth, cli_auth, clients, emails, health, jwks, metrics as metrics_handler,
-    organizations, sessions, teams, tokens, users, vaults, AppState,
-};
-use crate::middleware::{
-    logging_middleware, require_organization_member, require_server_jwt, require_session,
-};
 use axum::{
-    middleware,
+    Router, middleware,
     routing::{delete, get, patch, post},
-    Router,
+};
+
+use crate::{
+    handlers::{
+        AppState, audit_logs, auth, cli_auth, clients, emails, health, jwks,
+        metrics as metrics_handler, organizations, sessions, teams, tokens, users, vaults,
+    },
+    middleware::{
+        logging_middleware, require_organization_member, require_server_jwt, require_session,
+    },
 };
 
 /// Create router with state and middleware applied
@@ -26,27 +28,12 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
                 .delete(organizations::delete_organization),
         )
         // Organization member management routes
-        .route(
-            "/v1/organizations/{org}/members",
-            get(organizations::list_members),
-        )
-        .route(
-            "/v1/organizations/{org}/members/{member}",
-            patch(organizations::update_member_role),
-        )
-        .route(
-            "/v1/organizations/{org}/members/{member}",
-            delete(organizations::remove_member),
-        )
+        .route("/v1/organizations/{org}/members", get(organizations::list_members))
+        .route("/v1/organizations/{org}/members/{member}", patch(organizations::update_member_role))
+        .route("/v1/organizations/{org}/members/{member}", delete(organizations::remove_member))
         // Organization invitation routes
-        .route(
-            "/v1/organizations/{org}/invitations",
-            post(organizations::create_invitation),
-        )
-        .route(
-            "/v1/organizations/{org}/invitations",
-            get(organizations::list_invitations),
-        )
+        .route("/v1/organizations/{org}/invitations", post(organizations::create_invitation))
+        .route("/v1/organizations/{org}/invitations", get(organizations::list_invitations))
         .route(
             "/v1/organizations/{org}/invitations/{invitation}",
             delete(organizations::delete_invitation),
@@ -57,35 +44,14 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             post(organizations::transfer_ownership),
         )
         // Organization suspension routes
-        .route(
-            "/v1/organizations/{org}/suspend",
-            post(organizations::suspend_organization),
-        )
-        .route(
-            "/v1/organizations/{org}/resume",
-            post(organizations::resume_organization),
-        )
+        .route("/v1/organizations/{org}/suspend", post(organizations::suspend_organization))
+        .route("/v1/organizations/{org}/resume", post(organizations::resume_organization))
         // Client management routes
-        .route(
-            "/v1/organizations/{org}/clients",
-            post(clients::create_client),
-        )
-        .route(
-            "/v1/organizations/{org}/clients",
-            get(clients::list_clients),
-        )
-        .route(
-            "/v1/organizations/{org}/clients/{client}",
-            get(clients::get_client),
-        )
-        .route(
-            "/v1/organizations/{org}/clients/{client}",
-            patch(clients::update_client),
-        )
-        .route(
-            "/v1/organizations/{org}/clients/{client}",
-            delete(clients::delete_client),
-        )
+        .route("/v1/organizations/{org}/clients", post(clients::create_client))
+        .route("/v1/organizations/{org}/clients", get(clients::list_clients))
+        .route("/v1/organizations/{org}/clients/{client}", get(clients::get_client))
+        .route("/v1/organizations/{org}/clients/{client}", patch(clients::update_client))
+        .route("/v1/organizations/{org}/clients/{client}", delete(clients::delete_client))
         .route(
             "/v1/organizations/{org}/clients/{client}/deactivate",
             post(clients::deactivate_client),
@@ -112,19 +78,14 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         .route("/v1/organizations/{org}/vaults", get(vaults::list_vaults))
         .route(
             "/v1/organizations/{org}/vaults/{vault}",
-            get(vaults::get_vault)
-                .patch(vaults::update_vault)
-                .delete(vaults::delete_vault),
+            get(vaults::get_vault).patch(vaults::update_vault).delete(vaults::delete_vault),
         )
         // Vault user grant routes
         .route(
             "/v1/organizations/{org}/vaults/{vault}/user-grants",
             post(vaults::create_user_grant),
         )
-        .route(
-            "/v1/organizations/{org}/vaults/{vault}/user-grants",
-            get(vaults::list_user_grants),
-        )
+        .route("/v1/organizations/{org}/vaults/{vault}/user-grants", get(vaults::list_user_grants))
         .route(
             "/v1/organizations/{org}/vaults/{vault}/user-grants/{grant}",
             patch(vaults::update_user_grant),
@@ -138,10 +99,7 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             "/v1/organizations/{org}/vaults/{vault}/team-grants",
             post(vaults::create_team_grant),
         )
-        .route(
-            "/v1/organizations/{org}/vaults/{vault}/team-grants",
-            get(vaults::list_team_grants),
-        )
+        .route("/v1/organizations/{org}/vaults/{vault}/team-grants", get(vaults::list_team_grants))
         .route(
             "/v1/organizations/{org}/vaults/{vault}/team-grants/{grant}",
             patch(vaults::update_team_grant),
@@ -151,36 +109,18 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             delete(vaults::delete_team_grant),
         )
         // Vault token generation route
-        .route(
-            "/v1/organizations/{org}/vaults/{vault}/tokens",
-            post(tokens::generate_vault_token),
-        )
+        .route("/v1/organizations/{org}/vaults/{vault}/tokens", post(tokens::generate_vault_token))
         // Audit log routes (OWNER only)
-        .route(
-            "/v1/organizations/{org}/audit-logs",
-            get(audit_logs::list_audit_logs),
-        )
+        .route("/v1/organizations/{org}/audit-logs", get(audit_logs::list_audit_logs))
         // Team management routes
         .route("/v1/organizations/{org}/teams", post(teams::create_team))
         .route("/v1/organizations/{org}/teams", get(teams::list_teams))
         .route("/v1/organizations/{org}/teams/{team}", get(teams::get_team))
-        .route(
-            "/v1/organizations/{org}/teams/{team}",
-            patch(teams::update_team),
-        )
-        .route(
-            "/v1/organizations/{org}/teams/{team}",
-            delete(teams::delete_team),
-        )
+        .route("/v1/organizations/{org}/teams/{team}", patch(teams::update_team))
+        .route("/v1/organizations/{org}/teams/{team}", delete(teams::delete_team))
         // Team member routes
-        .route(
-            "/v1/organizations/{org}/teams/{team}/members",
-            post(teams::add_team_member),
-        )
-        .route(
-            "/v1/organizations/{org}/teams/{team}/members",
-            get(teams::list_team_members),
-        )
+        .route("/v1/organizations/{org}/teams/{team}/members", post(teams::add_team_member))
+        .route("/v1/organizations/{org}/teams/{team}/members", get(teams::list_team_members))
         .route(
             "/v1/organizations/{org}/teams/{team}/members/{member}",
             patch(teams::update_team_member),
@@ -203,29 +143,17 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
             delete(teams::revoke_team_permission),
         )
         .with_state(state.clone())
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            require_organization_member,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            require_session,
-        ));
+        .layer(middleware::from_fn_with_state(state.clone(), require_organization_member))
+        .layer(middleware::from_fn_with_state(state.clone(), require_session));
 
     // Create router with protected routes that need session middleware only
     let protected = Router::new()
         // Protected session management routes
         .route("/v1/users/sessions", get(sessions::list_sessions))
         .route("/v1/users/sessions/{id}", delete(sessions::revoke_session))
-        .route(
-            "/v1/users/sessions/revoke-others",
-            post(sessions::revoke_other_sessions),
-        )
+        .route("/v1/users/sessions/revoke-others", post(sessions::revoke_other_sessions))
         // Token revocation routes
-        .route(
-            "/v1/tokens/revoke/vault/{vault}",
-            post(tokens::revoke_vault_tokens),
-        )
+        .route("/v1/tokens/revoke/vault/{vault}", post(tokens::revoke_vault_tokens))
         // User profile management routes
         .route("/v1/users/me", get(users::get_profile))
         .route("/v1/users/me", patch(users::update_profile))
@@ -237,25 +165,16 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         .route("/v1/users/emails/{id}", patch(emails::update_email))
         .route("/v1/users/emails/{id}", delete(emails::delete_email))
         // Organization management routes (non-scoped)
-        .route(
-            "/v1/organizations",
-            post(organizations::create_organization),
-        )
+        .route("/v1/organizations", post(organizations::create_organization))
         .route("/v1/organizations", get(organizations::list_organizations))
         // Accept invitation route (protected, needs session)
-        .route(
-            "/v1/organizations/invitations/accept",
-            post(organizations::accept_invitation),
-        )
+        .route("/v1/organizations/invitations/accept", post(organizations::accept_invitation))
         // CLI authentication routes (protected, needs session for authorize)
         .route("/v1/auth/cli/authorize", post(cli_auth::cli_authorize))
         // Vault GET by ID route (session-protected, no org membership required)
         .route("/v1/vaults/{vault}", get(vaults::get_vault_by_id))
         .with_state(state.clone())
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            require_session,
-        ));
+        .layer(middleware::from_fn_with_state(state.clone(), require_session));
 
     // Combine public, protected, and org-scoped routes
     Router::new()
@@ -275,14 +194,8 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         .route("/v1/auth/login/password", post(auth::login))
         .route("/v1/auth/logout", post(auth::logout))
         .route("/v1/auth/verify-email", post(auth::verify_email))
-        .route(
-            "/v1/auth/password-reset/request",
-            post(auth::request_password_reset),
-        )
-        .route(
-            "/v1/auth/password-reset/confirm",
-            post(auth::confirm_password_reset),
-        )
+        .route("/v1/auth/password-reset/request", post(auth::request_password_reset))
+        .route("/v1/auth/password-reset/confirm", post(auth::confirm_password_reset))
         // Token refresh endpoint (public, refresh token provides authentication)
         .route("/v1/tokens/refresh", post(tokens::refresh_vault_token))
         // Client assertion authentication endpoint (public, OAuth 2.0 JWT Bearer)
@@ -292,10 +205,7 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         // JWKS endpoints (public, no authentication required)
         .route("/.well-known/jwks.json", get(jwks::get_global_jwks))
         .route("/v1/organizations/{org}/jwks.json", get(jwks::get_org_jwks))
-        .route(
-            "/v1/organizations/{org}/.well-known/jwks.json",
-            get(jwks::get_org_jwks),
-        )
+        .route("/v1/organizations/{org}/.well-known/jwks.json", get(jwks::get_org_jwks))
         .with_state(state)
         .merge(org_scoped)
         .merge(protected)
@@ -321,29 +231,17 @@ pub fn public_routes(state: AppState) -> Router {
 pub fn internal_routes(state: AppState) -> Router {
     // Public JWKS endpoints (no authentication required)
     let jwks_routes = Router::new()
-        .route(
-            "/internal/management-jwks.json",
-            get(jwks::get_management_jwks),
-        )
+        .route("/internal/management-jwks.json", get(jwks::get_management_jwks))
         .with_state(state.clone());
 
     // Privileged internal routes (require server JWT authentication)
     let privileged_routes = Router::new()
         // Organization GET endpoint - for server-to-server org verification
-        .route(
-            "/internal/organizations/{org}",
-            get(organizations::get_organization_privileged),
-        )
+        .route("/internal/organizations/{org}", get(organizations::get_organization_privileged))
         // Vault GET endpoint - for server-to-server vault ownership verification
-        .route(
-            "/internal/vaults/{vault}",
-            get(vaults::get_vault_by_id_privileged),
-        )
+        .route("/internal/vaults/{vault}", get(vaults::get_vault_by_id_privileged))
         .with_state(state.clone())
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            require_server_jwt,
-        ));
+        .layer(middleware::from_fn_with_state(state.clone(), require_server_jwt));
 
     // Combine JWKS (no auth) and privileged routes (server JWT auth)
     jwks_routes

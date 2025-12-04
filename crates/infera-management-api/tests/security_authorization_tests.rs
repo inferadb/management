@@ -2,14 +2,14 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use infera_management_api::{create_router_with_state, AppState};
+use infera_management_api::{AppState, create_router_with_state};
 use infera_management_core::{
+    IdGenerator, OrganizationMemberRepository, OrganizationRepository, UserRepository,
+    UserSessionRepository, VaultRepository,
     entities::{
         Organization, OrganizationMember, OrganizationRole, OrganizationTier, SessionType, User,
         UserSession, Vault,
     },
-    IdGenerator, OrganizationMemberRepository, OrganizationRepository, UserRepository,
-    UserSessionRepository, VaultRepository,
 };
 use infera_management_test_fixtures::create_test_state;
 use serde_json::json;
@@ -66,17 +66,9 @@ async fn test_member_cannot_escalate_to_admin() {
     let state = create_test_state();
 
     // Setup owner
-    let (_, _session_owner, org, _) = setup_user_with_role(
-        &state,
-        100,
-        1,
-        1000,
-        10000,
-        "owner",
-        OrganizationRole::Owner,
-        true,
-    )
-    .await;
+    let (_, _session_owner, org, _) =
+        setup_user_with_role(&state, 100, 1, 1000, 10000, "owner", OrganizationRole::Owner, true)
+            .await;
 
     // Setup member (non-admin)
     let (_, session_member, _, member) = setup_user_with_role(
@@ -98,10 +90,7 @@ async fn test_member_cannot_escalate_to_admin() {
         .oneshot(
             Request::builder()
                 .method("PATCH")
-                .uri(format!(
-                    "/v1/organizations/{}/members/{}",
-                    org.id, member.id
-                ))
+                .uri(format!("/v1/organizations/{}/members/{}", org.id, member.id))
                 .header("cookie", format!("infera_session={}", session_member.id))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -125,17 +114,9 @@ async fn test_admin_cannot_escalate_to_owner() {
     let state = create_test_state();
 
     // Setup owner
-    let (_, _session_owner, org, _) = setup_user_with_role(
-        &state,
-        100,
-        1,
-        1000,
-        10000,
-        "owner",
-        OrganizationRole::Owner,
-        true,
-    )
-    .await;
+    let (_, _session_owner, org, _) =
+        setup_user_with_role(&state, 100, 1, 1000, 10000, "owner", OrganizationRole::Owner, true)
+            .await;
 
     // Setup admin
     let (_, session_admin, _, admin_member) = setup_user_with_role(
@@ -157,10 +138,7 @@ async fn test_admin_cannot_escalate_to_owner() {
         .oneshot(
             Request::builder()
                 .method("PATCH")
-                .uri(format!(
-                    "/v1/organizations/{}/members/{}",
-                    org.id, admin_member.id
-                ))
+                .uri(format!("/v1/organizations/{}/members/{}", org.id, admin_member.id))
                 .header("cookie", format!("infera_session={}", session_admin.id))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -189,20 +167,12 @@ async fn test_member_cannot_create_vault() {
     let state = create_test_state();
 
     // Setup owner
-    let (_, _session_owner, org, _) = setup_user_with_role(
-        &state,
-        100,
-        1,
-        1000,
-        10000,
-        "owner",
-        OrganizationRole::Owner,
-        true,
-    )
-    .await;
+    let (_, _session_owner, org, _) =
+        setup_user_with_role(&state, 100, 1, 1000, 10000, "owner", OrganizationRole::Owner, true)
+            .await;
 
     // Setup member
-    let (_, session_member, _, _) = setup_user_with_role(
+    let (_, session_member, ..) = setup_user_with_role(
         &state,
         200,
         2,
@@ -245,20 +215,12 @@ async fn test_member_cannot_delete_organization() {
     let state = create_test_state();
 
     // Setup owner
-    let (_, _session_owner, org, _) = setup_user_with_role(
-        &state,
-        100,
-        1,
-        1000,
-        10000,
-        "owner",
-        OrganizationRole::Owner,
-        true,
-    )
-    .await;
+    let (_, _session_owner, org, _) =
+        setup_user_with_role(&state, 100, 1, 1000, 10000, "owner", OrganizationRole::Owner, true)
+            .await;
 
     // Setup member
-    let (_, session_member, _, _) = setup_user_with_role(
+    let (_, session_member, ..) = setup_user_with_role(
         &state,
         200,
         2,
@@ -300,20 +262,12 @@ async fn test_admin_cannot_delete_organization() {
     let state = create_test_state();
 
     // Setup owner
-    let (_, _session_owner, org, _) = setup_user_with_role(
-        &state,
-        100,
-        1,
-        1000,
-        10000,
-        "owner",
-        OrganizationRole::Owner,
-        true,
-    )
-    .await;
+    let (_, _session_owner, org, _) =
+        setup_user_with_role(&state, 100, 1, 1000, 10000, "owner", OrganizationRole::Owner, true)
+            .await;
 
     // Setup admin
-    let (_, session_admin, _, _) = setup_user_with_role(
+    let (_, session_admin, ..) = setup_user_with_role(
         &state,
         200,
         2,
@@ -350,20 +304,12 @@ async fn test_member_cannot_remove_other_members() {
     let state = create_test_state();
 
     // Setup owner
-    let (_, _session_owner, org, _) = setup_user_with_role(
-        &state,
-        100,
-        1,
-        1000,
-        10000,
-        "owner",
-        OrganizationRole::Owner,
-        true,
-    )
-    .await;
+    let (_, _session_owner, org, _) =
+        setup_user_with_role(&state, 100, 1, 1000, 10000, "owner", OrganizationRole::Owner, true)
+            .await;
 
     // Setup member1
-    let (_, session_member1, _, _) = setup_user_with_role(
+    let (_, session_member1, ..) = setup_user_with_role(
         &state,
         200,
         2,
@@ -395,10 +341,7 @@ async fn test_member_cannot_remove_other_members() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(format!(
-                    "/v1/organizations/{}/members/{}",
-                    org.id, member2.id
-                ))
+                .uri(format!("/v1/organizations/{}/members/{}", org.id, member2.id))
                 .header("cookie", format!("infera_session={}", session_member1.id))
                 .body(Body::empty())
                 .unwrap(),
@@ -454,9 +397,7 @@ async fn test_cannot_use_other_users_session() {
     // Should succeed but return User A's profile (not User B's)
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     // Verify it returns User A's info
@@ -470,20 +411,12 @@ async fn test_member_cannot_update_organization_settings() {
     let state = create_test_state();
 
     // Setup owner
-    let (_, _session_owner, org, _) = setup_user_with_role(
-        &state,
-        100,
-        1,
-        1000,
-        10000,
-        "owner",
-        OrganizationRole::Owner,
-        true,
-    )
-    .await;
+    let (_, _session_owner, org, _) =
+        setup_user_with_role(&state, 100, 1, 1000, 10000, "owner", OrganizationRole::Owner, true)
+            .await;
 
     // Setup member
-    let (_, session_member, _, _) = setup_user_with_role(
+    let (_, session_member, ..) = setup_user_with_role(
         &state,
         200,
         2,
@@ -526,20 +459,12 @@ async fn test_member_cannot_create_team() {
     let state = create_test_state();
 
     // Setup owner
-    let (_, _session_owner, org, _) = setup_user_with_role(
-        &state,
-        100,
-        1,
-        1000,
-        10000,
-        "owner",
-        OrganizationRole::Owner,
-        true,
-    )
-    .await;
+    let (_, _session_owner, org, _) =
+        setup_user_with_role(&state, 100, 1, 1000, 10000, "owner", OrganizationRole::Owner, true)
+            .await;
 
     // Setup member
-    let (_, session_member, _, _) = setup_user_with_role(
+    let (_, session_member, ..) = setup_user_with_role(
         &state,
         200,
         2,
@@ -582,17 +507,9 @@ async fn test_member_cannot_delete_vault() {
     let state = create_test_state();
 
     // Setup owner
-    let (_, _session_owner, org, _) = setup_user_with_role(
-        &state,
-        100,
-        1,
-        1000,
-        10000,
-        "owner",
-        OrganizationRole::Owner,
-        true,
-    )
-    .await;
+    let (_, _session_owner, org, _) =
+        setup_user_with_role(&state, 100, 1, 1000, 10000, "owner", OrganizationRole::Owner, true)
+            .await;
 
     // Create a vault
     let vault_repo = VaultRepository::new((*state.storage).clone());
@@ -600,7 +517,7 @@ async fn test_member_cannot_delete_vault() {
     vault_repo.create(vault.clone()).await.unwrap();
 
     // Setup member
-    let (_, session_member, _, _) = setup_user_with_role(
+    let (_, session_member, ..) = setup_user_with_role(
         &state,
         200,
         2,

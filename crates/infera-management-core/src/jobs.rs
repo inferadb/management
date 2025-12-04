@@ -1,11 +1,13 @@
-use crate::leader::LeaderElection;
-use crate::repository::{AuditLogRepository, UserSessionRepository, VaultRefreshTokenRepository};
+use std::{sync::Arc, time::Duration};
+
 use infera_management_storage::StorageBackend;
 use infera_management_types::error::Result;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::task::JoinHandle;
-use tokio::time;
+use tokio::{task::JoinHandle, time};
+
+use crate::{
+    leader::LeaderElection,
+    repository::{AuditLogRepository, UserSessionRepository, VaultRefreshTokenRepository},
+};
 
 /// Background job scheduler
 ///
@@ -65,44 +67,35 @@ impl<S: StorageBackend + Clone + Send + Sync + 'static> BackgroundJobs<S> {
 
     /// Start all background jobs
     ///
-    /// Spawns background tasks for each job. Jobs will only execute when this instance is the leader.
+    /// Spawns background tasks for each job. Jobs will only execute when this instance is the
+    /// leader.
     pub async fn start(&self) {
         let mut handles = self.handles.lock().await;
 
         // Session cleanup (daily at 2 AM)
-        handles.push(
-            self.spawn_daily_job("session_cleanup", 2, 0, |storage, _leader| {
-                Box::pin(async move { Self::cleanup_expired_sessions(storage).await })
-            }),
-        );
+        handles.push(self.spawn_daily_job("session_cleanup", 2, 0, |storage, _leader| {
+            Box::pin(async move { Self::cleanup_expired_sessions(storage).await })
+        }));
 
         // Token cleanup (daily at 3 AM)
-        handles.push(
-            self.spawn_daily_job("token_cleanup", 3, 0, |storage, _leader| {
-                Box::pin(async move { Self::cleanup_expired_tokens(storage).await })
-            }),
-        );
+        handles.push(self.spawn_daily_job("token_cleanup", 3, 0, |storage, _leader| {
+            Box::pin(async move { Self::cleanup_expired_tokens(storage).await })
+        }));
 
         // Refresh token cleanup (daily at 4 AM)
-        handles.push(
-            self.spawn_daily_job("refresh_token_cleanup", 4, 0, |storage, _leader| {
-                Box::pin(async move { Self::cleanup_expired_refresh_tokens(storage).await })
-            }),
-        );
+        handles.push(self.spawn_daily_job("refresh_token_cleanup", 4, 0, |storage, _leader| {
+            Box::pin(async move { Self::cleanup_expired_refresh_tokens(storage).await })
+        }));
 
         // Authorization code cleanup (hourly)
-        handles.push(
-            self.spawn_hourly_job("authz_code_cleanup", |storage, _leader| {
-                Box::pin(async move { Self::cleanup_expired_authorization_codes(storage).await })
-            }),
-        );
+        handles.push(self.spawn_hourly_job("authz_code_cleanup", |storage, _leader| {
+            Box::pin(async move { Self::cleanup_expired_authorization_codes(storage).await })
+        }));
 
         // Audit log retention cleanup (daily at 5 AM)
-        handles.push(
-            self.spawn_daily_job("audit_log_cleanup", 5, 0, |storage, _leader| {
-                Box::pin(async move { Self::cleanup_old_audit_logs(storage).await })
-            }),
-        );
+        handles.push(self.spawn_daily_job("audit_log_cleanup", 5, 0, |storage, _leader| {
+            Box::pin(async move { Self::cleanup_old_audit_logs(storage).await })
+        }));
 
         tracing::info!("Background jobs started");
     }
@@ -294,8 +287,9 @@ impl<S: StorageBackend + Clone + Send + Sync + 'static> BackgroundJobs<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_background_jobs_start_stop() {

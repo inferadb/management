@@ -30,13 +30,9 @@ async fn test_create_vault() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    let org_id = json["organizations"][0]["id"]
-        .as_i64()
-        .expect("Should have org ID");
+    let org_id = json["organizations"][0]["id"].as_i64().expect("Should have org ID");
 
     // Create a vault
     let response = app
@@ -61,16 +57,11 @@ async fn test_create_vault() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["vault"]["name"], "production-policies");
-    assert_eq!(
-        json["vault"]["description"],
-        "Production environment policies"
-    );
+    assert_eq!(json["vault"]["description"], "Production environment policies");
     // Note: In test environment with mock server, vaults sync immediately
     assert!(
         json["vault"]["sync_status"] == "PENDING" || json["vault"]["sync_status"] == "SYNCED",
@@ -101,9 +92,7 @@ async fn test_list_vaults() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -149,9 +138,7 @@ async fn test_list_vaults() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vaults = json["vaults"].as_array().expect("Should have vaults");
 
@@ -180,9 +167,7 @@ async fn test_update_vault() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -207,9 +192,7 @@ async fn test_update_vault() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -236,9 +219,7 @@ async fn test_update_vault() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["vault"]["name"], "updated-name");
@@ -267,9 +248,7 @@ async fn test_delete_vault() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -294,9 +273,7 @@ async fn test_delete_vault() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -339,20 +316,10 @@ async fn test_grant_user_vault_access() {
     let app = create_test_app(state.clone());
 
     // Create owner and member users
-    let owner_session = register_user(
-        &app,
-        "vaultowner2",
-        "owner2@example.com",
-        "securepassword123",
-    )
-    .await;
-    let member_session = register_user(
-        &app,
-        "vaultmember",
-        "member@example.com",
-        "securepassword123",
-    )
-    .await;
+    let owner_session =
+        register_user(&app, "vaultowner2", "owner2@example.com", "securepassword123").await;
+    let member_session =
+        register_user(&app, "vaultmember", "member@example.com", "securepassword123").await;
 
     // Get owner's organization
     let response = app
@@ -368,9 +335,7 @@ async fn test_grant_user_vault_access() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -388,9 +353,7 @@ async fn test_grant_user_vault_access() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let member_user_id = json["user"]["id"].as_i64().unwrap();
 
@@ -435,9 +398,7 @@ async fn test_grant_user_vault_access() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -447,10 +408,7 @@ async fn test_grant_user_vault_access() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/user-grants",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/user-grants", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", owner_session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -467,9 +425,7 @@ async fn test_grant_user_vault_access() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["grant"]["role"], "READER");
@@ -481,20 +437,10 @@ async fn test_revoke_user_vault_access() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let owner_session = register_user(
-        &app,
-        "vaultowner3",
-        "owner3@example.com",
-        "securepassword123",
-    )
-    .await;
-    let member_session = register_user(
-        &app,
-        "vaultmember2",
-        "member2@example.com",
-        "securepassword123",
-    )
-    .await;
+    let owner_session =
+        register_user(&app, "vaultowner3", "owner3@example.com", "securepassword123").await;
+    let member_session =
+        register_user(&app, "vaultmember2", "member2@example.com", "securepassword123").await;
 
     // Get organization and member user ID
     let response = app
@@ -510,9 +456,7 @@ async fn test_revoke_user_vault_access() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -529,9 +473,7 @@ async fn test_revoke_user_vault_access() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let member_user_id = json["user"]["id"].as_i64().unwrap();
 
@@ -576,9 +518,7 @@ async fn test_revoke_user_vault_access() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -587,10 +527,7 @@ async fn test_revoke_user_vault_access() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/user-grants",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/user-grants", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", owner_session))
                 .header("content-type", "application/json")
                 .body(Body::from(

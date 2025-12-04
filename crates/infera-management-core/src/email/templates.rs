@@ -301,10 +301,7 @@ pub struct InvitationAcceptedEmailTemplate {
 
 impl EmailTemplate for InvitationAcceptedEmailTemplate {
     fn subject(&self) -> String {
-        format!(
-            "{} accepted your invitation to {}",
-            self.member_name, self.organization_name
-        )
+        format!("{} accepted your invitation to {}", self.member_name, self.organization_name)
     }
 
     fn html_body(&self) -> String {
@@ -452,10 +449,7 @@ pub struct OrganizationDeletionWarningEmailTemplate {
 
 impl EmailTemplate for OrganizationDeletionWarningEmailTemplate {
     fn subject(&self) -> String {
-        format!(
-            "{} will be deleted in {} days",
-            self.organization_name, self.days_until_deletion
-        )
+        format!("{} will be deleted in {} days", self.organization_name, self.days_until_deletion)
     }
 
     fn html_body(&self) -> String {
@@ -539,14 +533,10 @@ mod tests {
 
         assert_eq!(template.subject(), "Verify your email address");
         assert!(template.html_body().contains("John Doe"));
-        assert!(template
-            .html_body()
-            .contains("https://example.com/verify?token=abc123"));
+        assert!(template.html_body().contains("https://example.com/verify?token=abc123"));
         assert!(template.html_body().contains("ABC123"));
         assert!(template.text_body().contains("John Doe"));
-        assert!(template
-            .text_body()
-            .contains("https://example.com/verify?token=abc123"));
+        assert!(template.text_body().contains("https://example.com/verify?token=abc123"));
         assert!(template.text_body().contains("ABC123"));
     }
 
@@ -560,14 +550,10 @@ mod tests {
 
         assert_eq!(template.subject(), "Reset your password");
         assert!(template.html_body().contains("Jane Smith"));
-        assert!(template
-            .html_body()
-            .contains("https://example.com/reset?token=xyz789"));
+        assert!(template.html_body().contains("https://example.com/reset?token=xyz789"));
         assert!(template.html_body().contains("XYZ789"));
         assert!(template.text_body().contains("Jane Smith"));
-        assert!(template
-            .text_body()
-            .contains("https://example.com/reset?token=xyz789"));
+        assert!(template.text_body().contains("https://example.com/reset?token=xyz789"));
         assert!(template.text_body().contains("XYZ789"));
     }
 }

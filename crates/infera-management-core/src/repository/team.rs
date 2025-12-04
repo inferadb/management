@@ -1,8 +1,11 @@
 use infera_management_storage::StorageBackend;
-use infera_management_types::entities::{
-    OrganizationPermission, OrganizationTeam, OrganizationTeamMember, OrganizationTeamPermission,
+use infera_management_types::{
+    entities::{
+        OrganizationPermission, OrganizationTeam, OrganizationTeamMember,
+        OrganizationTeamPermission,
+    },
+    error::{Error, Result},
 };
-use infera_management_types::error::{Error, Result};
 
 /// Repository for OrganizationTeam entity operations
 ///
@@ -97,7 +100,7 @@ impl<S: StorageBackend> OrganizationTeamRepository<S> {
                 let team: OrganizationTeam = serde_json::from_slice(&bytes)
                     .map_err(|e| Error::Internal(format!("Failed to deserialize team: {}", e)))?;
                 Ok(Some(team))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -156,10 +159,7 @@ impl<S: StorageBackend> OrganizationTeamRepository<S> {
         // If name changed, update name index
         if existing.name != team.name {
             // Delete old name index
-            txn.delete(Self::team_name_index_key(
-                existing.organization_id,
-                &existing.name,
-            ));
+            txn.delete(Self::team_name_index_key(existing.organization_id, &existing.name));
 
             // Check for duplicate new name
             let new_name_key = Self::team_name_index_key(team.organization_id, &team.name);
@@ -196,10 +196,8 @@ impl<S: StorageBackend> OrganizationTeamRepository<S> {
     /// Delete a team (removes all indexes)
     pub async fn delete(&self, id: i64) -> Result<()> {
         // Get the team first to clean up indexes
-        let team = self
-            .get(id)
-            .await?
-            .ok_or_else(|| Error::NotFound(format!("Team {} not found", id)))?;
+        let team =
+            self.get(id).await?.ok_or_else(|| Error::NotFound(format!("Team {} not found", id)))?;
 
         // Use transaction for atomicity
         let mut txn = self
@@ -291,9 +289,7 @@ impl<S: StorageBackend> OrganizationTeamMemberRepository<S> {
             .map_err(|e| Error::Internal(format!("Failed to check duplicate member: {}", e)))?
             .is_some()
         {
-            return Err(Error::AlreadyExists(
-                "User is already a member of this team".to_string(),
-            ));
+            return Err(Error::AlreadyExists("User is already a member of this team".to_string()));
         }
 
         // Store member record
@@ -332,7 +328,7 @@ impl<S: StorageBackend> OrganizationTeamMemberRepository<S> {
                         Error::Internal(format!("Failed to deserialize team member: {}", e))
                     })?;
                 Ok(Some(member))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -356,7 +352,7 @@ impl<S: StorageBackend> OrganizationTeamMemberRepository<S> {
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -536,9 +532,7 @@ impl<S: StorageBackend> OrganizationTeamPermissionRepository<S> {
             .map_err(|e| Error::Internal(format!("Failed to check duplicate permission: {}", e)))?
             .is_some()
         {
-            return Err(Error::AlreadyExists(
-                "Team already has this permission".to_string(),
-            ));
+            return Err(Error::AlreadyExists("Team already has this permission".to_string()));
         }
 
         // Store permission record
@@ -577,7 +571,7 @@ impl<S: StorageBackend> OrganizationTeamPermissionRepository<S> {
                         Error::Internal(format!("Failed to deserialize team permission: {}", e))
                     })?;
                 Ok(Some(permission))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -590,10 +584,7 @@ impl<S: StorageBackend> OrganizationTeamPermissionRepository<S> {
     ) -> Result<Option<OrganizationTeamPermission>> {
         let index_key = Self::team_permission_index_key(team_id, permission);
         let data = self.storage.get(&index_key).await.map_err(|e| {
-            Error::Internal(format!(
-                "Failed to get permission by team/permission: {}",
-                e
-            ))
+            Error::Internal(format!("Failed to get permission by team/permission: {}", e))
         })?;
 
         match data {
@@ -603,7 +594,7 @@ impl<S: StorageBackend> OrganizationTeamPermissionRepository<S> {
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -653,10 +644,7 @@ impl<S: StorageBackend> OrganizationTeamPermissionRepository<S> {
         txn.delete(Self::permission_key(id));
 
         // Delete team-permission index
-        txn.delete(Self::team_permission_index_key(
-            permission.team_id,
-            permission.permission,
-        ));
+        txn.delete(Self::team_permission_index_key(permission.team_id, permission.permission));
 
         // Delete team permissions list index
         txn.delete(Self::team_permission_list_key(permission.team_id, id));
@@ -689,12 +677,13 @@ impl<S: StorageBackend> OrganizationTeamPermissionRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
     use infera_management_types::entities::{
         OrganizationPermission, OrganizationTeam, OrganizationTeamMember,
         OrganizationTeamPermission,
     };
+
+    use super::*;
 
     #[tokio::test]
     async fn test_create_and_get_team() {
@@ -876,10 +865,7 @@ mod tests {
         let retrieved = repo.get(1).await.unwrap().unwrap();
         assert_eq!(retrieved.id, 1);
         assert_eq!(retrieved.team_id, 100);
-        assert_eq!(
-            retrieved.permission,
-            OrganizationPermission::OrgPermClientCreate
-        );
+        assert_eq!(retrieved.permission, OrganizationPermission::OrgPermClientCreate);
         assert_eq!(retrieved.granted_by_user_id, 999);
     }
 

@@ -75,12 +75,8 @@ impl<S: StorageBackend> UserRepository<S> {
                     .map_err(|e| Error::Internal(format!("Failed to deserialize user: {}", e)))?;
 
                 // Filter out soft-deleted users
-                if user.deleted_at.is_some() {
-                    Ok(None)
-                } else {
-                    Ok(Some(user))
-                }
-            }
+                if user.deleted_at.is_some() { Ok(None) } else { Ok(Some(user)) }
+            },
             None => Ok(None),
         }
     }
@@ -101,7 +97,7 @@ impl<S: StorageBackend> UserRepository<S> {
                 }
                 let id = i64::from_le_bytes(bytes[0..8].try_into().unwrap());
                 self.get(id).await
-            }
+            },
             None => Ok(None),
         }
     }
@@ -135,10 +131,7 @@ impl<S: StorageBackend> UserRepository<S> {
             // Remove old name index
             txn.delete(Self::name_index_key(&existing.name));
             // Add new name index
-            txn.set(
-                Self::name_index_key(&user.name),
-                user.id.to_le_bytes().to_vec(),
-            );
+            txn.set(Self::name_index_key(&user.name), user.id.to_le_bytes().to_vec());
         }
 
         // Commit transaction
@@ -151,10 +144,8 @@ impl<S: StorageBackend> UserRepository<S> {
 
     /// Soft delete a user
     pub async fn soft_delete(&self, id: i64) -> Result<()> {
-        let mut user = self
-            .get(id)
-            .await?
-            .ok_or_else(|| Error::NotFound("User not found".to_string()))?;
+        let mut user =
+            self.get(id).await?.ok_or_else(|| Error::NotFound("User not found".to_string()))?;
 
         user.soft_delete();
         self.update(user).await
@@ -202,8 +193,9 @@ impl<S: StorageBackend> UserRepository<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
+
+    use super::*;
 
     async fn create_test_user(id: i64, name: &str) -> User {
         User::new(id, name.to_string(), None).unwrap()

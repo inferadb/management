@@ -73,15 +73,11 @@ async fn test_registration_creates_default_organization() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     // Verify that the user has one organization with the same name
-    let orgs = json["organizations"]
-        .as_array()
-        .expect("Should have organizations");
+    let orgs = json["organizations"].as_array().expect("Should have organizations");
     assert_eq!(orgs.len(), 1);
     assert_eq!(orgs[0]["name"], "testuser");
     assert_eq!(orgs[0]["role"], "OWNER");
@@ -143,9 +139,7 @@ async fn test_create_organization() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["organization"]["name"], "Test Organization");
@@ -220,14 +214,10 @@ async fn test_list_organizations() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-    let orgs = json["organizations"]
-        .as_array()
-        .expect("Should have organizations");
+    let orgs = json["organizations"].as_array().expect("Should have organizations");
     assert_eq!(orgs.len(), 2);
 }
 
@@ -284,9 +274,7 @@ async fn test_get_organization_details() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -305,9 +293,7 @@ async fn test_get_organization_details() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["organization"]["id"], org_id);
@@ -367,9 +353,7 @@ async fn test_update_organization() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -394,9 +378,7 @@ async fn test_update_organization() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["organization"]["name"], "New Name");
@@ -455,9 +437,7 @@ async fn test_delete_organization() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -530,9 +510,7 @@ async fn test_non_member_cannot_access_organization() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 

@@ -1,9 +1,12 @@
-use crate::entities::VaultRole;
-use crate::error::{Error, Result};
 use chrono::{DateTime, Duration, Utc};
 use hex::encode as hex_encode;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    entities::VaultRole,
+    error::{Error, Result},
+};
 
 /// Vault refresh token for obtaining new access tokens
 ///
@@ -180,7 +183,7 @@ impl VaultRefreshToken {
                         "Refresh token is bound to a different session".to_string(),
                     ));
                 }
-            }
+            },
             (None, Some(token_client_id)) => {
                 // Token is client-bound
                 if org_api_key_id != Some(token_client_id) {
@@ -188,12 +191,12 @@ impl VaultRefreshToken {
                         "Refresh token is bound to a different client".to_string(),
                     ));
                 }
-            }
+            },
             _ => {
                 return Err(Error::Internal(
                     "Invalid refresh token: must be bound to session or client".to_string(),
                 ));
-            }
+            },
         }
 
         Ok(())
@@ -319,10 +322,7 @@ mod tests {
         token.mark_used();
         let result = token.validate_for_refresh();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("already been used"));
+        assert!(result.unwrap_err().to_string().contains("already been used"));
     }
 
     #[test]

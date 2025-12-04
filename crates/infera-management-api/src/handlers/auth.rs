@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
 use axum::{
+    Json,
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use infera_management_core::{
-    error::Error as CoreError, hash_password, verify_password, IdGenerator, RepositoryContext,
-    UserPasswordResetToken,
+    IdGenerator, RepositoryContext, UserPasswordResetToken, error::Error as CoreError,
+    hash_password, verify_password,
 };
 use infera_management_grpc::ServerApiClient;
 use infera_management_storage::Backend;
@@ -23,7 +25,6 @@ use infera_management_types::{
         UserEmail, UserEmailVerificationToken, UserSession,
     },
 };
-use std::sync::Arc;
 use time;
 
 /// Application state shared across handlers
@@ -255,14 +256,7 @@ impl IntoResponse for ApiError {
             tracing::warn!(status = %status, error = %error_message, "Client error");
         }
 
-        (
-            status,
-            Json(ErrorResponse {
-                error: error_message,
-                details: None,
-            }),
-        )
-            .into_response()
+        (status, Json(ErrorResponse { error: error_message, details: None })).into_response()
     }
 }
 
@@ -301,7 +295,7 @@ pub async fn register(
     // Check if email is already in use
     if repos.user_email.is_email_in_use(&payload.email).await? {
         return Err(
-            CoreError::Validation(format!("Email '{}' is already in use", payload.email)).into(),
+            CoreError::Validation(format!("Email '{}' is already in use", payload.email)).into()
         );
     }
 
@@ -326,10 +320,7 @@ pub async fn register(
     let token_id = IdGenerator::next_id();
     let token_string = UserEmailVerificationToken::generate_token();
     let verification_token = UserEmailVerificationToken::new(token_id, email_id, token_string)?;
-    repos
-        .user_email_verification_token
-        .create(verification_token.clone())
-        .await?;
+    repos.user_email_verification_token.create(verification_token.clone()).await?;
 
     // Send verification email (fire-and-forget - don't block registration)
     if let Some(email_service) = &state.email_service {
@@ -459,14 +450,7 @@ pub async fn login(
 
     let jar = jar.add(cookie);
 
-    Ok((
-        jar,
-        Json(LoginResponse {
-            user_id: user.id,
-            name: user.name,
-            session_id,
-        }),
-    ))
+    Ok((jar, Json(LoginResponse { user_id: user.id, name: user.name, session_id })))
 }
 
 /// Logout current session
@@ -491,12 +475,7 @@ pub async fn logout(
     // Remove session cookie
     let jar = jar.remove(Cookie::from(SESSION_COOKIE_NAME));
 
-    Ok((
-        jar,
-        Json(LogoutResponse {
-            message: "Logged out successfully".to_string(),
-        }),
-    ))
+    Ok((jar, Json(LogoutResponse { message: "Logged out successfully".to_string() })))
 }
 
 /// Verify email address with token
@@ -511,18 +490,15 @@ pub async fn verify_email(
     let repos = RepositoryContext::new((*state.storage).clone());
 
     // Get token
-    let mut token = repos
-        .user_email_verification_token
-        .get_by_token(&payload.token)
-        .await?
-        .ok_or_else(|| {
-            CoreError::Validation("Invalid or expired verification token".to_string())
-        })?;
+    let mut token =
+        repos.user_email_verification_token.get_by_token(&payload.token).await?.ok_or_else(
+            || CoreError::Validation("Invalid or expired verification token".to_string()),
+        )?;
 
     // Check if token is valid (not expired and not used)
     if !token.is_valid() {
         return Err(
-            CoreError::Validation("Invalid or expired verification token".to_string()).into(),
+            CoreError::Validation("Invalid or expired verification token".to_string()).into()
         );
     }
 
@@ -567,19 +543,15 @@ pub async fn request_password_reset(
     let repos = RepositoryContext::new((*state.storage).clone());
 
     // Find the email
-    let email = repos
-        .user_email
-        .get_by_email(&payload.email)
-        .await?
-        .ok_or_else(|| {
-            // Don't reveal whether email exists for security
-            CoreError::Validation("If the email exists, a reset link will be sent".to_string())
-        })?;
+    let email = repos.user_email.get_by_email(&payload.email).await?.ok_or_else(|| {
+        // Don't reveal whether email exists for security
+        CoreError::Validation("If the email exists, a reset link will be sent".to_string())
+    })?;
 
     // Verify the email is verified and primary
     if !email.is_verified() {
         return Err(
-            CoreError::Validation("Email must be verified to reset password".to_string()).into(),
+            CoreError::Validation("Email must be verified to reset password".to_string()).into()
         );
     }
 
@@ -614,16 +586,11 @@ pub async fn request_password_reset(
         tokio::spawn(async move {
             use infera_management_core::{EmailTemplate, PasswordResetEmailTemplate};
 
-            let reset_link = format!(
-                "{}/reset-password?token={}",
-                frontend_base_url, token_for_email
-            );
+            let reset_link =
+                format!("{}/reset-password?token={}", frontend_base_url, token_for_email);
 
-            let template = PasswordResetEmailTemplate {
-                user_name,
-                reset_link,
-                reset_code: token_for_email,
-            };
+            let template =
+                PasswordResetEmailTemplate { user_name, reset_link, reset_code: token_for_email };
 
             if let Err(e) = email_service
                 .send_email(
@@ -704,21 +671,17 @@ pub async fn confirm_password_reset(
 
     // Invalidate all user sessions for security
     repos.user_session.revoke_user_sessions(user_id).await?;
-    tracing::info!(
-        "Password reset successfully for user {} - all sessions revoked",
-        user_id
-    );
+    tracing::info!("Password reset successfully for user {} - all sessions revoked", user_id);
 
-    Ok(Json(PasswordResetConfirmResponse {
-        message: "Password reset successfully".to_string(),
-    }))
+    Ok(Json(PasswordResetConfirmResponse { message: "Password reset successfully".to_string() }))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
     use tower::ServiceExt;
+
+    use super::*;
 
     fn create_test_app() -> axum::Router {
         // Initialize ID generator
@@ -755,9 +718,7 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let register_response: RegisterResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(register_response.name, "alice");
@@ -891,14 +852,8 @@ mod tests {
 
         let app = axum::Router::new()
             .route("/register", axum::routing::post(register))
-            .route(
-                "/password-reset-request",
-                axum::routing::post(request_password_reset),
-            )
-            .route(
-                "/password-reset-confirm",
-                axum::routing::post(confirm_password_reset),
-            )
+            .route("/password-reset-request", axum::routing::post(request_password_reset))
+            .route("/password-reset-confirm", axum::routing::post(confirm_password_reset))
             .route("/login", axum::routing::post(login))
             .with_state(state.clone());
 
@@ -921,12 +876,7 @@ mod tests {
 
         // Manually verify the email since we don't have email sending
         let repos = RepositoryContext::new((*storage).clone());
-        let mut email = repos
-            .user_email
-            .get_by_email("alice@example.com")
-            .await
-            .unwrap()
-            .unwrap();
+        let mut email = repos.user_email.get_by_email("alice@example.com").await.unwrap().unwrap();
         let user_id = email.user_id;
         email.verify();
         repos.user_email.update(email).await.unwrap();
@@ -948,11 +898,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         // Get the reset token from the repository
-        let tokens = repos
-            .user_password_reset_token
-            .get_by_user(user_id)
-            .await
-            .unwrap();
+        let tokens = repos.user_password_reset_token.get_by_user(user_id).await.unwrap();
         assert_eq!(tokens.len(), 1);
         let reset_token = tokens[0].token.clone();
 
@@ -998,10 +944,7 @@ mod tests {
         let state = AppState::new_test(storage);
 
         let app = axum::Router::new()
-            .route(
-                "/password-reset-confirm",
-                axum::routing::post(confirm_password_reset),
-            )
+            .route("/password-reset-confirm", axum::routing::post(confirm_password_reset))
             .with_state(state);
 
         // Try to confirm with invalid token
@@ -1031,14 +974,8 @@ mod tests {
 
         let app = axum::Router::new()
             .route("/register", axum::routing::post(register))
-            .route(
-                "/password-reset-request",
-                axum::routing::post(request_password_reset),
-            )
-            .route(
-                "/password-reset-confirm",
-                axum::routing::post(confirm_password_reset),
-            )
+            .route("/password-reset-request", axum::routing::post(request_password_reset))
+            .route("/password-reset-confirm", axum::routing::post(confirm_password_reset))
             .with_state(state.clone());
 
         // Register user (creates first session)
@@ -1060,42 +997,23 @@ mod tests {
 
         // Manually verify the email
         let repos = RepositoryContext::new((*storage).clone());
-        let mut email = repos
-            .user_email
-            .get_by_email("alice@example.com")
-            .await
-            .unwrap()
-            .unwrap();
+        let mut email = repos.user_email.get_by_email("alice@example.com").await.unwrap().unwrap();
         let user_id = email.user_id;
         email.verify();
         repos.user_email.update(email).await.unwrap();
 
         // Create additional sessions to verify they all get revoked
-        let session2 = UserSession::new(
-            IdGenerator::next_id(),
-            user_id,
-            SessionType::Cli,
-            None,
-            None,
-        );
-        let session3 = UserSession::new(
-            IdGenerator::next_id(),
-            user_id,
-            SessionType::Sdk,
-            None,
-            None,
-        );
+        let session2 =
+            UserSession::new(IdGenerator::next_id(), user_id, SessionType::Cli, None, None);
+        let session3 =
+            UserSession::new(IdGenerator::next_id(), user_id, SessionType::Sdk, None, None);
         repos.user_session.create(session2.clone()).await.unwrap();
         repos.user_session.create(session3.clone()).await.unwrap();
 
         // Verify we have 3 active sessions (1 from registration + 2 created)
         let sessions_before = repos.user_session.get_user_sessions(user_id).await.unwrap();
         let active_before: Vec<_> = sessions_before.iter().filter(|s| s.is_active()).collect();
-        assert_eq!(
-            active_before.len(),
-            3,
-            "Should have 3 active sessions before password reset"
-        );
+        assert_eq!(active_before.len(), 3, "Should have 3 active sessions before password reset");
 
         // Request password reset
         let reset_request = axum::http::Request::builder()
@@ -1113,11 +1031,7 @@ mod tests {
         app.clone().oneshot(reset_request).await.unwrap();
 
         // Get the reset token
-        let tokens = repos
-            .user_password_reset_token
-            .get_by_user(user_id)
-            .await
-            .unwrap();
+        let tokens = repos.user_password_reset_token.get_by_user(user_id).await.unwrap();
         let reset_token = tokens[0].token.clone();
 
         // Confirm password reset
@@ -1140,11 +1054,7 @@ mod tests {
         // Verify ALL sessions are now revoked
         let sessions_after = repos.user_session.get_user_sessions(user_id).await.unwrap();
         let active_after: Vec<_> = sessions_after.iter().filter(|s| s.is_active()).collect();
-        assert_eq!(
-            active_after.len(),
-            0,
-            "All sessions should be revoked after password reset"
-        );
+        assert_eq!(active_after.len(), 0, "All sessions should be revoked after password reset");
 
         // Verify all sessions have deleted_at set
         for session in sessions_after {

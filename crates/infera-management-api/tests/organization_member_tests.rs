@@ -78,9 +78,7 @@ async fn test_list_organization_members() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -100,9 +98,7 @@ async fn test_list_organization_members() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     let members = json["members"].as_array().expect("Should have members");
@@ -157,9 +153,7 @@ async fn test_update_member_role() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let _owner_id = json["user"]["id"].as_i64().unwrap();
 
@@ -183,9 +177,7 @@ async fn test_update_member_role() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -227,9 +219,7 @@ async fn test_update_member_role() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let member_user_id = json["user"]["id"].as_i64().unwrap();
 
@@ -239,12 +229,8 @@ async fn test_update_member_role() {
     };
     let member_repo = OrganizationMemberRepository::new((*state.storage).clone());
     let new_member_id = IdGenerator::next_id();
-    let new_member = OrganizationMember::new(
-        new_member_id,
-        org_id,
-        member_user_id,
-        OrganizationRole::Member,
-    );
+    let new_member =
+        OrganizationMember::new(new_member_id, org_id, member_user_id, OrganizationRole::Member);
     member_repo.create(new_member).await.unwrap();
 
     // List members to get member ID
@@ -261,16 +247,11 @@ async fn test_update_member_role() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     let members = json["members"].as_array().expect("Should have members");
-    let member_to_update = members
-        .iter()
-        .find(|m| m["user_id"] == member_user_id)
-        .unwrap();
+    let member_to_update = members.iter().find(|m| m["user_id"] == member_user_id).unwrap();
     let member_id = member_to_update["id"].as_i64().unwrap();
 
     // Update member role to ADMIN
@@ -279,10 +260,7 @@ async fn test_update_member_role() {
         .oneshot(
             Request::builder()
                 .method("PATCH")
-                .uri(format!(
-                    "/v1/organizations/{}/members/{}",
-                    org_id, member_id
-                ))
+                .uri(format!("/v1/organizations/{}/members/{}", org_id, member_id))
                 .header("content-type", "application/json")
                 .header("cookie", format!("infera_session={}", owner_session))
                 .body(Body::from(
@@ -298,9 +276,7 @@ async fn test_update_member_role() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["member"]["role"], "ADMIN");
@@ -358,9 +334,7 @@ async fn test_cannot_demote_last_owner() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -378,9 +352,7 @@ async fn test_cannot_demote_last_owner() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     let members = json["members"].as_array().expect("Should have members");
@@ -392,10 +364,7 @@ async fn test_cannot_demote_last_owner() {
         .oneshot(
             Request::builder()
                 .method("PATCH")
-                .uri(format!(
-                    "/v1/organizations/{}/members/{}",
-                    org_id, member_id
-                ))
+                .uri(format!("/v1/organizations/{}/members/{}", org_id, member_id))
                 .header("content-type", "application/json")
                 .header("cookie", format!("infera_session={}", session))
                 .body(Body::from(
@@ -465,9 +434,7 @@ async fn test_remove_member() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -509,9 +476,7 @@ async fn test_remove_member() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let member_user_id = json["user"]["id"].as_i64().unwrap();
 
@@ -521,12 +486,8 @@ async fn test_remove_member() {
     };
     let member_repo = OrganizationMemberRepository::new((*state.storage).clone());
     let new_member_id = IdGenerator::next_id();
-    let new_member = OrganizationMember::new(
-        new_member_id,
-        org_id,
-        member_user_id,
-        OrganizationRole::Member,
-    );
+    let new_member =
+        OrganizationMember::new(new_member_id, org_id, member_user_id, OrganizationRole::Member);
     member_repo.create(new_member).await.unwrap();
 
     // List members to get member ID
@@ -543,16 +504,11 @@ async fn test_remove_member() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     let members = json["members"].as_array().expect("Should have members");
-    let member_to_remove = members
-        .iter()
-        .find(|m| m["user_id"] == member_user_id)
-        .unwrap();
+    let member_to_remove = members.iter().find(|m| m["user_id"] == member_user_id).unwrap();
     let member_id = member_to_remove["id"].as_i64().unwrap();
 
     // Remove member
@@ -561,10 +517,7 @@ async fn test_remove_member() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(format!(
-                    "/v1/organizations/{}/members/{}",
-                    org_id, member_id
-                ))
+                .uri(format!("/v1/organizations/{}/members/{}", org_id, member_id))
                 .header("cookie", format!("infera_session={}", owner_session))
                 .body(Body::empty())
                 .unwrap(),
@@ -588,9 +541,7 @@ async fn test_remove_member() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     let members = json["members"].as_array().expect("Should have members");
@@ -649,9 +600,7 @@ async fn test_cannot_remove_last_owner() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organization"]["id"].as_i64().unwrap();
 
@@ -669,9 +618,7 @@ async fn test_cannot_remove_last_owner() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     let members = json["members"].as_array().expect("Should have members");
@@ -683,10 +630,7 @@ async fn test_cannot_remove_last_owner() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(format!(
-                    "/v1/organizations/{}/members/{}",
-                    org_id, member_id
-                ))
+                .uri(format!("/v1/organizations/{}/members/{}", org_id, member_id))
                 .header("cookie", format!("infera_session={}", session))
                 .body(Body::empty())
                 .unwrap(),

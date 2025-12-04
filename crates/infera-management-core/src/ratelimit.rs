@@ -1,6 +1,7 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use infera_management_storage::StorageBackend;
 use infera_management_types::error::{Error, Result};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Rate limit window duration
 #[derive(Debug, Clone, Copy)]
@@ -46,10 +47,7 @@ pub struct RateLimit {
 impl RateLimit {
     /// Create a new rate limit
     pub fn new(max_requests: u32, window: RateLimitWindow) -> Self {
-        Self {
-            max_requests,
-            window,
-        }
+        Self { max_requests, window }
     }
 
     /// Create hourly rate limit
@@ -142,7 +140,7 @@ impl<S: StorageBackend> RateLimiter<S> {
                 count_str
                     .parse::<u32>()
                     .map_err(|e| Error::Internal(format!("Failed to parse counter value: {}", e)))?
-            }
+            },
             None => 0,
         };
 
@@ -189,7 +187,7 @@ impl<S: StorageBackend> RateLimiter<S> {
                 count_str
                     .parse::<u32>()
                     .map_err(|e| Error::Internal(format!("Failed to parse counter value: {}", e)))?
-            }
+            },
             None => 0,
         };
 
@@ -225,18 +223,11 @@ impl<S: StorageBackend> RateLimiter<S> {
         limit: &RateLimit,
     ) -> Result<RateLimitResult> {
         let allowed = self.check(category, identifier, limit).await?;
-        let remaining = if allowed {
-            self.remaining(category, identifier, limit).await?
-        } else {
-            0
-        };
+        let remaining =
+            if allowed { self.remaining(category, identifier, limit).await? } else { 0 };
         let reset_after = self.reset_after(limit);
 
-        Ok(RateLimitResult {
-            allowed,
-            remaining,
-            reset_after,
-        })
+        Ok(RateLimitResult { allowed, remaining, reset_after })
     }
 }
 
@@ -282,9 +273,11 @@ pub mod limits {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use infera_management_storage::MemoryBackend;
     use std::time::Duration;
+
+    use infera_management_storage::MemoryBackend;
+
+    use super::*;
 
     #[test]
     fn test_rate_limit_window_hour() {
@@ -403,36 +396,24 @@ mod tests {
         let limit = RateLimit::per_hour(3);
 
         // First request
-        let result = limiter
-            .check_with_metadata("test", "user1", &limit)
-            .await
-            .unwrap();
+        let result = limiter.check_with_metadata("test", "user1", &limit).await.unwrap();
         assert!(result.allowed);
         assert_eq!(result.remaining, 2);
         assert!(result.reset_after > 0);
         assert!(result.reset_after <= 3600);
 
         // Second request
-        let result = limiter
-            .check_with_metadata("test", "user1", &limit)
-            .await
-            .unwrap();
+        let result = limiter.check_with_metadata("test", "user1", &limit).await.unwrap();
         assert!(result.allowed);
         assert_eq!(result.remaining, 1);
 
         // Third request
-        let result = limiter
-            .check_with_metadata("test", "user1", &limit)
-            .await
-            .unwrap();
+        let result = limiter.check_with_metadata("test", "user1", &limit).await.unwrap();
         assert!(result.allowed);
         assert_eq!(result.remaining, 0);
 
         // Fourth request (over limit)
-        let result = limiter
-            .check_with_metadata("test", "user1", &limit)
-            .await
-            .unwrap();
+        let result = limiter.check_with_metadata("test", "user1", &limit).await.unwrap();
         assert!(!result.allowed);
         assert_eq!(result.remaining, 0);
     }

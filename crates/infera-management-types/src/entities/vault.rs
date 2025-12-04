@@ -1,6 +1,7 @@
-use crate::error::{Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::error::{Error, Result};
 
 /// Vault entity for managing authorization policies
 ///
@@ -102,16 +103,11 @@ impl Vault {
         }
 
         if name.len() > 100 {
-            return Err(Error::Validation(
-                "Vault name cannot exceed 100 characters".to_string(),
-            ));
+            return Err(Error::Validation("Vault name cannot exceed 100 characters".to_string()));
         }
 
         // Must be alphanumeric, hyphens, underscores, spaces
-        if !name
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == ' ')
-        {
+        if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == ' ') {
             return Err(Error::Validation(
                 "Vault name must contain only alphanumeric characters, hyphens, underscores, and spaces".to_string(),
             ));
@@ -160,14 +156,7 @@ impl VaultUserGrant {
         role: VaultRole,
         granted_by_user_id: i64,
     ) -> Self {
-        Self {
-            id,
-            vault_id,
-            user_id,
-            role,
-            granted_at: Utc::now(),
-            granted_by_user_id,
-        }
+        Self { id, vault_id, user_id, role, granted_at: Utc::now(), granted_by_user_id }
     }
 }
 
@@ -180,14 +169,7 @@ impl VaultTeamGrant {
         role: VaultRole,
         granted_by_user_id: i64,
     ) -> Self {
-        Self {
-            id,
-            vault_id,
-            team_id,
-            role,
-            granted_at: Utc::now(),
-            granted_by_user_id,
-        }
+        Self { id, vault_id, team_id, role, granted_at: Utc::now(), granted_by_user_id }
     }
 }
 

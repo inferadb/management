@@ -1,12 +1,16 @@
-use crate::backend::{KeyValue, StorageBackend, StorageResult, Transaction};
+use std::{
+    collections::BTreeMap,
+    ops::{Bound, RangeBounds},
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use parking_lot::RwLock;
-use std::collections::BTreeMap;
-use std::ops::{Bound, RangeBounds};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 use tokio::time::sleep;
+
+use crate::backend::{KeyValue, StorageBackend, StorageResult, Transaction};
 
 /// In-memory storage backend using BTreeMap
 ///
@@ -146,10 +150,7 @@ impl StorageBackend for MemoryBackend {
         let results: Vec<KeyValue> = data
             .range::<[u8], _>((start, end))
             .filter(|(key, _)| !self.is_expired(key))
-            .map(|(k, v)| KeyValue {
-                key: Bytes::copy_from_slice(k),
-                value: v.clone(),
-            })
+            .map(|(k, v)| KeyValue { key: Bytes::copy_from_slice(k), value: v.clone() })
             .collect();
 
         Ok(results)
@@ -209,10 +210,7 @@ struct MemoryTransaction {
 
 impl MemoryTransaction {
     fn new(backend: MemoryBackend) -> Self {
-        Self {
-            backend,
-            pending_writes: BTreeMap::new(),
-        }
+        Self { backend, pending_writes: BTreeMap::new() }
     }
 }
 
@@ -244,10 +242,10 @@ impl Transaction for MemoryTransaction {
             match value {
                 Some(v) => {
                     data.insert(key, Bytes::from(v));
-                }
+                },
                 None => {
                     data.remove(&key);
-                }
+                },
             }
         }
 
@@ -264,10 +262,7 @@ mod tests {
         let backend = MemoryBackend::new();
 
         // Set and get
-        backend
-            .set(b"key1".to_vec(), b"value1".to_vec())
-            .await
-            .unwrap();
+        backend.set(b"key1".to_vec(), b"value1".to_vec()).await.unwrap();
         let value = backend.get(b"key1").await.unwrap();
         assert_eq!(value, Some(Bytes::from("value1")));
 
@@ -285,10 +280,7 @@ mod tests {
         backend.set(b"b".to_vec(), b"2".to_vec()).await.unwrap();
         backend.set(b"c".to_vec(), b"3".to_vec()).await.unwrap();
 
-        let range = backend
-            .get_range(b"a".to_vec()..b"c".to_vec())
-            .await
-            .unwrap();
+        let range = backend.get_range(b"a".to_vec()..b"c".to_vec()).await.unwrap();
         assert_eq!(range.len(), 2);
         assert_eq!(range[0].key, Bytes::from("a"));
         assert_eq!(range[1].key, Bytes::from("b"));
@@ -298,10 +290,7 @@ mod tests {
     async fn test_ttl() {
         let backend = MemoryBackend::new();
 
-        backend
-            .set_with_ttl(b"temp".to_vec(), b"value".to_vec(), 1)
-            .await
-            .unwrap();
+        backend.set_with_ttl(b"temp".to_vec(), b"value".to_vec(), 1).await.unwrap();
 
         // Should exist immediately
         let value = backend.get(b"temp").await.unwrap();
@@ -319,10 +308,7 @@ mod tests {
     async fn test_transaction() {
         let backend = MemoryBackend::new();
 
-        backend
-            .set(b"key1".to_vec(), b"value1".to_vec())
-            .await
-            .unwrap();
+        backend.set(b"key1".to_vec(), b"value1".to_vec()).await.unwrap();
 
         let mut txn = backend.transaction().await.unwrap();
 

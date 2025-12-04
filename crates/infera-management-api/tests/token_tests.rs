@@ -30,9 +30,7 @@ async fn create_client_with_cert(app: &axum::Router, session: &str, org_id: i64)
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let client_id = json["client"]["id"].as_i64().unwrap();
 
@@ -42,10 +40,7 @@ async fn create_client_with_cert(app: &axum::Router, session: &str, org_id: i64)
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/certificates",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/certificates", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(json!({"name": "test-cert"}).to_string()))
@@ -55,16 +50,11 @@ async fn create_client_with_cert(app: &axum::Router, session: &str, org_id: i64)
         .unwrap();
 
     let status = response.status();
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
 
     if !status.is_success() {
         let body_str = String::from_utf8_lossy(&body);
-        panic!(
-            "Failed to create certificate. Status: {}, Body: {}",
-            status, body_str
-        );
+        panic!("Failed to create certificate. Status: {}, Body: {}", status, body_str);
     }
 
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
@@ -95,9 +85,7 @@ async fn test_generate_vault_token() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -122,9 +110,7 @@ async fn test_generate_vault_token() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let _vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -149,9 +135,7 @@ async fn test_generate_vault_token() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let client_id = json["client"]["id"].as_i64().unwrap();
 
@@ -161,10 +145,7 @@ async fn test_generate_vault_token() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/certificates",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/certificates", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -180,9 +161,7 @@ async fn test_generate_vault_token() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     // Verify certificate was created with private key
@@ -197,13 +176,8 @@ async fn test_refresh_token_flow() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let session = register_user(
-        &app,
-        "refreshuser",
-        "refresh@example.com",
-        "securepassword123",
-    )
-    .await;
+    let session =
+        register_user(&app, "refreshuser", "refresh@example.com", "securepassword123").await;
 
     // Get user ID
     let response = app
@@ -219,9 +193,7 @@ async fn test_refresh_token_flow() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let user_id = json["user"]["id"].as_i64().unwrap();
 
@@ -239,9 +211,7 @@ async fn test_refresh_token_flow() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -266,9 +236,7 @@ async fn test_refresh_token_flow() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -281,10 +249,7 @@ async fn test_refresh_token_flow() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/tokens",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/tokens", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -300,17 +265,11 @@ async fn test_refresh_token_flow() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-    let access_token = json["access_token"]
-        .as_str()
-        .expect("Should have access_token");
-    let refresh_token = json["refresh_token"]
-        .as_str()
-        .expect("Should have refresh_token");
+    let access_token = json["access_token"].as_str().expect("Should have access_token");
+    let refresh_token = json["refresh_token"].as_str().expect("Should have refresh_token");
 
     assert!(!access_token.is_empty());
     assert!(!refresh_token.is_empty());
@@ -343,17 +302,11 @@ async fn test_refresh_token_flow() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-    let new_access_token = json["access_token"]
-        .as_str()
-        .expect("Should have new access_token");
-    let new_refresh_token = json["refresh_token"]
-        .as_str()
-        .expect("Should have new refresh_token");
+    let new_access_token = json["access_token"].as_str().expect("Should have new access_token");
+    let new_refresh_token = json["refresh_token"].as_str().expect("Should have new refresh_token");
 
     // New tokens should be different from original
     assert_ne!(new_access_token, access_token);
@@ -366,13 +319,8 @@ async fn test_refresh_token_replay_protection() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let session = register_user(
-        &app,
-        "replayuser",
-        "replay@example.com",
-        "securepassword123",
-    )
-    .await;
+    let session =
+        register_user(&app, "replayuser", "replay@example.com", "securepassword123").await;
 
     // Get user ID and organization
     let response = app
@@ -388,9 +336,7 @@ async fn test_refresh_token_replay_protection() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let user_id = json["user"]["id"].as_i64().unwrap();
 
@@ -407,9 +353,7 @@ async fn test_refresh_token_replay_protection() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -434,9 +378,7 @@ async fn test_refresh_token_replay_protection() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -449,10 +391,7 @@ async fn test_refresh_token_replay_protection() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/tokens",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/tokens", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -466,9 +405,7 @@ async fn test_refresh_token_replay_protection() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let refresh_token = json["refresh_token"].as_str().unwrap();
 
@@ -523,13 +460,8 @@ async fn test_revoke_refresh_tokens() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let session = register_user(
-        &app,
-        "revokeuser",
-        "revoke@example.com",
-        "securepassword123",
-    )
-    .await;
+    let session =
+        register_user(&app, "revokeuser", "revoke@example.com", "securepassword123").await;
 
     // Get user ID and organization
     let response = app
@@ -545,9 +477,7 @@ async fn test_revoke_refresh_tokens() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let user_id = json["user"]["id"].as_i64().unwrap();
 
@@ -564,9 +494,7 @@ async fn test_revoke_refresh_tokens() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -591,9 +519,7 @@ async fn test_revoke_refresh_tokens() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -606,10 +532,7 @@ async fn test_revoke_refresh_tokens() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/tokens",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/tokens", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -623,9 +546,7 @@ async fn test_revoke_refresh_tokens() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let refresh_token = json["refresh_token"].as_str().unwrap();
 

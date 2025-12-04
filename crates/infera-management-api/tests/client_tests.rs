@@ -13,13 +13,8 @@ async fn test_create_client() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let session = register_user(
-        &app,
-        "clientowner",
-        "client@example.com",
-        "securepassword123",
-    )
-    .await;
+    let session =
+        register_user(&app, "clientowner", "client@example.com", "securepassword123").await;
 
     // Get organization ID
     let response = app
@@ -35,9 +30,7 @@ async fn test_create_client() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -64,9 +57,7 @@ async fn test_create_client() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["client"]["name"], "backend-service");
@@ -80,13 +71,8 @@ async fn test_list_clients() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let session = register_user(
-        &app,
-        "multiclient",
-        "multi@example.com",
-        "securepassword123",
-    )
-    .await;
+    let session =
+        register_user(&app, "multiclient", "multi@example.com", "securepassword123").await;
 
     // Get organization ID
     let response = app
@@ -102,9 +88,7 @@ async fn test_list_clients() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -150,9 +134,7 @@ async fn test_list_clients() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let clients = json["clients"].as_array().expect("Should have clients");
 
@@ -181,9 +163,7 @@ async fn test_create_certificate() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -207,9 +187,7 @@ async fn test_create_certificate() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let client_id = json["client"]["id"].as_i64().unwrap();
 
@@ -219,10 +197,7 @@ async fn test_create_certificate() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/certificates",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/certificates", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -238,9 +213,7 @@ async fn test_create_certificate() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     // Verify certificate structure
@@ -277,9 +250,7 @@ async fn test_revoke_certificate() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -303,9 +274,7 @@ async fn test_revoke_certificate() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let client_id = json["client"]["id"].as_i64().unwrap();
 
@@ -315,10 +284,7 @@ async fn test_revoke_certificate() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/certificates",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/certificates", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -332,9 +298,7 @@ async fn test_revoke_certificate() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let cert_id = json["certificate"]["id"].as_i64().unwrap();
 
@@ -373,9 +337,7 @@ async fn test_revoke_certificate() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["certificate"]["is_active"], false);
@@ -403,9 +365,7 @@ async fn test_jwks_endpoint() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -429,9 +389,7 @@ async fn test_jwks_endpoint() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let client_id = json["client"]["id"].as_i64().unwrap();
 
@@ -440,10 +398,7 @@ async fn test_jwks_endpoint() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/certificates",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/certificates", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -463,10 +418,7 @@ async fn test_jwks_endpoint() {
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri(format!(
-                    "/v1/organizations/{}/.well-known/jwks.json",
-                    org_id
-                ))
+                .uri(format!("/v1/organizations/{}/.well-known/jwks.json", org_id))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -475,9 +427,7 @@ async fn test_jwks_endpoint() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     // Verify JWKS structure
@@ -500,13 +450,8 @@ async fn test_deactivate_client() {
     let state = create_test_state();
     let app = create_test_app(state.clone());
 
-    let session = register_user(
-        &app,
-        "deactivator",
-        "deactivate@example.com",
-        "securepassword123",
-    )
-    .await;
+    let session =
+        register_user(&app, "deactivator", "deactivate@example.com", "securepassword123").await;
 
     // Get organization and create client
     let response = app
@@ -522,9 +467,7 @@ async fn test_deactivate_client() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -548,9 +491,7 @@ async fn test_deactivate_client() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let client_id = json["client"]["id"].as_i64().unwrap();
 
@@ -560,10 +501,7 @@ async fn test_deactivate_client() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/deactivate",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/deactivate", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .body(Body::empty())
                 .unwrap(),
@@ -578,10 +516,7 @@ async fn test_deactivate_client() {
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .body(Body::empty())
                 .unwrap(),
@@ -589,9 +524,7 @@ async fn test_deactivate_client() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["client"]["is_active"], false);

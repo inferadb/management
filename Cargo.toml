@@ -1,23 +1,23 @@
 [workspace]
 members = [
   "crates/infera-management",
-  "crates/infera-management-types",
-  "crates/infera-management-core",
-  "crates/infera-management-storage",
-  "crates/infera-management-grpc",
   "crates/infera-management-api",
+  "crates/infera-management-core",
+  "crates/infera-management-grpc",
+  "crates/infera-management-storage",
   "crates/infera-management-test-fixtures",
+  "crates/infera-management-types",
 ]
 resolver = "2"
 
 [workspace.package]
 authors = ["InferaDB Project"]
 edition = "2021"
-rust-version = "1.78"
 homepage = "https://inferadb.com"
 license = "BSL-1.1"
 publish = false
 repository = "https://github.com/inferadb/inferadb"
+rust-version = "1.78"
 version = "0.1.0"
 
 [workspace.dependencies]
@@ -47,15 +47,15 @@ tracing-opentelemetry = "0.32.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Web frameworks
-axum = { version = "0.8.6", features = ["tokio", "macros"] }
+axum = { version = "0.8.6", features = ["macros", "tokio"] }
 axum-extra = { version = "0.12.2", features = ["cookie", "cookie-private"] }
 tonic = "0.14.2"
 tonic-build = "0.14.2"
 tower = "0.5"
 tower-http = { version = "0.6", features = [
+  "compression-full",
   "cors",
   "trace",
-  "compression-full",
 ] }
 
 # Storage
@@ -100,9 +100,9 @@ idgenerator = "2.0"
 
 # Email
 lettre = { version = "0.11", default-features = false, features = [
-  "tokio1-rustls-tls",
   "builder",
   "smtp-transport",
+  "tokio1-rustls-tls",
 ] }
 
 # HTTP client for external services
@@ -116,7 +116,7 @@ cookie = "0.18"
 tower-cookies = "0.10"
 
 # Time handling
-time = { version = "0.3", features = ["macros", "formatting"] }
+time = { version = "0.3", features = ["formatting", "macros"] }
 
 # Regular expressions
 regex = "1.11"
@@ -128,8 +128,8 @@ url = "2.5"
 validator = { version = "0.20", features = ["derive"] }
 
 # Kubernetes client
-kube = { version = "0.97", features = ["runtime", "client", "derive"] }
 k8s-openapi = { version = "0.23", features = ["v1_31"] }
+kube = { version = "0.97", features = ["client", "derive", "runtime"] }
 
 # TLS (for crypto provider initialization)
 rustls = { version = "0.23", default-features = false, features = [

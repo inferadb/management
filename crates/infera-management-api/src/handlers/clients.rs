@@ -1,14 +1,11 @@
-use crate::handlers::auth::Result;
-use crate::middleware::{require_admin_or_owner, require_member, OrganizationContext};
-use crate::AppState;
 use axum::{
+    Extension, Json,
     extract::{Path, State},
     http::StatusCode,
-    Extension, Json,
 };
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use infera_management_core::{
-    keypair, Error as CoreError, IdGenerator, PrivateKeyEncryptor, RepositoryContext,
+    Error as CoreError, IdGenerator, PrivateKeyEncryptor, RepositoryContext, keypair,
 };
 use infera_management_types::{
     dto::{
@@ -19,6 +16,12 @@ use infera_management_types::{
         UpdateClientRequest, UpdateClientResponse,
     },
     entities::{Client, ClientCertificate},
+};
+
+use crate::{
+    AppState,
+    handlers::auth::Result,
+    middleware::{OrganizationContext, require_admin_or_owner, require_member},
 };
 
 // ============================================================================
@@ -74,12 +77,8 @@ pub async fn create_client(
     let client_id = IdGenerator::next_id();
 
     // Create client entity
-    let client = Client::new(
-        client_id,
-        org_ctx.organization_id,
-        payload.name,
-        org_ctx.member.user_id,
-    )?;
+    let client =
+        Client::new(client_id, org_ctx.organization_id, payload.name, org_ctx.member.user_id)?;
 
     // Save to repository
     repos.client.create(client.clone()).await?;
@@ -114,10 +113,7 @@ pub async fn list_clients(
     let params = pagination.0.validate();
 
     let repos = RepositoryContext::new((*state.storage).clone());
-    let all_clients = repos
-        .client
-        .list_active_by_organization(org_ctx.organization_id)
-        .await?;
+    let all_clients = repos.client.list_active_by_organization(org_ctx.organization_id).await?;
 
     // Apply pagination
     let total = all_clients.len();
@@ -135,10 +131,7 @@ pub async fn list_clients(
         clients.len(),
     );
 
-    Ok(Json(ListClientsResponse {
-        clients,
-        pagination: Some(pagination_meta),
-    }))
+    Ok(Json(ListClientsResponse { clients, pagination: Some(pagination_meta) }))
 }
 
 /// Get a specific client
@@ -165,9 +158,7 @@ pub async fn get_client(
         return Err(CoreError::NotFound("Client not found".to_string()).into());
     }
 
-    Ok(Json(GetClientResponse {
-        client: client_to_detail(client),
-    }))
+    Ok(Json(GetClientResponse { client: client_to_detail(client) }))
 }
 
 /// Update a client
@@ -202,10 +193,7 @@ pub async fn update_client(
     // Save changes
     repos.client.update(client.clone()).await?;
 
-    Ok(Json(UpdateClientResponse {
-        id: client.id,
-        name: client.name,
-    }))
+    Ok(Json(UpdateClientResponse { id: client.id, name: client.name }))
 }
 
 /// Delete a client (soft delete)
@@ -248,9 +236,7 @@ pub async fn delete_client(
         }
     }
 
-    Ok(Json(DeleteClientResponse {
-        message: "Client deleted successfully".to_string(),
-    }))
+    Ok(Json(DeleteClientResponse { message: "Client deleted successfully".to_string() }))
 }
 
 /// Deactivate a client (soft delete)
@@ -440,9 +426,7 @@ pub async fn get_certificate(
         return Err(CoreError::NotFound("Certificate not found".to_string()).into());
     }
 
-    Ok(Json(GetCertificateResponse {
-        certificate: cert_to_detail(cert),
-    }))
+    Ok(Json(GetCertificateResponse { certificate: cert_to_detail(cert) }))
 }
 
 /// Revoke a certificate
@@ -491,14 +475,10 @@ pub async fn revoke_certificate(
 
     // Invalidate certificate cache on all servers
     if let Some(ref webhook_client) = state.webhook_client {
-        webhook_client
-            .invalidate_certificate(org_ctx.organization_id, client_id, cert_id)
-            .await;
+        webhook_client.invalidate_certificate(org_ctx.organization_id, client_id, cert_id).await;
     }
 
-    Ok(Json(RevokeCertificateResponse {
-        message: "Certificate revoked successfully".to_string(),
-    }))
+    Ok(Json(RevokeCertificateResponse { message: "Certificate revoked successfully".to_string() }))
 }
 
 /// Delete a certificate
@@ -542,12 +522,8 @@ pub async fn delete_certificate(
 
     // Invalidate certificate cache on all servers
     if let Some(ref webhook_client) = state.webhook_client {
-        webhook_client
-            .invalidate_certificate(org_ctx.organization_id, client_id, cert_id)
-            .await;
+        webhook_client.invalidate_certificate(org_ctx.organization_id, client_id, cert_id).await;
     }
 
-    Ok(Json(DeleteCertificateResponse {
-        message: "Certificate deleted successfully".to_string(),
-    }))
+    Ok(Json(DeleteCertificateResponse { message: "Certificate deleted successfully".to_string() }))
 }

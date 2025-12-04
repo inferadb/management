@@ -1,12 +1,14 @@
-use axum::{extract::State, Extension, Json};
-use infera_management_core::{error::Error as CoreError, RepositoryContext};
+use axum::{Extension, Json, extract::State};
+use infera_management_core::{RepositoryContext, error::Error as CoreError};
 use infera_management_types::dto::{
     DeleteUserResponse, GetUserProfileResponse, UpdateProfileRequest, UpdateProfileResponse,
     UserProfile,
 };
 
-use crate::handlers::auth::{AppState, Result};
-use crate::middleware::SessionContext;
+use crate::{
+    handlers::auth::{AppState, Result},
+    middleware::SessionContext,
+};
 
 /// Get current user's profile
 ///
@@ -96,10 +98,7 @@ pub async fn delete_user(
     for membership in &memberships {
         if membership.role == infera_management_core::entities::OrganizationRole::Owner {
             // Check if this user is the only owner
-            let owner_count = repos
-                .org_member
-                .count_owners(membership.organization_id)
-                .await?;
+            let owner_count = repos.org_member.count_owners(membership.organization_id).await?;
             if owner_count <= 1 {
                 if let Some(org) = repos.org.get(membership.organization_id).await? {
                     return Err(CoreError::Validation(format!(
@@ -136,10 +135,7 @@ pub async fn delete_user(
     let emails = repos.user_email.get_user_emails(ctx.user_id).await?;
 
     for email in &emails {
-        let tokens = repos
-            .user_email_verification_token
-            .get_by_email(email.id)
-            .await?;
+        let tokens = repos.user_email_verification_token.get_by_email(email.id).await?;
         for token in tokens {
             repos.user_email_verification_token.delete(token.id).await?;
         }
@@ -151,10 +147,7 @@ pub async fn delete_user(
     }
 
     // CASCADE DELETE: Delete all password reset tokens
-    let reset_tokens = repos
-        .user_password_reset_token
-        .get_by_user(ctx.user_id)
-        .await?;
+    let reset_tokens = repos.user_password_reset_token.get_by_user(ctx.user_id).await?;
     for token in reset_tokens {
         repos.user_password_reset_token.delete(token.id).await?;
     }
@@ -163,28 +156,28 @@ pub async fn delete_user(
     user.soft_delete();
     repos.user.update(user).await?;
 
-    Ok(Json(DeleteUserResponse {
-        message: "User account deleted successfully".to_string(),
-    }))
+    Ok(Json(DeleteUserResponse { message: "User account deleted successfully".to_string() }))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use axum::body::Body;
-    use axum::http::Request as HttpRequest;
-    use axum::middleware;
-    use axum::routing::{delete, get, patch};
+    use std::sync::Arc;
+
+    use axum::{
+        body::Body,
+        http::Request as HttpRequest,
+        middleware,
+        routing::{delete, get, patch},
+    };
     use infera_management_core::{
-        entities::{SessionType, User, UserSession},
         IdGenerator, RepositoryContext,
+        entities::{SessionType, User, UserSession},
     };
     use infera_management_storage::{Backend, MemoryBackend};
-    use std::sync::Arc;
     use tower::ServiceExt;
 
-    use crate::handlers::auth::SESSION_COOKIE_NAME;
-    use crate::middleware::require_session;
+    use super::*;
+    use crate::{handlers::auth::SESSION_COOKIE_NAME, middleware::require_session};
 
     fn create_test_app(storage: Arc<Backend>) -> axum::Router {
         // Initialize ID generator
@@ -196,10 +189,7 @@ mod tests {
             .route("/users/me", get(get_profile))
             .route("/users/me", patch(update_profile))
             .route("/users/me", delete(delete_user))
-            .layer(middleware::from_fn_with_state(
-                state.clone(),
-                require_session,
-            ))
+            .layer(middleware::from_fn_with_state(state.clone(), require_session))
             .with_state(state)
     }
 
@@ -235,9 +225,7 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let profile: UserProfile = serde_json::from_value(response_json["user"].clone()).unwrap();
 
@@ -269,9 +257,7 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let update_response: UpdateProfileResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(update_response.profile.name, "newname");
@@ -290,20 +276,15 @@ mod tests {
             .header("cookie", format!("{}={}", SESSION_COOKIE_NAME, session.id))
             .header("content-type", "application/json")
             .body(Body::from(
-                serde_json::to_string(&UpdateProfileRequest {
-                    name: None,
-                    accept_tos: Some(true),
-                })
-                .unwrap(),
+                serde_json::to_string(&UpdateProfileRequest { name: None, accept_tos: Some(true) })
+                    .unwrap(),
             ))
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let update_response: UpdateProfileResponse = serde_json::from_slice(&body).unwrap();
 
         assert!(update_response.profile.tos_accepted_at.is_some());

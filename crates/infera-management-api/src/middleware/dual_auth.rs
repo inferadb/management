@@ -4,11 +4,10 @@ use axum::{
     response::Response,
 };
 use axum_extra::extract::cookie::CookieJar;
-
-use crate::handlers::auth::{ApiError, AppState, SESSION_COOKIE_NAME};
 use infera_management_core::error::Error as CoreError;
 
-use super::{require_server_jwt, require_session, ServerContext, SessionContext};
+use super::{ServerContext, SessionContext, require_server_jwt, require_session};
+use crate::handlers::auth::{ApiError, AppState, SESSION_COOKIE_NAME};
 
 /// Dual authentication middleware
 ///

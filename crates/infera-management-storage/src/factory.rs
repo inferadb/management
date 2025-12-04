@@ -1,10 +1,14 @@
-use crate::backend::{KeyValue, StorageBackend, StorageResult, Transaction};
-#[cfg(feature = "fdb")]
-use crate::FdbBackend;
-use crate::MemoryBackend;
+use std::ops::RangeBounds;
+
 use async_trait::async_trait;
 use bytes::Bytes;
-use std::ops::RangeBounds;
+
+#[cfg(feature = "fdb")]
+use crate::FdbBackend;
+use crate::{
+    MemoryBackend,
+    backend::{KeyValue, StorageBackend, StorageResult, Transaction},
+};
 
 /// Storage backend type
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,18 +31,12 @@ pub struct StorageConfig {
 impl StorageConfig {
     /// Create a new in-memory storage configuration
     pub fn memory() -> Self {
-        Self {
-            backend_type: StorageBackendType::Memory,
-            fdb_cluster_file: None,
-        }
+        Self { backend_type: StorageBackendType::Memory, fdb_cluster_file: None }
     }
 
     /// Create a new FoundationDB storage configuration
     pub fn foundationdb(cluster_file: Option<String>) -> Self {
-        Self {
-            backend_type: StorageBackendType::FoundationDB,
-            fdb_cluster_file: cluster_file,
-        }
+        Self { backend_type: StorageBackendType::FoundationDB, fdb_cluster_file: cluster_file }
     }
 }
 
@@ -146,19 +144,19 @@ pub async fn create_storage_backend(config: &StorageConfig) -> StorageResult<Bac
         StorageBackendType::Memory => {
             let backend = MemoryBackend::new();
             Ok(Backend::Memory(backend))
-        }
+        },
         #[cfg(feature = "fdb")]
         StorageBackendType::FoundationDB => {
             let backend = FdbBackend::with_cluster_file(config.fdb_cluster_file.clone()).await?;
             Ok(Backend::FoundationDB(backend))
-        }
+        },
         #[cfg(not(feature = "fdb"))]
         StorageBackendType::FoundationDB => {
             use crate::backend::StorageError;
             Err(StorageError::Internal(
                 "FoundationDB support not compiled. Enable the 'fdb' feature.".to_string(),
             ))
-        }
+        },
     }
 }
 
@@ -172,10 +170,7 @@ mod tests {
         let backend = create_storage_backend(&config).await.unwrap();
 
         // Test basic operations
-        backend
-            .set(b"test".to_vec(), b"value".to_vec())
-            .await
-            .unwrap();
+        backend.set(b"test".to_vec(), b"value".to_vec()).await.unwrap();
         let value = backend.get(b"test").await.unwrap();
         assert!(value.is_some());
     }

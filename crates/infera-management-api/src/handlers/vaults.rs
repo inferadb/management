@@ -1,12 +1,7 @@
-use crate::handlers::auth::Result;
-use crate::middleware::{
-    require_admin_or_owner, require_member, server_auth::ServerContext, OrganizationContext,
-};
-use crate::AppState;
 use axum::{
+    Extension, Json,
     extract::{Path, State},
     http::StatusCode,
-    Extension, Json,
 };
 use infera_management_core::{Error as CoreError, IdGenerator, RepositoryContext};
 use infera_management_types::{
@@ -19,6 +14,14 @@ use infera_management_types::{
         UserGrantResponse, VaultDetail, VaultInfo, VaultResponse,
     },
     entities::{Vault, VaultRole, VaultTeamGrant, VaultUserGrant},
+};
+
+use crate::{
+    AppState,
+    handlers::auth::Result,
+    middleware::{
+        OrganizationContext, require_admin_or_owner, require_member, server_auth::ServerContext,
+    },
 };
 
 // ============================================================================
@@ -85,10 +88,7 @@ pub async fn create_vault(
         .ok_or_else(|| CoreError::NotFound("Organization not found".to_string()))?;
 
     // Check tier limits
-    let current_count = repos
-        .vault
-        .count_active_by_organization(org_ctx.organization_id)
-        .await?;
+    let current_count = repos.vault.count_active_by_organization(org_ctx.organization_id).await?;
 
     if current_count >= organization.tier.max_vaults() {
         return Err(CoreError::TierLimit(format!(
@@ -103,33 +103,25 @@ pub async fn create_vault(
     let vault_id = IdGenerator::next_id();
 
     // Create vault entity (starts with PENDING sync status)
-    let mut vault = Vault::new(
-        vault_id,
-        org_ctx.organization_id,
-        payload.name,
-        org_ctx.member.user_id,
-    )?;
+    let mut vault =
+        Vault::new(vault_id, org_ctx.organization_id, payload.name, org_ctx.member.user_id)?;
 
     // Save to repository
     repos.vault.create(vault.clone()).await?;
 
     // Attempt to sync with @server
-    match state
-        .server_client
-        .create_vault(vault_id, org_ctx.organization_id)
-        .await
-    {
+    match state.server_client.create_vault(vault_id, org_ctx.organization_id).await {
         Ok(()) => {
             // Mark as synced
             vault.mark_synced();
             repos.vault.update(vault.clone()).await?;
-        }
+        },
         Err(e) => {
             // Mark as failed
             let error_message: String = e.to_string();
             vault.mark_sync_failed(error_message);
             repos.vault.update(vault.clone()).await?;
-        }
+        },
     }
 
     // Auto-grant creator ADMIN role
@@ -173,10 +165,7 @@ pub async fn list_vaults(
     let params = pagination.0.validate();
 
     let repos = RepositoryContext::new((*state.storage).clone());
-    let all_vaults = repos
-        .vault
-        .list_active_by_organization(org_ctx.organization_id)
-        .await?;
+    let all_vaults = repos.vault.list_active_by_organization(org_ctx.organization_id).await?;
 
     // Apply pagination
     let total = all_vaults.len();
@@ -194,10 +183,7 @@ pub async fn list_vaults(
         vaults.len(),
     );
 
-    Ok(Json(ListVaultsResponse {
-        vaults,
-        pagination: Some(pagination_meta),
-    }))
+    Ok(Json(ListVaultsResponse { vaults, pagination: Some(pagination_meta) }))
 }
 
 /// Get a specific vault
@@ -362,10 +348,7 @@ pub async fn delete_vault(
 
     // VALIDATION: Check for active refresh tokens before allowing deletion
     let tokens = repos.vault_refresh_token.list_by_vault(vault_id).await?;
-    let active_token_count = tokens
-        .iter()
-        .filter(|t| !t.is_expired() && !t.is_revoked())
-        .count();
+    let active_token_count = tokens.iter().filter(|t| !t.is_expired() && !t.is_revoked()).count();
 
     if active_token_count > 0 {
         return Err(CoreError::Validation(format!(
@@ -535,10 +518,7 @@ pub async fn update_user_grant(
     grant.role = payload.role;
     repos.vault_user_grant.update(grant.clone()).await?;
 
-    Ok(Json(UpdateUserGrantResponse {
-        id: grant.id,
-        role: grant.role,
-    }))
+    Ok(Json(UpdateUserGrantResponse { id: grant.id, role: grant.role }))
 }
 
 /// Delete a user grant
@@ -709,10 +689,7 @@ pub async fn update_team_grant(
     grant.role = payload.role;
     repos.vault_team_grant.update(grant.clone()).await?;
 
-    Ok(Json(UpdateTeamGrantResponse {
-        id: grant.id,
-        role: grant.role,
-    }))
+    Ok(Json(UpdateTeamGrantResponse { id: grant.id, role: grant.role }))
 }
 
 /// Delete a team grant
@@ -754,7 +731,5 @@ pub async fn delete_team_grant(
     // Delete the grant
     repos.vault_user_grant.delete(grant_id).await?;
 
-    Ok(Json(DeleteTeamGrantResponse {
-        message: "Team grant deleted successfully".to_string(),
-    }))
+    Ok(Json(DeleteTeamGrantResponse { message: "Team grant deleted successfully".to_string() }))
 }

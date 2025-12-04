@@ -12,9 +12,14 @@
 //!
 //! Metrics are designed to be exported to Prometheus or other monitoring systems.
 
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
+
 use tracing::warn;
 
 /// Metrics snapshot for export
@@ -65,20 +70,12 @@ pub struct MetricsSnapshot {
 impl MetricsSnapshot {
     /// Calculate average GET latency in microseconds
     pub fn avg_get_latency_us(&self) -> f64 {
-        if self.get_count == 0 {
-            0.0
-        } else {
-            self.get_latency_us as f64 / self.get_count as f64
-        }
+        if self.get_count == 0 { 0.0 } else { self.get_latency_us as f64 / self.get_count as f64 }
     }
 
     /// Calculate average SET latency in microseconds
     pub fn avg_set_latency_us(&self) -> f64 {
-        if self.set_count == 0 {
-            0.0
-        } else {
-            self.set_latency_us as f64 / self.set_count as f64
-        }
+        if self.set_count == 0 { 0.0 } else { self.set_latency_us as f64 / self.set_count as f64 }
     }
 
     /// Calculate average DELETE latency in microseconds
@@ -111,11 +108,7 @@ impl MetricsSnapshot {
     /// Calculate cache hit rate (0.0 - 1.0)
     pub fn cache_hit_rate(&self) -> f64 {
         let total = self.cache_hits + self.cache_misses;
-        if total == 0 {
-            0.0
-        } else {
-            self.cache_hits as f64 / total as f64
-        }
+        if total == 0 { 0.0 } else { self.cache_hits as f64 / total as f64 }
     }
 
     /// Calculate error rate (0.0 - 1.0)
@@ -127,11 +120,7 @@ impl MetricsSnapshot {
             + self.clear_range_count
             + self.transaction_count;
 
-        if total_ops == 0 {
-            0.0
-        } else {
-            self.error_count as f64 / total_ops as f64
-        }
+        if total_ops == 0 { 0.0 } else { self.error_count as f64 / total_ops as f64 }
     }
 
     /// Calculate conflict rate (0.0 - 1.0)
@@ -220,50 +209,38 @@ impl Metrics {
     /// Record a GET operation
     pub fn record_get(&self, duration: Duration) {
         self.inner.get_count.fetch_add(1, Ordering::Relaxed);
-        self.inner
-            .get_latency_us
-            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+        self.inner.get_latency_us.fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
     }
 
     /// Record a SET operation
     pub fn record_set(&self, duration: Duration) {
         self.inner.set_count.fetch_add(1, Ordering::Relaxed);
-        self.inner
-            .set_latency_us
-            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+        self.inner.set_latency_us.fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
     }
 
     /// Record a DELETE operation
     pub fn record_delete(&self, duration: Duration) {
         self.inner.delete_count.fetch_add(1, Ordering::Relaxed);
-        self.inner
-            .delete_latency_us
-            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+        self.inner.delete_latency_us.fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
     }
 
     /// Record a GET_RANGE operation
     pub fn record_get_range(&self, duration: Duration) {
         self.inner.get_range_count.fetch_add(1, Ordering::Relaxed);
-        self.inner
-            .get_range_latency_us
-            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+        self.inner.get_range_latency_us.fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
     }
 
     /// Record a CLEAR_RANGE operation
     pub fn record_clear_range(&self, duration: Duration) {
         self.inner.clear_range_count.fetch_add(1, Ordering::Relaxed);
         // Reuse get_range latency bucket for now
-        self.inner
-            .get_range_latency_us
-            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+        self.inner.get_range_latency_us.fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
     }
 
     /// Record a TRANSACTION operation
     pub fn record_transaction(&self, duration: Duration) {
         self.inner.transaction_count.fetch_add(1, Ordering::Relaxed);
-        self.inner
-            .transaction_latency_us
-            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+        self.inner.transaction_latency_us.fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
     }
 
     /// Record an error
@@ -298,9 +275,7 @@ impl Metrics {
 
     /// Record a health check
     pub fn record_health_check(&self) {
-        self.inner
-            .health_check_count
-            .fetch_add(1, Ordering::Relaxed);
+        self.inner.health_check_count.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Get a snapshot of current metrics
@@ -339,9 +314,7 @@ impl Metrics {
         self.inner.set_latency_us.store(0, Ordering::Relaxed);
         self.inner.delete_latency_us.store(0, Ordering::Relaxed);
         self.inner.get_range_latency_us.store(0, Ordering::Relaxed);
-        self.inner
-            .transaction_latency_us
-            .store(0, Ordering::Relaxed);
+        self.inner.transaction_latency_us.store(0, Ordering::Relaxed);
         self.inner.error_count.store(0, Ordering::Relaxed);
         self.inner.conflict_count.store(0, Ordering::Relaxed);
         self.inner.timeout_count.store(0, Ordering::Relaxed);

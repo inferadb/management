@@ -1,11 +1,11 @@
+use std::{net::SocketAddr, time::Instant};
+
 use axum::{
     extract::{ConnectInfo, MatchedPath, Request},
     middleware::Next,
     response::Response,
 };
 use infera_management_core::metrics;
-use std::net::SocketAddr;
-use std::time::Instant;
 
 /// Logging and metrics middleware for HTTP requests
 ///
@@ -47,10 +47,7 @@ pub async fn logging_middleware(req: Request, next: Next) -> Response {
     let path = uri.path().to_string();
 
     // Extract matched path (route pattern)
-    let matched_path = req
-        .extensions()
-        .get::<MatchedPath>()
-        .map(|mp| mp.as_str().to_string());
+    let matched_path = req.extensions().get::<MatchedPath>().map(|mp| mp.as_str().to_string());
 
     // Extract client IP
     let client_ip = req
@@ -59,11 +56,8 @@ pub async fn logging_middleware(req: Request, next: Next) -> Response {
         .map(|ConnectInfo(addr)| addr.ip().to_string());
 
     // Extract user agent
-    let user_agent = req
-        .headers()
-        .get("user-agent")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
+    let user_agent =
+        req.headers().get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
 
     // Process request
     let response = next.run(req).await;
@@ -86,28 +80,24 @@ pub async fn logging_middleware(req: Request, next: Next) -> Response {
 
     // Record metrics
     let metrics_path = matched_path.as_deref().unwrap_or(&path);
-    metrics::record_http_request(
-        method.as_str(),
-        metrics_path,
-        status,
-        duration.as_secs_f64(),
-    );
+    metrics::record_http_request(method.as_str(), metrics_path, status, duration.as_secs_f64());
 
     response
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use axum::{
+        Router,
         body::Body,
         http::{Request, StatusCode},
         middleware,
         response::IntoResponse,
         routing::get,
-        Router,
     };
     use tower::ServiceExt;
+
+    use super::*;
 
     async fn test_handler() -> impl IntoResponse {
         StatusCode::OK

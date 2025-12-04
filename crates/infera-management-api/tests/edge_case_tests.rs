@@ -29,9 +29,7 @@ async fn create_client_with_cert(app: &axum::Router, session: &str, org_id: i64)
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let client_id = json["client"]["id"].as_i64().unwrap();
 
@@ -40,10 +38,7 @@ async fn create_client_with_cert(app: &axum::Router, session: &str, org_id: i64)
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/certificates",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/certificates", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -57,9 +52,7 @@ async fn create_client_with_cert(app: &axum::Router, session: &str, org_id: i64)
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let cert_id = json["certificate"]["id"].as_i64().unwrap();
 
@@ -90,9 +83,7 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -117,9 +108,7 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -144,9 +133,7 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let team1_id = json["team"]["id"].as_i64().unwrap();
 
@@ -170,9 +157,7 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let team2_id = json["team"]["id"].as_i64().unwrap();
 
@@ -182,10 +167,7 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/team-grants",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/team-grants", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", owner_session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -207,10 +189,7 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/team-grants",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/team-grants", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", owner_session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -233,10 +212,7 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/team-grants",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/team-grants", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", owner_session))
                 .body(Body::empty())
                 .unwrap(),
@@ -246,9 +222,7 @@ async fn test_concurrent_vault_access_from_multiple_teams() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let grants = json["grants"].as_array().unwrap();
 
@@ -282,9 +256,7 @@ async fn test_token_refresh_with_expired_access_token() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -309,9 +281,7 @@ async fn test_token_refresh_with_expired_access_token() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let vault_id = json["vault"]["id"].as_i64().unwrap();
 
@@ -324,10 +294,7 @@ async fn test_token_refresh_with_expired_access_token() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/vaults/{}/tokens",
-                    org_id, vault_id
-                ))
+                .uri(format!("/v1/organizations/{}/vaults/{}/tokens", org_id, vault_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -343,9 +310,7 @@ async fn test_token_refresh_with_expired_access_token() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     let access_token = json["access_token"].as_str().unwrap();
@@ -381,9 +346,7 @@ async fn test_token_refresh_with_expired_access_token() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     let new_access_token = json["access_token"].as_str().unwrap();
@@ -418,9 +381,7 @@ async fn test_certificate_rotation_scenario() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -445,9 +406,7 @@ async fn test_certificate_rotation_scenario() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let client_id = json["client"]["id"].as_i64().unwrap();
 
@@ -457,10 +416,7 @@ async fn test_certificate_rotation_scenario() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/certificates",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/certificates", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -476,9 +432,7 @@ async fn test_certificate_rotation_scenario() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let cert1_id = json["certificate"]["id"].as_i64().unwrap();
     let cert1_kid = json["certificate"]["kid"].as_str().unwrap().to_string();
@@ -489,10 +443,7 @@ async fn test_certificate_rotation_scenario() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/certificates",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/certificates", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .header("content-type", "application/json")
                 .body(Body::from(
@@ -508,9 +459,7 @@ async fn test_certificate_rotation_scenario() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let cert2_id = json["certificate"]["id"].as_i64().unwrap();
     let cert2_kid = json["certificate"]["kid"].as_str().unwrap().to_string();
@@ -525,10 +474,7 @@ async fn test_certificate_rotation_scenario() {
         .oneshot(
             Request::builder()
                 .method("GET")
-                .uri(format!(
-                    "/v1/organizations/{}/clients/{}/certificates",
-                    org_id, client_id
-                ))
+                .uri(format!("/v1/organizations/{}/clients/{}/certificates", org_id, client_id))
                 .header("cookie", format!("infera_session={}", session))
                 .body(Body::empty())
                 .unwrap(),
@@ -538,9 +484,7 @@ async fn test_certificate_rotation_scenario() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let certs = json["certificates"].as_array().unwrap();
 
@@ -582,9 +526,7 @@ async fn test_certificate_rotation_scenario() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(
@@ -609,13 +551,8 @@ async fn test_certificate_rotation_scenario() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(
-        json["certificate"]["is_active"], true,
-        "Certificate should still be active"
-    );
+    assert_eq!(json["certificate"]["is_active"], true, "Certificate should still be active");
 }

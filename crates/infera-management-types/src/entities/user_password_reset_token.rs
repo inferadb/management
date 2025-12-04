@@ -1,6 +1,7 @@
-use crate::error::{Error, Result};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::error::{Error, Result};
 
 /// Password reset token expiry duration (1 hour)
 const TOKEN_EXPIRY_HOURS: i64 = 1;
@@ -40,22 +41,13 @@ impl UserPasswordResetToken {
     pub fn new(id: i64, user_id: i64, token: String) -> Result<Self> {
         // Validate token format (64 hex characters = 32 bytes)
         if token.len() != 64 || !token.chars().all(|c| c.is_ascii_hexdigit()) {
-            return Err(Error::Validation(
-                "Token must be 64 hexadecimal characters".to_string(),
-            ));
+            return Err(Error::Validation("Token must be 64 hexadecimal characters".to_string()));
         }
 
         let now = Utc::now();
         let expires_at = now + Duration::hours(TOKEN_EXPIRY_HOURS);
 
-        Ok(Self {
-            id,
-            user_id,
-            token,
-            created_at: now,
-            expires_at,
-            used_at: None,
-        })
+        Ok(Self { id, user_id, token, created_at: now, expires_at, used_at: None })
     }
 
     /// Generate a new cryptographically secure random token string

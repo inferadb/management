@@ -136,7 +136,7 @@ async function fetchAllVaults(orgId: string): Promise<Vault[]> {
 
   while (true) {
     const response = await fetch(
-      `/v1/organizations/${orgId}/vaults?limit=${limit}&offset=${offset}`,
+      `/v1/organizations/${orgId}/vaults?limit=${limit}&offset=${offset}`
     );
     const { data, pagination } = await response.json();
 
@@ -253,13 +253,13 @@ interface PaginatedResponse<T> {
 
 async function* fetchVaultsPaginated(
   orgId: string,
-  pageSize: number = 50,
+  pageSize: number = 50
 ): AsyncGenerator<Vault[]> {
   let offset = 0;
 
   while (true) {
     const response = await fetch(
-      `/v1/organizations/${orgId}/vaults?limit=${pageSize}&offset=${offset}`,
+      `/v1/organizations/${orgId}/vaults?limit=${pageSize}&offset=${offset}`
     );
     const page: PaginatedResponse<Vault> = await response.json();
 

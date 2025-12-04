@@ -2,14 +2,14 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use infera_management_api::{create_router_with_state, AppState};
+use infera_management_api::{AppState, create_router_with_state};
 use infera_management_core::{
+    IdGenerator, OrganizationMemberRepository, OrganizationRepository, UserRepository,
+    UserSessionRepository,
     entities::{
         Organization, OrganizationMember, OrganizationRole, OrganizationTier, SessionType, User,
         UserSession,
     },
-    IdGenerator, OrganizationMemberRepository, OrganizationRepository, UserRepository,
-    UserSessionRepository,
 };
 use infera_management_test_fixtures::create_test_state;
 use serde_json::json;
@@ -192,9 +192,7 @@ async fn test_xss_in_client_name_handled_safely() {
 
     // If it was created, verify the data is returned correctly as JSON (not executed)
     if response.status() == StatusCode::CREATED {
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         // Verify the XSS string is returned as-is in JSON (safe)
         assert_eq!(json["client"]["name"].as_str().unwrap(), xss_name);
@@ -593,9 +591,7 @@ async fn test_excessive_pagination_limit_clamped() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     // Verify limit was clamped to max (100)

@@ -3,9 +3,9 @@ use axum::{
     http::{Request, StatusCode},
 };
 use infera_management_core::{
+    IdGenerator,
     entities::{AuditEventType, AuditLog, AuditResourceType},
     repository::AuditLogRepository,
-    IdGenerator,
 };
 use infera_management_test_fixtures::{create_test_app, create_test_state, register_user};
 use tower::ServiceExt;
@@ -136,19 +136,13 @@ async fn test_audit_log_pagination() {
 
     // Get first page (10 items)
     let filters = infera_management_core::AuditLogFilters::default();
-    let (logs, total) = repo
-        .list_by_organization(1, filters.clone(), 10, 0)
-        .await
-        .unwrap();
+    let (logs, total) = repo.list_by_organization(1, filters.clone(), 10, 0).await.unwrap();
 
     assert_eq!(total, 25);
     assert_eq!(logs.len(), 10);
 
     // Get second page
-    let (logs, total) = repo
-        .list_by_organization(1, filters.clone(), 10, 10)
-        .await
-        .unwrap();
+    let (logs, total) = repo.list_by_organization(1, filters.clone(), 10, 10).await.unwrap();
 
     assert_eq!(total, 25);
     assert_eq!(logs.len(), 10);
@@ -183,9 +177,7 @@ async fn test_audit_log_query_endpoint() {
         .await
         .unwrap();
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let org_id = json["organizations"][0]["id"].as_i64().unwrap();
 
@@ -213,9 +205,7 @@ async fn test_audit_log_query_endpoint() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     // Verify response structure
@@ -252,10 +242,7 @@ async fn test_audit_log_retention_cleanup() {
 
     // Verify we have 10 logs total
     let filters = infera_management_core::AuditLogFilters::default();
-    let (_logs, total) = repo
-        .list_by_organization(1, filters.clone(), 50, 0)
-        .await
-        .unwrap();
+    let (_logs, total) = repo.list_by_organization(1, filters.clone(), 50, 0).await.unwrap();
     assert_eq!(total, 10);
 
     // Run retention cleanup (90-day cutoff)

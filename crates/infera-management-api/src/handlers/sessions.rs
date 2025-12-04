@@ -1,12 +1,14 @@
 use axum::{
-    extract::{Path, Request, State},
     Json,
+    extract::{Path, Request, State},
 };
-use infera_management_core::{error::Error as CoreError, RepositoryContext};
+use infera_management_core::{RepositoryContext, error::Error as CoreError};
 use infera_management_types::dto::{ListSessionsResponse, RevokeSessionResponse, SessionInfo};
 
-use crate::handlers::auth::{AppState, Result};
-use crate::middleware::extract_session_context;
+use crate::{
+    handlers::auth::{AppState, Result},
+    middleware::extract_session_context,
+};
 
 /// List all active sessions for the current user
 ///
@@ -72,9 +74,7 @@ pub async fn revoke_session(
     // Revoke the session
     repos.user_session.revoke(session_id).await?;
 
-    Ok(Json(RevokeSessionResponse {
-        message: "Session revoked successfully".to_string(),
-    }))
+    Ok(Json(RevokeSessionResponse { message: "Session revoked successfully".to_string() }))
 }
 
 /// Revoke all other sessions (keep current session)
@@ -109,18 +109,23 @@ pub async fn revoke_other_sessions(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use axum::body::Body;
-    use axum::http::Request as HttpRequest;
-    use axum::middleware;
-    use axum::routing::{delete, get, post};
-    use infera_management_core::{entities::SessionType, entities::UserSession, IdGenerator};
-    use infera_management_storage::{Backend, MemoryBackend};
     use std::sync::Arc;
+
+    use axum::{
+        body::Body,
+        http::Request as HttpRequest,
+        middleware,
+        routing::{delete, get, post},
+    };
+    use infera_management_core::{
+        IdGenerator,
+        entities::{SessionType, UserSession},
+    };
+    use infera_management_storage::{Backend, MemoryBackend};
     use tower::ServiceExt;
 
-    use crate::handlers::auth::SESSION_COOKIE_NAME;
-    use crate::middleware::require_session;
+    use super::*;
+    use crate::{handlers::auth::SESSION_COOKIE_NAME, middleware::require_session};
 
     fn create_test_app(storage: Arc<Backend>) -> axum::Router {
         // Initialize ID generator
@@ -132,10 +137,7 @@ mod tests {
             .route("/sessions", get(list_sessions))
             .route("/sessions/{id}", delete(revoke_session))
             .route("/sessions/revoke-others", post(revoke_other_sessions))
-            .layer(middleware::from_fn_with_state(
-                state.clone(),
-                require_session,
-            ))
+            .layer(middleware::from_fn_with_state(state.clone(), require_session))
             .with_state(state)
     }
 
@@ -170,9 +172,7 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let list_response: ListSessionsResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(list_response.count, 2);
@@ -226,9 +226,7 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::OK);
 
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let revoke_response: RevokeSessionResponse = serde_json::from_slice(&body).unwrap();
         assert!(revoke_response.message.contains("2 other session"));
 

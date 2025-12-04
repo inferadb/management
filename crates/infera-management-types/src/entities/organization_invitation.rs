@@ -1,7 +1,10 @@
-use crate::entities::OrganizationRole;
-use crate::error::{Error, Result};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    entities::OrganizationRole,
+    error::{Error, Result},
+};
 
 /// Represents an invitation to join an organization
 ///
@@ -89,9 +92,7 @@ impl OrganizationInvitation {
         }
 
         if trimmed.len() > 255 {
-            return Err(Error::Validation(
-                "Email must be 255 characters or less".to_string(),
-            ));
+            return Err(Error::Validation("Email must be 255 characters or less".to_string()));
         }
 
         Ok(())

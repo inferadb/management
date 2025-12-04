@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
+
+use serde::{Deserialize, Serialize};
 use webauthn_rs::prelude::*;
 
 /// Passkey credential for WebAuthn authentication

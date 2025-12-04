@@ -20,11 +20,12 @@
 //! }
 //! ```
 
+use std::sync::Arc;
+
 use axum::{body::Body, http::Request};
-use infera_management_api::{create_router_with_state, AppState};
+use infera_management_api::{AppState, create_router_with_state};
 use infera_management_storage::{Backend, MemoryBackend};
 use serde_json::json;
-use std::sync::Arc;
 use tower::ServiceExt;
 
 /// Creates a test AppState with in-memory storage backend.
@@ -108,11 +109,7 @@ pub fn extract_session_cookie(headers: &axum::http::HeaderMap) -> Option<String>
     headers
         .get("set-cookie")
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| {
-            s.split(';')
-                .next()
-                .and_then(|cookie| cookie.strip_prefix("infera_session="))
-        })
+        .and_then(|s| s.split(';').next().and_then(|cookie| cookie.strip_prefix("infera_session=")))
         .map(|s| s.to_string())
 }
 
@@ -179,10 +176,6 @@ pub async fn register_user(app: &axum::Router, name: &str, email: &str, password
         .await
         .unwrap();
 
-    assert_eq!(
-        response.status(),
-        StatusCode::OK,
-        "Registration should succeed"
-    );
+    assert_eq!(response.status(), StatusCode::OK, "Registration should succeed");
     extract_session_cookie(response.headers()).expect("Session cookie should be set")
 }

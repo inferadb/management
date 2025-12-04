@@ -1,9 +1,8 @@
+use std::{sync::Arc, time::Duration};
+
 use infera_management_storage::StorageBackend;
 use infera_management_types::error::{Error, Result};
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::RwLock;
-use tokio::time;
+use tokio::{sync::RwLock, time};
 
 /// Leader lease TTL in seconds
 const LEADER_LEASE_TTL: u64 = 30;
@@ -142,14 +141,13 @@ impl<S: StorageBackend + 'static> LeaderElection<S> {
         let key = Self::leader_key();
         let value = self.instance_id.to_string();
 
-        self.storage
-            .set_with_ttl(key, value.as_bytes().to_vec(), LEADER_LEASE_TTL)
-            .await
-            .map_err(|e| {
+        self.storage.set_with_ttl(key, value.as_bytes().to_vec(), LEADER_LEASE_TTL).await.map_err(
+            |e| {
                 // If renewal fails, we're no longer the leader
                 tracing::error!("Failed to renew leader lease: {}", e);
                 Error::Internal(format!("Failed to renew leader lease: {}", e))
-            })?;
+            },
+        )?;
 
         tracing::debug!(instance_id = self.instance_id, "Renewed leadership lease");
 
@@ -279,8 +277,9 @@ impl<S: StorageBackend + 'static> LeaderElection<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use infera_management_storage::MemoryBackend;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_leader_election_single_instance() {

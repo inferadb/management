@@ -7,17 +7,21 @@
 //! - TTL-based expiration
 //! - Multi-version concurrency control (MVCC)
 
-use crate::backend::{KeyValue, StorageBackend, StorageError, StorageResult, Transaction};
+use std::{
+    collections::BTreeMap,
+    ops::{Bound, RangeBounds},
+    sync::{Arc, Once},
+};
+
 use async_trait::async_trait;
 use bytes::Bytes;
-use foundationdb::{tuple::Subspace, Database, FdbBindingError, RangeOption};
+use foundationdb::{Database, FdbBindingError, RangeOption, tuple::Subspace};
 use futures::StreamExt;
 use parking_lot::Mutex;
-use std::collections::BTreeMap;
-use std::ops::{Bound, RangeBounds};
-use std::sync::{Arc, Once};
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 use tracing::{debug, warn};
+
+use crate::backend::{KeyValue, StorageBackend, StorageError, StorageResult, Transaction};
 
 // Global initialization flag for FDB network
 // The FDB client library requires that select_api_version (called by boot())
@@ -76,11 +80,7 @@ impl FdbBackend {
 
         debug!("FoundationDB backend initialized for Management API");
 
-        let backend = Self {
-            db: Arc::new(db),
-            data_subspace,
-            ttl_subspace,
-        };
+        let backend = Self { db: Arc::new(db), data_subspace, ttl_subspace };
 
         // Start background TTL cleanup task
         backend.start_ttl_cleanup();
@@ -104,10 +104,8 @@ impl FdbBackend {
 
     /// Clean up expired TTL entries
     async fn cleanup_expired_keys(&self) -> StorageResult<()> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let now =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
         let db = Arc::clone(&self.db);
         let ttl_subspace = self.ttl_subspace.clone();
@@ -177,7 +175,7 @@ impl FdbBackend {
                 let mut key = self.data_subspace.pack(k);
                 key.push(0x00);
                 key
-            }
+            },
             Bound::Unbounded => self.data_subspace.bytes().to_vec(),
         };
 
@@ -186,13 +184,13 @@ impl FdbBackend {
                 let mut key = self.data_subspace.pack(k);
                 key.push(0xff);
                 key
-            }
+            },
             Bound::Excluded(k) => self.data_subspace.pack(k),
             Bound::Unbounded => {
                 let mut key = self.data_subspace.bytes().to_vec();
                 key.push(0xff);
                 key
-            }
+            },
         };
 
         (start, end)
@@ -297,7 +295,7 @@ impl StorageBackend for FdbBackend {
                                     for kv in values.iter() {
                                         all_results.push((kv.key().to_vec(), kv.value().to_vec()));
                                     }
-                                }
+                                },
                                 Err(e) => {
                                     return Err(FdbBindingError::new_custom_error(Box::new(
                                         std::io::Error::other(format!(
@@ -305,7 +303,7 @@ impl StorageBackend for FdbBackend {
                                             e
                                         )),
                                     )));
-                                }
+                                },
                             }
                         }
 
@@ -326,10 +324,7 @@ impl StorageBackend for FdbBackend {
                     if let Ok(unpacked) =
                         foundationdb::tuple::unpack::<Vec<u8>>(&full_key[subspace_len..])
                     {
-                        Some(KeyValue {
-                            key: Bytes::from(unpacked),
-                            value: Bytes::from(value),
-                        })
+                        Some(KeyValue { key: Bytes::from(unpacked), value: Bytes::from(value) })
                     } else {
                         None
                     }
@@ -373,11 +368,9 @@ impl StorageBackend for FdbBackend {
         value: Vec<u8>,
         ttl_seconds: u64,
     ) -> StorageResult<()> {
-        let expiry = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            + ttl_seconds;
+        let expiry =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
+                + ttl_seconds;
 
         let db = Arc::clone(&self.db);
         let data_key = self.data_subspace.pack(&key);
@@ -422,9 +415,7 @@ impl StorageBackend for FdbBackend {
         let result = self.get(&test_key).await?;
 
         if result.as_deref() != Some(test_value.as_slice()) {
-            return Err(StorageError::Internal(
-                "Health check failed: value mismatch".to_string(),
-            ));
+            return Err(StorageError::Internal("Health check failed: value mismatch".to_string()));
         }
 
         self.delete(&test_key).await?;
@@ -553,18 +544,12 @@ mod tests {
         backend.set(b"key3".to_vec(), b"value3".to_vec()).await?;
 
         // Test get_range
-        let range = backend
-            .get_range(b"key1".to_vec()..b"key3".to_vec())
-            .await?;
+        let range = backend.get_range(b"key1".to_vec()..b"key3".to_vec()).await?;
         assert_eq!(range.len(), 2);
 
         // Test clear_range
-        backend
-            .clear_range(b"key1".to_vec()..b"key4".to_vec())
-            .await?;
-        let range = backend
-            .get_range(b"key1".to_vec()..b"key4".to_vec())
-            .await?;
+        backend.clear_range(b"key1".to_vec()..b"key4".to_vec()).await?;
+        let range = backend.get_range(b"key1".to_vec()..b"key4".to_vec()).await?;
         assert_eq!(range.len(), 0);
 
         Ok(())

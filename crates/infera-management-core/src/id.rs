@@ -1,11 +1,13 @@
+use std::{
+    sync::{Arc, Once},
+    time::Duration,
+};
+
 use chrono::Utc;
 use idgenerator::IdGeneratorOptions;
 use infera_management_storage::StorageBackend;
 use infera_management_types::error::{Error, Result};
-use std::sync::{Arc, Once};
-use std::time::Duration;
-use tokio::sync::RwLock;
-use tokio::time;
+use tokio::{sync::RwLock, time};
 
 /// Custom epoch for Snowflake IDs: 2024-01-01T00:00:00Z (in milliseconds)
 const CUSTOM_EPOCH: i64 = 1704067200000;
@@ -29,11 +31,7 @@ pub struct WorkerRegistry<S: StorageBackend> {
 impl<S: StorageBackend + 'static> WorkerRegistry<S> {
     /// Create a new worker registry
     pub fn new(storage: S, worker_id: u16) -> Self {
-        Self {
-            storage,
-            worker_id,
-            shutdown: Arc::new(RwLock::new(false)),
-        }
+        Self { storage, worker_id, shutdown: Arc::new(RwLock::new(false)) }
     }
 
     /// Generate storage key for worker registration
@@ -194,9 +192,11 @@ impl IdGenerator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use infera_management_storage::MemoryBackend;
     use std::collections::HashSet;
+
+    use infera_management_storage::MemoryBackend;
+
+    use super::*;
 
     #[test]
     fn test_id_generation() {

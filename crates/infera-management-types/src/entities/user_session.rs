@@ -131,11 +131,7 @@ impl UserSession {
     /// Get time until expiration
     pub fn time_until_expiry(&self) -> Option<Duration> {
         let now = Utc::now();
-        if now < self.expires_at {
-            Some(self.expires_at - now)
-        } else {
-            None
-        }
+        if now < self.expires_at { Some(self.expires_at - now) } else { None }
     }
 }
 
