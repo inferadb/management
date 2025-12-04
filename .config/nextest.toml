@@ -106,8 +106,3 @@ threads-required = 1
 # Quick unit tests can run in parallel
 filter = 'test(unit) | test(test_)'
 threads-required = 1
-
-# Archive configuration
-[profile.default.archive]
-# Include binaries and metadata
-file = "archive.tar.zst"
