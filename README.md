@@ -31,7 +31,7 @@ cargo run --bin inferadb-management
 | gRPC API | `http://localhost:3001`         |
 | Health   | `http://localhost:3000/health`  |
 | Metrics  | `http://localhost:3000/metrics` |
-| OpenAPI  | [OpenAPI.yaml](OpenAPI.yaml)    |
+| OpenAPI  | [openapi.yaml](openapi.yaml)    |
 
 ## Architecture
 
@@ -146,7 +146,7 @@ See [loadtests/README.md](loadtests/README.md) and [docs/performance.md](docs/pe
 | Deployment      | [docs/deployment.md](docs/deployment.md)           |
 | Performance     | [docs/performance.md](docs/performance.md)         |
 | Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |
-| API Reference   | [OpenAPI.yaml](OpenAPI.yaml)                       |
+| API Reference   | [openapi.yaml](openapi.yaml)                       |
 | Contributing    | [CONTRIBUTING.md](CONTRIBUTING.md)                 |
 
 ## License

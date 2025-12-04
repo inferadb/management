@@ -245,4 +245,4 @@ All tests must pass. Use `thiserror` for error types.
 | `docs/overview.md`       | Entity reference, data model   |
 | `docs/flows.md`          | Sequence diagrams              |
 | `docs/authentication.md` | Auth flows, security           |
-| `OpenAPI.yaml`           | REST API specification         |
+| `openapi.yaml`           | REST API specification         |

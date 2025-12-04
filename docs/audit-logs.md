@@ -574,7 +574,7 @@ def send_to_datadog(audit_log: dict):
 
 ## See Also
 
-- [OpenAPI.yaml](../OpenAPI.yaml): Complete audit log API specifications
+- [openapi.yaml](../openapi.yaml): Complete audit log API specifications
 - [Architecture](architecture.md): Audit logging architecture
 - [Pagination](pagination.md): Pagination best practices
 - [Overview](overview.md): Entity relationships and event types

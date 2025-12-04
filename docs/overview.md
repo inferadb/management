@@ -28,7 +28,7 @@ The **Management API** is InferaDB's control plane, providing self-service capab
 - [flows.md](flows.md) - Sequence diagrams for key operations (registration, login, token generation)
 - [authentication.md](authentication.md) - Complete authentication and authorization guide
 - [getting-started.md](getting-started.md) - Step-by-step setup tutorial
-- [OpenAPI Specification](../OpenAPI.yaml) - Complete REST API reference
+- [OpenAPI Specification](../openapi.yaml) - Complete REST API reference
 
 ---
 

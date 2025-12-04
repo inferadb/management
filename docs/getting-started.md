@@ -447,7 +447,7 @@ rate_limiting:
 ## Getting Help
 
 - **Documentation**: [docs/](.)
-- **OpenAPI Spec**: [OpenAPI.yaml](../OpenAPI.yaml)
+- **OpenAPI Spec**: [openapi.yaml](../openapi.yaml)
 - **Examples**: [examples.md](examples.md)
 - **Issues**: [GitHub Issues](https://github.com/yourusername/inferadb/issues)
 

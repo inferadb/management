@@ -8,7 +8,7 @@ Start here: **[Getting Started Guide](getting-started.md)** - Step-by-step tutor
 
 ## Quick Reference
 
-- **[OpenAPI Specification](../OpenAPI.yaml)** - Complete REST API reference with all endpoints, request/response schemas
+- **[OpenAPI Specification](../openapi.yaml)** - Complete REST API reference with all endpoints, request/response schemas
 - **[Examples](examples.md)** - Real-world code examples and integration patterns
 
 ## Core Documentation
