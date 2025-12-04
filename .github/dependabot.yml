@@ -69,3 +69,8 @@ updates:
       docker-images:
         patterns:
           - "*"
+
+  - package-ecosystem: docker
+    directory: /docker/fdb-integration-tests
+    schedule:
+      interval: daily
