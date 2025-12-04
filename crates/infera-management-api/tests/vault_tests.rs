@@ -2,66 +2,10 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use infera_management_api::{create_router_with_state, AppState};
 use infera_management_core::IdGenerator;
-use infera_management_storage::{Backend, MemoryBackend};
+use infera_management_test_fixtures::{create_test_app, create_test_state, register_user};
 use serde_json::json;
-use std::sync::Arc;
 use tower::ServiceExt;
-
-/// Helper to create test app state
-fn create_test_state() -> AppState {
-    let storage = Backend::Memory(MemoryBackend::new());
-    AppState::new_test(Arc::new(storage))
-}
-
-/// Helper to create configured app with middleware
-fn create_test_app(state: AppState) -> axum::Router {
-    create_router_with_state(state)
-}
-
-/// Helper to extract session cookie from response
-fn extract_session_cookie(headers: &axum::http::HeaderMap) -> Option<String> {
-    headers
-        .get("set-cookie")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| {
-            s.split(';')
-                .next()
-                .and_then(|cookie| cookie.strip_prefix("infera_session="))
-        })
-        .map(|s| s.to_string())
-}
-
-/// Helper to register a user and get session cookie
-async fn register_user(app: &axum::Router, name: &str, email: &str, password: &str) -> String {
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/v1/auth/register")
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    json!({
-                        "name": name,
-                        "email": email,
-                        "password": password
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(
-        response.status(),
-        StatusCode::OK,
-        "Registration should succeed"
-    );
-    extract_session_cookie(response.headers()).expect("Session cookie should be set")
-}
 
 #[tokio::test]
 async fn test_create_vault() {

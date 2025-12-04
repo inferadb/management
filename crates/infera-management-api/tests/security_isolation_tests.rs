@@ -12,16 +12,9 @@ use infera_management_core::{
     OrganizationMemberRepository, OrganizationRepository, OrganizationTeamRepository,
     PrivateKeyEncryptor, UserRepository, UserSessionRepository, VaultRepository,
 };
-use infera_management_storage::{Backend, MemoryBackend};
+use infera_management_test_fixtures::create_test_state;
 use serde_json::json;
-use std::sync::Arc;
 use tower::ServiceExt;
-
-/// Helper to create test app state
-fn create_test_state() -> AppState {
-    let storage = Backend::Memory(MemoryBackend::new());
-    AppState::new_test(Arc::new(storage))
-}
 
 /// Helper to register a user and create their default organization
 async fn setup_user_and_org(

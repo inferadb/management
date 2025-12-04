@@ -39,3 +39,4 @@ tracing = { workspace = true }
 uuid = { version = "1.11", features = ["v4", "serde"] }
 
 [dev-dependencies]
+infera-management-test-fixtures = { path = "../infera-management-test-fixtures" }

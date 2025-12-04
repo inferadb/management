@@ -49,6 +49,24 @@ failure-output = "immediate-final"
 # Longer timeouts for CI environments
 slow-timeout = { period = "120s", terminate-after = 5 }
 
+# Development profile - fast feedback loop
+[profile.dev]
+retries = 0
+fail-fast = true
+status-level = "fail"
+success-output = "never"
+failure-output = "immediate"
+slow-timeout = { period = "60s", terminate-after = 2 }
+
+# Coverage profile - comprehensive test execution
+[profile.coverage]
+retries = 0
+fail-fast = false
+status-level = "all"
+success-output = "final"
+failure-output = "immediate-final"
+slow-timeout = { period = "120s", terminate-after = 3 }
+
 # [profile.default.junit]
 # JUnit XML output configuration
 [profile.default.junit]

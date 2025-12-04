@@ -12,9 +12,13 @@ publish.workspace = true
 # Workspace crates
 infera-management-core = { path = "../infera-management-core" }
 infera-management-storage = { path = "../infera-management-storage" }
+infera-management-api = { path = "../infera-management-api" }
 
 # External dependencies
 anyhow = { workspace = true }
 tokio = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
