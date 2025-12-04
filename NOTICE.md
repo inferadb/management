@@ -18,21 +18,21 @@ Under the terms of this license:
 
 ---
 
-### **Trademarks**
+## Trademarks
 
 "InferaDB" and the InferaDB logo are trademarks of the InferaDB Project.
 No right, title, or interest in these trademarks is granted under this license.
 
 ---
 
-### **Third-Party Components**
+## Third-Party Components
 
 This project may include open-source dependencies governed by their respective licenses.
 A complete list of third-party components and their licenses can be found in `THIRD_PARTY_NOTICES.md` (to be added as the project evolves).
 
 ---
 
-### **Summary**
+## Summary
 
 InferaDB is developed and maintained by the InferaDB Project to advance the state of fine-grained authorization and distributed access control.
 While the software is source-available, its use in commercial SaaS offerings requires prior authorization.

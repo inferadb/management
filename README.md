@@ -48,7 +48,7 @@ cargo run --bin inferadb-management
 
 Built in Rust with pluggable storage:
 
-```
+```text
 infera-management        # Main binary
 ├── infera-management-api      # REST/gRPC handlers
 ├── infera-management-core     # Business logic, entities, repositories

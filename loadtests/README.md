@@ -158,6 +158,7 @@ done
    ```
 
 2. Run tests against localhost:
+
    ```bash
    k6 run loadtests/auth.js
    ```
@@ -195,7 +196,7 @@ Each test defines custom metrics:
 
 ### Example Output
 
-```
+```text
 running (4m30.0s), 000/100 VUs, 12500 complete and 0 interrupted iterations
 default ✓ [======================================] 100 VUs  4m30s
 

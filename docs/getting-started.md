@@ -63,7 +63,7 @@ observability:
 
 You should see output like:
 
-```
+```text
 2025-11-18T10:00:00.000Z INFO  Starting InferaDB Management API
 2025-11-18T10:00:00.123Z INFO  HTTP server listening on 127.0.0.1:3000
 2025-11-18T10:00:00.456Z INFO  gRPC server listening on 127.0.0.1:3001

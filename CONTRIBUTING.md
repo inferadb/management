@@ -122,7 +122,7 @@ mod tests {
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<scope>): <subject>
 
 <body>
@@ -142,7 +142,7 @@ Types:
 
 Examples:
 
-```
+```text
 feat(auth): implement password authentication
 
 Add password-based authentication with Argon2id hashing.
@@ -151,7 +151,7 @@ Includes rate limiting and session management.
 Closes #123
 ```
 
-```
+```text
 fix(storage): handle FoundationDB connection timeout
 
 Add retry logic with exponential backoff for FDB connections.

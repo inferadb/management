@@ -2323,7 +2323,7 @@ class VaultClient:
 
 **Token Expiry Timeline**:
 
-```
+```text
 Time:     0min        55min        60min        24hr         7d
           |           |            |            |            |
 Access:   [========= JWT valid =========][expired]
@@ -2368,7 +2368,7 @@ This method provides the best user experience for interactive CLI usage by lever
 
 **Detailed Implementation**:
 
-**Step 1: CLI initiates auth flow**
+#### Step 1: CLI initiates auth flow
 
 ```bash
 inferadb login
@@ -2402,7 +2402,7 @@ open_browser(&auth_url);
 start_callback_server(callback_port).await;
 ```
 
-**Step 2: Dashboard authenticates user and redirects**
+#### Step 2: Dashboard authenticates user and redirects
 
 Dashboard UI (`https://app.inferadb.com/cli-login`):
 
@@ -2444,18 +2444,18 @@ Dashboard UI (`https://app.inferadb.com/cli-login`):
    - `expires_at` (5 minutes from now)
 4. Return authorization code to Dashboard
 
-**Step 3: Dashboard redirects to CLI callback**
+#### Step 3: Dashboard redirects to CLI callback
 
-```
+```http
 HTTP/1.1 302 Found
 Location: http://localhost:8432/callback?code=<authorization_code>&state=<state>
 ```
 
-**Step 4: CLI receives callback and exchanges code for token**
+#### Step 4: CLI receives callback and exchanges code for token
 
 CLI callback handler receives:
 
-```
+```http
 GET /callback?code=<authorization_code>&state=<state>
 ```
 
@@ -2491,7 +2491,7 @@ CLI calls Management API to exchange code for session token:
 4. Return the session token associated with the authorization code
 5. CLI stores session token in secure storage
 
-**Step 5: CLI uses session token for API requests**
+#### Step 5: CLI uses session token for API requests
 
 ```bash
 inferadb vaults list
@@ -2499,7 +2499,7 @@ inferadb vaults list
 
 CLI includes session token in requests:
 
-```
+```http
 GET /v1/organizations
 Authorization: Bearer <session_token>
 ```
@@ -2611,7 +2611,7 @@ fn generate_client_assertion(client_id: &str, private_key_pem: &str) -> Result<S
 
 CLI/SDK exchanges client assertion for vault-scoped JWT:
 
-```
+```http
 POST /v1/token
 Content-Type: application/x-www-form-urlencoded
 
@@ -2682,7 +2682,7 @@ $ inferadb vaults list
 
 **Management API Request**:
 
-```
+```http
 GET /v1/organizations
 Authorization: Bearer <session_token>
 ```
@@ -3176,7 +3176,7 @@ pub struct SystemApiKey {
 
 ### JWT Client Assertion Flow
 
-**Step 1: Management API generates client assertion JWT**
+#### Step 1: Management API generates client assertion JWT
 
 When the Management API needs to call the Server API, it generates a short-lived JWT (client assertion) signed with its System API Key:
 
@@ -3223,7 +3223,7 @@ async fn generate_client_assertion(system_key: &SystemApiKey) -> Result<String> 
 }
 ```
 
-**Step 2: Include JWT in gRPC metadata**
+#### Step 2: Include JWT in gRPC metadata
 
 ```rust
 use tonic::{metadata::MetadataValue, Request};
@@ -3252,7 +3252,7 @@ async fn create_server_client() -> Result<VaultManagementServiceClient<Channel>>
 }
 ```
 
-**Step 3: Server validates JWT using JWKS**
+#### Step 3: Server validates JWT using JWKS
 
 The Server API fetches the Management API's JWKS endpoint to retrieve public keys:
 
@@ -3514,7 +3514,7 @@ This section focuses on **tenant requests** and how the Server enforces VaultRol
 
 VaultRoles define what operations are permitted within a vault:
 
-```
+```text
 READER < WRITER < MANAGER < ADMIN
 ```
 
@@ -3705,7 +3705,7 @@ The Server API enforces tenant isolation by prefixing all storage operations wit
 
 **FoundationDB Keyspace** (Server side):
 
-```
+```text
 vault_<vault_id>/
   tuples/
     <namespace>/<object>/<relation>/<subject>
@@ -4504,7 +4504,7 @@ async fn main() -> Result<()> {
 
 All data is isolated by entity type and organization to ensure security:
 
-```
+```text
 mgmt/                                    # Namespace prefix
   users/
     <user_id>/                           # User data
