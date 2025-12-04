@@ -24,7 +24,7 @@ The Management API is designed for high performance:
 
 **Software:**
 
-- Rust: 1.70+
+- Rust: 1.85+
 - Storage: FoundationDB 7.3.x (3-node cluster) or Memory backend
 - Load Tool: k6
 

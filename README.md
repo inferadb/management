@@ -18,7 +18,7 @@ Control plane for InferaDB: user authentication, organization management, and va
 See [docs/getting-started.md](docs/getting-started.md) for a complete tutorial.
 
 ```bash
-# Prerequisites: Rust 1.78+, Docker
+# Prerequisites: Rust 1.85+, Docker
 git clone https://github.com/inferadb/inferadb.git && cd inferadb/management
 docker-compose up -d
 export INFERADB_MGMT__AUTH__KEY_ENCRYPTION_SECRET=$(openssl rand -base64 32)

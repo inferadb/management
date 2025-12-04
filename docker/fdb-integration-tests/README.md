@@ -71,7 +71,7 @@ cargo test --workspace --lib --bins
    - Health checks ensure readiness before tests run
 
 2. **Test Runner Container** (`test-runner`)
-   - Rust 1.83 with FDB client libraries
+   - Rust 1.85 with FDB client libraries
    - Pre-fetches dependencies for faster rebuilds
    - Mounts source code for live development
    - Caches cargo registry and build artifacts
