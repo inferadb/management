@@ -401,7 +401,7 @@ Now that you have the basics working, explore:
 
 1. Change port in config: `http_port: 8080`
 2. Find and stop conflicting process: `lsof -i :3000`
-3. Use environment variable: `export INFERA_HTTP_PORT=8080`
+3. Use environment variable: `export INFERADB_MGMT__HTTP__PORT=8080`
 
 ### Key encryption secret too short
 

@@ -133,14 +133,14 @@ pub struct AuthConfig {
     /// JWT issuer URL (this Management API instance)
     /// Used in vault-scoped JWTs issued to clients
     /// Example: "https://api.inferadb.com" or "http://localhost:8081"
-    /// Environment variable: INFERA_MANAGEMENT__AUTH__JWT_ISSUER
+    /// Environment variable: INFERADB_MGMT__AUTH__JWT_ISSUER
     #[serde(default = "default_jwt_issuer")]
     pub jwt_issuer: String,
 
     /// JWT audience URL (the Server API)
     /// Used in vault-scoped JWTs issued to clients
     /// Example: "https://api.inferadb.com/evaluate" or "http://localhost:8080/evaluate"
-    /// Environment variable: INFERA_MANAGEMENT__AUTH__JWT_AUDIENCE
+    /// Environment variable: INFERADB_MGMT__AUTH__JWT_AUDIENCE
     #[serde(default = "default_jwt_audience")]
     pub jwt_audience: String,
 }
