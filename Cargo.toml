@@ -128,7 +128,7 @@ url = "2.5"
 validator = { version = "0.20", features = ["derive"] }
 
 # Kubernetes client
-k8s-openapi = { version = "0.23", features = ["v1_31"] }
+k8s-openapi = { version = "0.26", features = ["v1_31"] }
 kube = { version = "0.97", features = ["client", "derive", "runtime"] }
 
 # TLS (for crypto provider initialization)
