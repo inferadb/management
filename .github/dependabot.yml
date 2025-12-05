@@ -11,6 +11,9 @@ updates:
       time: "09:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "area/deps"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -45,6 +48,10 @@ updates:
       time: "09:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "area/ci"
     commit-message:
       prefix: "ci"
       include: "scope"
@@ -63,6 +70,9 @@ updates:
       time: "09:00"
       timezone: "Etc/UTC"
     open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "area/docker"
     commit-message:
       prefix: "docker"
     groups:
@@ -74,3 +84,7 @@ updates:
     directory: /docker/fdb-integration-tests
     schedule:
       interval: daily
+    labels:
+      - "dependencies"
+      - "area/docker"
+      - "area/testing"

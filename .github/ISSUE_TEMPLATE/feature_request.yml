@@ -1,0 +1,83 @@
+name: Feature Request
+description: Suggest a new feature or capability for the InferaDB Management API
+labels: ["kind/feature", "status/needs-triage"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight Checklist
+      options:
+        - label: I have searched existing issues and discussions to ensure this hasn't been requested
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please describe your idea in detail.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component would this feature affect?
+      options:
+        - Tenancy Management
+        - Vault Management
+        - Session/Authentication
+        - Passkey/WebAuthn
+        - Client Management
+        - Team Management
+        - Permissions
+        - Audit Logging
+        - Token Management
+        - Configuration
+        - Multiple/Cross-cutting
+        - New component
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem? Please describe.
+      placeholder: A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like.
+      placeholder: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you've considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context, mockups, or examples about the feature request here.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you be willing to contribute this feature?
+      options:
+        - "Yes, I'd like to implement this"
+        - "Yes, with guidance"
+        - "No, but I can help test"
+        - "No"
+    validations:
+      required: false
