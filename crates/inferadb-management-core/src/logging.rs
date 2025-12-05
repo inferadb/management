@@ -4,9 +4,9 @@ use crate::config::ObservabilityConfig;
 
 /// Initialize structured logging based on configuration
 ///
-/// Sets up tracing-subscriber with either JSON or pretty formatting based on environment.
+/// Sets up tracing-subscriber with either JSON or compact formatting based on environment.
 /// In production (when `json` is true), logs are emitted as JSON for structured ingestion.
-/// In development, logs use human-readable formatting.
+/// In development, logs use compact single-line formatting (matching server output style).
 ///
 /// # Arguments
 ///
@@ -28,7 +28,7 @@ use crate::config::ObservabilityConfig;
 /// // Production mode with JSON formatting
 /// logging::init(&config, true);
 ///
-/// // Development mode with pretty formatting
+/// // Development mode with compact formatting
 /// logging::init(&config, false);
 /// ```
 pub fn init(config: &ObservabilityConfig, json: bool) {
@@ -49,12 +49,14 @@ pub fn init(config: &ObservabilityConfig, json: bool) {
 
         tracing_subscriber::registry().with(fmt_layer).init();
     } else {
-        // Development: Pretty human-readable logging
+        // Development: Compact single-line logging (matches server format)
         let fmt_layer = fmt::layer()
-            .pretty()
+            .compact()
             .with_target(true)
             .with_thread_ids(false)
             .with_thread_names(false)
+            .with_file(false)
+            .with_line_number(false)
             .with_filter(env_filter);
 
         tracing_subscriber::registry().with(fmt_layer).init();
@@ -102,12 +104,14 @@ pub fn init_with_tracing(
             .with_filter(env_filter.clone())
             .boxed()
     } else {
-        // Development: Pretty human-readable logging
+        // Development: Compact single-line logging (matches server format)
         fmt::layer()
-            .pretty()
+            .compact()
             .with_target(true)
             .with_thread_ids(false)
             .with_thread_names(false)
+            .with_file(false)
+            .with_line_number(false)
             .with_filter(env_filter.clone())
             .boxed()
     };
