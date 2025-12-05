@@ -39,12 +39,22 @@ async fn main() -> Result<()> {
     let config = ManagementConfig::load(&args.config)?;
     config.validate()?;
 
-    // Determine if we should use JSON logging
-    // Use JSON in production or when explicitly requested
-    let use_json = args.json_logs || args.environment == "production";
+    // Initialize structured logging with environment-appropriate format
+    // Use Full format (matching server) in development, JSON in production
+    let log_config = logging::LogConfig {
+        format: if args.json_logs || args.environment == "production" {
+            logging::LogFormat::Json
+        } else {
+            logging::LogFormat::Full // Match server's default output style
+        },
+        filter: Some(config.observability.log_level.clone()),
+        ..Default::default()
+    };
 
-    // Initialize structured logging
-    logging::init(&config.observability, use_json);
+    if let Err(e) = logging::init_logging(log_config) {
+        eprintln!("Failed to initialize logging: {}", e);
+        std::process::exit(1);
+    }
 
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),

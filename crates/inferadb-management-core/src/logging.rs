@@ -1,8 +1,178 @@
-use tracing_subscriber::{EnvFilter, Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+//! Structured logging utilities for InferaDB Management
+//!
+//! Provides enhanced logging with contextual fields and formatting options,
+//! matching the server's logging architecture for consistent developer experience.
+
+use std::io::IsTerminal;
+
+use tracing_subscriber::{
+    EnvFilter, Layer, fmt, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
+};
 
 use crate::config::ObservabilityConfig;
 
-/// Initialize structured logging based on configuration
+/// Log output format options
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogFormat {
+    /// Standard single-line format (matches server default)
+    /// Output: `2025-01-15T10:30:45.123456Z  INFO target: message key=value`
+    Full,
+    /// Human-readable multi-line format with colors (for development debugging)
+    Pretty,
+    /// Compact single-line format without timestamp details
+    Compact,
+    /// JSON format (for production log aggregation)
+    Json,
+}
+
+#[allow(clippy::derivable_impls)]
+impl Default for LogFormat {
+    fn default() -> Self {
+        #[cfg(debug_assertions)]
+        {
+            LogFormat::Full // Match server's default format in development
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            LogFormat::Json
+        }
+    }
+}
+
+/// Configuration for logging behavior
+#[derive(Debug, Clone)]
+pub struct LogConfig {
+    /// Output format
+    pub format: LogFormat,
+    /// Whether to include file/line numbers
+    pub include_location: bool,
+    /// Whether to include target module
+    pub include_target: bool,
+    /// Whether to include thread IDs
+    pub include_thread_id: bool,
+    /// Whether to log span events (enter/exit/close)
+    pub log_spans: bool,
+    /// Whether to use ANSI colors (None = auto-detect based on TTY)
+    pub ansi: Option<bool>,
+    /// Environment filter (e.g., "info,inferadb_management=debug")
+    pub filter: Option<String>,
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self {
+            format: LogFormat::default(),
+            include_location: cfg!(debug_assertions),
+            include_target: true,
+            include_thread_id: false,
+            log_spans: cfg!(debug_assertions),
+            ansi: None, // Auto-detect
+            filter: None,
+        }
+    }
+}
+
+/// Initialize structured logging with configuration
+///
+/// This is the primary logging initialization function that provides full control
+/// over log format and behavior, matching the server's logging API.
+///
+/// # Arguments
+///
+/// * `config` - Logging configuration options
+///
+/// # Examples
+///
+/// ```no_run
+/// use inferadb_management_core::logging::{LogConfig, LogFormat, init_logging};
+///
+/// // Development: Pretty format with colors
+/// let config = LogConfig {
+///     format: LogFormat::Pretty,
+///     ..Default::default()
+/// };
+/// init_logging(config).unwrap();
+///
+/// // Production: JSON format
+/// let config = LogConfig {
+///     format: LogFormat::Json,
+///     filter: Some("info".to_string()),
+///     ..Default::default()
+/// };
+/// init_logging(config).unwrap();
+/// ```
+pub fn init_logging(config: LogConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let env_filter = if let Some(filter) = &config.filter {
+        EnvFilter::try_new(filter)?
+    } else {
+        EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| EnvFilter::new("info,inferadb_management=debug"))
+    };
+
+    // Auto-detect ANSI support based on TTY, or use explicit setting
+    let ansi = config.ansi.unwrap_or_else(|| std::io::stdout().is_terminal());
+
+    let fmt_span = if config.log_spans { FmtSpan::NEW | FmtSpan::CLOSE } else { FmtSpan::NONE };
+
+    match config.format {
+        LogFormat::Full => {
+            // Standard format matching server's default output style
+            let fmt_layer = fmt::layer().with_target(config.include_target).with_filter(env_filter);
+
+            tracing_subscriber::registry().with(fmt_layer).try_init()?;
+        },
+        LogFormat::Pretty => {
+            let fmt_layer = fmt::layer()
+                .pretty()
+                .with_ansi(ansi)
+                .with_target(config.include_target)
+                .with_thread_ids(config.include_thread_id)
+                .with_file(config.include_location)
+                .with_line_number(config.include_location)
+                .with_span_events(fmt_span)
+                .with_filter(env_filter);
+
+            tracing_subscriber::registry().with(fmt_layer).try_init()?;
+        },
+        LogFormat::Compact => {
+            let fmt_layer = fmt::layer()
+                .compact()
+                .with_ansi(ansi)
+                .with_target(config.include_target)
+                .with_thread_ids(config.include_thread_id)
+                .with_file(config.include_location)
+                .with_line_number(config.include_location)
+                .with_span_events(fmt_span)
+                .with_filter(env_filter);
+
+            tracing_subscriber::registry().with(fmt_layer).try_init()?;
+        },
+        LogFormat::Json => {
+            let fmt_layer = fmt::layer()
+                .json()
+                .with_target(config.include_target)
+                .with_current_span(true)
+                .with_span_list(true)
+                .with_thread_ids(config.include_thread_id)
+                .with_thread_names(config.include_thread_id)
+                .with_filter(env_filter);
+
+            tracing_subscriber::registry().with(fmt_layer).try_init()?;
+        },
+    }
+
+    tracing::debug!(
+        format = ?config.format,
+        location = config.include_location,
+        target = config.include_target,
+        ansi = ansi,
+        "Logging initialized"
+    );
+
+    Ok(())
+}
+
+/// Initialize structured logging based on ObservabilityConfig (backward compatible)
 ///
 /// Sets up tracing-subscriber with either JSON or compact formatting based on environment.
 /// In production (when `json` is true), logs are emitted as JSON for structured ingestion.
@@ -32,34 +202,18 @@ use crate::config::ObservabilityConfig;
 /// logging::init(&config, false);
 /// ```
 pub fn init(config: &ObservabilityConfig, json: bool) {
-    let env_filter = EnvFilter::try_from_default_env()
-        .or_else(|_| EnvFilter::try_new(&config.log_level))
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let log_config = LogConfig {
+        format: if json { LogFormat::Json } else { LogFormat::Full },
+        filter: Some(config.log_level.clone()),
+        include_location: false,
+        include_target: true,
+        include_thread_id: json, // Include thread info in JSON mode
+        log_spans: false,
+        ansi: None, // Auto-detect
+    };
 
-    if json {
-        // Production: JSON structured logging
-        let fmt_layer = fmt::layer()
-            .json()
-            .with_target(true)
-            .with_current_span(true)
-            .with_span_list(true)
-            .with_thread_ids(true)
-            .with_thread_names(true)
-            .with_filter(env_filter);
-
-        tracing_subscriber::registry().with(fmt_layer).init();
-    } else {
-        // Development: Compact single-line logging (matches server format)
-        let fmt_layer = fmt::layer()
-            .compact()
-            .with_target(true)
-            .with_thread_ids(false)
-            .with_thread_names(false)
-            .with_file(false)
-            .with_line_number(false)
-            .with_filter(env_filter);
-
-        tracing_subscriber::registry().with(fmt_layer).init();
+    if let Err(e) = init_logging(log_config) {
+        eprintln!("Failed to initialize logging: {}", e);
     }
 }
 
@@ -89,7 +243,7 @@ pub fn init_with_tracing(
 
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(&config.log_level))
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+        .unwrap_or_else(|_| EnvFilter::new("info,inferadb_management=debug"));
 
     // Build the base logging layer
     let fmt_layer = if json {
@@ -104,16 +258,8 @@ pub fn init_with_tracing(
             .with_filter(env_filter.clone())
             .boxed()
     } else {
-        // Development: Compact single-line logging (matches server format)
-        fmt::layer()
-            .compact()
-            .with_target(true)
-            .with_thread_ids(false)
-            .with_thread_names(false)
-            .with_file(false)
-            .with_line_number(false)
-            .with_filter(env_filter.clone())
-            .boxed()
+        // Development: Standard format (matches server default)
+        fmt::layer().with_target(true).with_filter(env_filter.clone()).boxed()
     };
 
     let subscriber = tracing_subscriber::registry().with(fmt_layer);
@@ -164,14 +310,76 @@ pub fn init_with_tracing(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Once;
+
     use super::*;
 
-    // Note: We cannot test init() directly in unit tests because
-    // tracing-subscriber only allows setting the global default subscriber once per process.
-    // The logging initialization is tested through integration tests.
+    static INIT: Once = Once::new();
+
+    fn init_test_logging() {
+        INIT.call_once(|| {
+            let _ = init_logging(LogConfig {
+                format: LogFormat::Compact,
+                include_location: false,
+                include_target: false,
+                include_thread_id: false,
+                log_spans: true,
+                ansi: Some(false),
+                filter: Some("debug".to_string()),
+            });
+        });
+    }
 
     #[test]
-    fn test_config_creation() {
+    fn test_log_config_default() {
+        let config = LogConfig::default();
+        assert_eq!(config.format, LogFormat::default());
+        assert!(config.include_target);
+        assert!(!config.include_thread_id);
+        assert!(config.ansi.is_none()); // Auto-detect
+    }
+
+    #[test]
+    fn test_log_format_default() {
+        let format = LogFormat::default();
+        #[cfg(debug_assertions)]
+        assert_eq!(format, LogFormat::Full);
+        #[cfg(not(debug_assertions))]
+        assert_eq!(format, LogFormat::Json);
+    }
+
+    #[test]
+    fn test_log_format_variants() {
+        assert_eq!(LogFormat::Full, LogFormat::Full);
+        assert_eq!(LogFormat::Pretty, LogFormat::Pretty);
+        assert_eq!(LogFormat::Compact, LogFormat::Compact);
+        assert_eq!(LogFormat::Json, LogFormat::Json);
+        assert_ne!(LogFormat::Full, LogFormat::Json);
+    }
+
+    #[test]
+    fn test_log_config_custom() {
+        let config = LogConfig {
+            format: LogFormat::Json,
+            include_location: true,
+            include_target: false,
+            include_thread_id: true,
+            log_spans: true,
+            ansi: Some(false),
+            filter: Some("warn".to_string()),
+        };
+
+        assert_eq!(config.format, LogFormat::Json);
+        assert!(config.include_location);
+        assert!(!config.include_target);
+        assert!(config.include_thread_id);
+        assert!(config.log_spans);
+        assert_eq!(config.ansi, Some(false));
+        assert_eq!(config.filter, Some("warn".to_string()));
+    }
+
+    #[test]
+    fn test_observability_config_creation() {
         let config = ObservabilityConfig {
             log_level: "debug".to_string(),
             metrics_enabled: true,
@@ -182,6 +390,12 @@ mod tests {
         assert_eq!(config.log_level, "debug");
         assert!(config.metrics_enabled);
         assert!(!config.tracing_enabled);
+    }
+
+    #[test]
+    fn test_init_logging_does_not_panic() {
+        init_test_logging();
+        // If we get here without panicking, the test passes
     }
 
     #[cfg(feature = "opentelemetry")]
