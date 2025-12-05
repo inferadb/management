@@ -14,12 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
+        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
         with:
           egress-policy: audit
 
       - name: Mark stale issues awaiting user response
-        uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+        uses: actions/stale@997185467fa4f803885201cee163a9f38240193d # v10.1.1
         with:
           only-issue-labels: "status/needs-info"
           stale-issue-label: "stale"
@@ -39,7 +39,7 @@ jobs:
           days-before-pr-close: -1
 
       - name: Mark stale PRs with no activity
-        uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+        uses: actions/stale@997185467fa4f803885201cee163a9f38240193d # v10.1.1
         with:
           stale-pr-label: "stale"
           stale-pr-message: >
