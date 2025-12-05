@@ -93,11 +93,11 @@ deny: ## Check dependencies with cargo-deny
 
 run: ## Run the management API server (debug mode)
 	@echo "🚀 Starting Management API server..."
-	@$(CARGO) run --bin infera-management
+	@$(CARGO) run --bin inferadb-management
 
 dev: ## Run with auto-reload (requires cargo-watch)
 	@echo "🔄 Starting Management API server with auto-reload..."
-	@$(CARGO) watch -x 'run --bin infera-management'
+	@$(CARGO) watch -x 'run --bin inferadb-management'
 
 build: ## Build debug binary
 	@echo "🔨 Building debug binary..."
