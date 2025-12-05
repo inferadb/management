@@ -16,6 +16,7 @@ pub mod metrics;
 pub mod ratelimit;
 pub mod repository;
 pub mod repository_context;
+pub mod startup;
 pub mod webhook_client;
 
 pub use auth::{PasswordHasher, hash_password, verify_password};

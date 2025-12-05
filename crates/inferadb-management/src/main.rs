@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use inferadb_management_api::ManagementIdentity;
-use inferadb_management_core::{ManagementConfig, WebhookClient, logging};
+use inferadb_management_core::{ManagementConfig, WebhookClient, logging, startup};
 use inferadb_management_grpc::ServerApiClient;
 use inferadb_management_storage::factory::{StorageConfig, create_storage_backend};
 
@@ -56,37 +56,70 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }
 
-    tracing::info!(
-        version = env!("CARGO_PKG_VERSION"),
-        environment = %args.environment,
-        config_file = %args.config,
-        worker_id = config.id_generation.worker_id,
-        "Starting InferaDB Management API"
-    );
+    // Display startup banner and configuration summary
+    let use_json = args.json_logs || args.environment == "production";
+    if !use_json {
+        startup::StartupDisplay::new(startup::ServiceInfo {
+            name: "InferaDB Management API",
+            version: env!("CARGO_PKG_VERSION"),
+            environment: args.environment.clone(),
+        })
+        .entries(vec![
+            startup::ConfigEntry::new("General", "environment", &args.environment),
+            startup::ConfigEntry::new("General", "config_file", &args.config),
+            startup::ConfigEntry::new("General", "worker_id", config.id_generation.worker_id),
+            startup::ConfigEntry::new("Storage", "backend", &config.storage.backend),
+            startup::ConfigEntry::new(
+                "Server API",
+                "grpc_endpoint",
+                &config.server_api.grpc_endpoint,
+            ),
+            startup::ConfigEntry::new(
+                "Identity",
+                "management_id",
+                &config.management_identity.management_id,
+            ),
+            startup::ConfigEntry::new("Identity", "kid", &config.management_identity.kid),
+            startup::ConfigEntry::new(
+                "Observability",
+                "log_level",
+                &config.observability.log_level,
+            ),
+            startup::ConfigEntry::new(
+                "Observability",
+                "metrics_enabled",
+                config.observability.metrics_enabled,
+            ),
+        ])
+        .display();
+    } else {
+        tracing::info!(
+            version = env!("CARGO_PKG_VERSION"),
+            environment = %args.environment,
+            config_file = %args.config,
+            worker_id = config.id_generation.worker_id,
+            "Starting InferaDB Management API"
+        );
+    }
 
-    // Initialize storage backend
-    tracing::info!(backend = %config.storage.backend, "Initializing storage backend");
+    // ━━━ Initialize Components ━━━
+    startup::log_phase("Initializing Components");
+
+    // Storage backend
     let storage_config = match config.storage.backend.as_str() {
         "memory" => StorageConfig::memory(),
         "foundationdb" => StorageConfig::foundationdb(config.storage.fdb_cluster_file.clone()),
         _ => anyhow::bail!("Invalid storage backend: {}", config.storage.backend),
     };
     let storage = Arc::new(create_storage_backend(&storage_config).await?);
-    tracing::info!("Storage backend initialized successfully");
+    startup::log_initialized(&format!("Storage ({})", config.storage.backend));
 
-    // Initialize server API client (for gRPC communication with @server)
-    tracing::info!(endpoint = %config.server_api.grpc_endpoint, "Initializing server API client");
+    // Server API client (for gRPC communication with @server)
     let server_client = Arc::new(ServerApiClient::new(config.server_api.grpc_endpoint.clone())?);
-    tracing::info!("Server API client initialized successfully");
+    startup::log_initialized("Server API client");
 
-    // Initialize Management API identity for webhook authentication
-    tracing::info!(
-        management_id = %config.management_identity.management_id,
-        kid = %config.management_identity.kid,
-        "Initializing Management API identity"
-    );
+    // Management API identity for webhook authentication
     let management_identity = if let Some(ref pem) = config.management_identity.private_key_pem {
-        tracing::info!("Loading Management identity from configured private key");
         ManagementIdentity::from_pem(
             config.management_identity.management_id.clone(),
             config.management_identity.kid.clone(),
@@ -94,7 +127,6 @@ async fn main() -> Result<()> {
         )
         .map_err(|e| anyhow::anyhow!("Failed to load Management identity from PEM: {}", e))?
     } else {
-        tracing::info!("Generating new Management identity (no private key configured)");
         let identity = ManagementIdentity::generate(
             config.management_identity.management_id.clone(),
             config.management_identity.kid.clone(),
@@ -112,19 +144,10 @@ async fn main() -> Result<()> {
         identity
     };
     let management_identity = Arc::new(management_identity);
-    tracing::info!("Management API identity initialized successfully");
+    startup::log_initialized("Management identity");
 
-    // Initialize webhook client for cache invalidation (if endpoints configured)
+    // Webhook client for cache invalidation (if endpoints configured)
     let webhook_client = if !config.cache_invalidation.http_endpoints.is_empty() {
-        tracing::info!(
-            endpoints = ?config.cache_invalidation.http_endpoints,
-            timeout_ms = config.cache_invalidation.timeout_ms,
-            retry_attempts = config.cache_invalidation.retry_attempts,
-            discovery_mode = ?config.cache_invalidation.discovery.mode,
-            cache_ttl_seconds = config.cache_invalidation.discovery.cache_ttl_seconds,
-            "Initializing webhook client for cache invalidation"
-        );
-
         let client = WebhookClient::new_with_discovery(
             config.cache_invalidation.http_endpoints.clone(),
             Arc::clone(&management_identity),
@@ -134,20 +157,18 @@ async fn main() -> Result<()> {
         )
         .map_err(|e| anyhow::anyhow!("Failed to create webhook client: {}", e))?;
 
-        tracing::info!("Webhook client initialized successfully");
+        startup::log_initialized("Webhook client");
         Some(Arc::new(client))
     } else {
-        tracing::info!("Webhook client disabled (no http_endpoints configured)");
+        startup::log_skipped("Webhook client", "no http_endpoints configured");
         None
     };
 
     // Wrap config in Arc for sharing across services
     let config = Arc::new(config);
 
-    // Start HTTP server
-    // Note: Leader election and email service are optional for now
-    // They can be initialized and passed when needed for multi-node deployments
-    tracing::info!("Starting HTTP server");
+    // ━━━ Start Server ━━━
+    startup::log_phase("Starting Server");
     inferadb_management_api::serve(
         storage.clone(),
         config.clone(),
