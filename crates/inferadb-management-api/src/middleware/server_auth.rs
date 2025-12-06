@@ -141,10 +141,8 @@ pub async fn require_server_jwt(
 
     // Derive server JWKS URL from policy_service config
     // The JWKS endpoint is at /.well-known/jwks.json on the server's internal port
-    let server_jwks_url = format!(
-        "{}/.well-known/jwks.json",
-        state.config.effective_internal_url()
-    );
+    let server_jwks_url =
+        format!("{}/.well-known/jwks.json", state.config.effective_internal_url());
 
     // Fetch JWKS and find the key
     let jwks = JWKS_CACHE.get_or_fetch(&server_jwks_url).await?;

@@ -370,7 +370,6 @@ pub struct RemoteCluster {
     pub port: u16,
 }
 
-
 // Default value functions
 fn default_host() -> String {
     "127.0.0.1".to_string()

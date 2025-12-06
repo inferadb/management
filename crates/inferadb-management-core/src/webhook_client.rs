@@ -107,20 +107,20 @@ impl WebhookClient {
             .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
         // Parse the base service URL to extract host
-        let url = url::Url::parse(&service_url)
-            .map_err(|e| format!("Invalid service URL: {}", e))?;
+        let url =
+            url::Url::parse(&service_url).map_err(|e| format!("Invalid service URL: {}", e))?;
 
-        let service_host =
-            url.host_str().ok_or_else(|| "No host in service URL".to_string())?;
+        let service_host = url.host_str().ok_or_else(|| "No host in service URL".to_string())?;
 
         // Construct the full internal URL
-        let server_internal_url = format!("{}:{}", service_url.trim_end_matches('/'), internal_port);
+        let server_internal_url =
+            format!("{}:{}", service_url.trim_end_matches('/'), internal_port);
 
         let internal_discovery_mode = match discovery_mode {
             DiscoveryMode::None => {
                 debug!(url = %server_internal_url, "Using static endpoint (no discovery)");
                 InternalDiscoveryMode::Static(vec![server_internal_url])
-            }
+            },
             DiscoveryMode::Kubernetes => {
                 // Extract service name and namespace from hostname
                 let parts: Vec<&str> = service_host.split('.').collect();
@@ -140,7 +140,7 @@ impl WebhookClient {
                 );
 
                 InternalDiscoveryMode::Kubernetes { service_name, namespace, port: internal_port }
-            }
+            },
             DiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
                 info!(
                     local_cluster = %local_cluster,
@@ -149,7 +149,7 @@ impl WebhookClient {
                 );
 
                 InternalDiscoveryMode::Tailscale { local_cluster, remote_clusters }
-            }
+            },
         };
 
         Ok(Self {

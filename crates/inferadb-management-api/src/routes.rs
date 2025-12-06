@@ -230,8 +230,11 @@ pub fn public_routes(state: AppState) -> Router {
 /// Exposes JWKS endpoints (no auth) and privileged /internal/v1/* endpoints (server JWT auth)
 pub fn internal_routes(state: AppState) -> Router {
     // Public JWKS endpoints (no authentication required)
+    // These are mirrored from public routes so servers can fetch JWKS from the internal port
     let jwks_routes = Router::new()
         .route("/internal/management-jwks.json", get(jwks::get_management_jwks))
+        // Organization JWKS endpoint - mirrored from public for server-to-server cert fetching
+        .route("/v1/organizations/{org}/jwks.json", get(jwks::get_org_jwks))
         .with_state(state.clone());
 
     // Privileged internal routes (require server JWT authentication)

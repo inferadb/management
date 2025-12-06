@@ -230,18 +230,12 @@ impl StartupDisplay {
         // Subtext (centered)
         let subtext = self.service.subtext;
         let subtext_left_pad = terminal_width.saturating_sub(subtext.len()) / 2;
-        println!(
-            "{left_pad}{dim}{subtext}{reset}",
-            left_pad = " ".repeat(subtext_left_pad)
-        );
+        println!("{left_pad}{dim}{subtext}{reset}", left_pad = " ".repeat(subtext_left_pad));
 
         // Version (centered)
         let version_str = format!("v{}", self.service.version);
         let version_left_pad = terminal_width.saturating_sub(version_str.len()) / 2;
-        println!(
-            "{left_pad}{dim}{version_str}{reset}",
-            left_pad = " ".repeat(version_left_pad)
-        );
+        println!("{left_pad}{dim}{version_str}{reset}", left_pad = " ".repeat(version_left_pad));
 
         println!();
     }
@@ -266,18 +260,12 @@ impl StartupDisplay {
         // Subtext (centered)
         let subtext = self.service.subtext;
         let subtext_left_pad = terminal_width.saturating_sub(subtext.len()) / 2;
-        println!(
-            "{left_pad}{dim}{subtext}{reset}",
-            left_pad = " ".repeat(subtext_left_pad)
-        );
+        println!("{left_pad}{dim}{subtext}{reset}", left_pad = " ".repeat(subtext_left_pad));
 
         // Version (centered)
         let version_str = format!("v{}", self.service.version);
         let version_left_pad = terminal_width.saturating_sub(version_str.len()) / 2;
-        println!(
-            "{left_pad}{dim}{version_str}{reset}",
-            left_pad = " ".repeat(version_left_pad)
-        );
+        println!("{left_pad}{dim}{version_str}{reset}", left_pad = " ".repeat(version_left_pad));
 
         println!();
     }
@@ -311,13 +299,7 @@ impl StartupDisplay {
 
     fn print_config_tables(&self, categories: &[(&str, Vec<&ConfigEntry>)], terminal_width: usize) {
         let (reset, dim, cyan, green, yellow) = if self.use_ansi {
-            (
-                colors::RESET,
-                colors::DIM,
-                colors::CYAN,
-                colors::GREEN,
-                colors::YELLOW,
-            )
+            (colors::RESET, colors::DIM, colors::CYAN, colors::GREEN, colors::YELLOW)
         } else {
             ("", "", "", "", "")
         };
@@ -327,11 +309,7 @@ impl StartupDisplay {
             println!("{dim}# {category}{reset}");
 
             // Calculate column widths for this category
-            let max_property_len = entries
-                .iter()
-                .map(|e| e.display_name.len())
-                .max()
-                .unwrap_or(0);
+            let max_property_len = entries.iter().map(|e| e.display_name.len()).max().unwrap_or(0);
 
             // Table should fill terminal width
             // Layout: ║ Property ║ Value ║
@@ -366,9 +344,7 @@ impl StartupDisplay {
                 }
 
                 let (display_value, value_display_len) = match entry.style {
-                    ConfigEntryStyle::Sensitive => {
-                        (format!("{yellow}********{reset}"), 8)
-                    }
+                    ConfigEntryStyle::Sensitive => (format!("{yellow}********{reset}"), 8),
                     ConfigEntryStyle::Warning => {
                         let val = &entry.value;
                         let display_width = val.width();
@@ -377,7 +353,8 @@ impl StartupDisplay {
                             let mut truncated = String::new();
                             let mut width = 0;
                             for c in val.chars() {
-                                let char_width = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+                                let char_width =
+                                    unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
                                 if width + char_width > value_col_width.saturating_sub(3) {
                                     break;
                                 }
@@ -388,7 +365,7 @@ impl StartupDisplay {
                         } else {
                             (format!("{yellow}{}{reset}", val), display_width)
                         }
-                    }
+                    },
                     ConfigEntryStyle::Normal => {
                         let val = &entry.value;
                         let display_width = val.width();
@@ -397,7 +374,8 @@ impl StartupDisplay {
                             let mut truncated = String::new();
                             let mut width = 0;
                             for c in val.chars() {
-                                let char_width = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+                                let char_width =
+                                    unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
                                 if width + char_width > value_col_width.saturating_sub(3) {
                                     break;
                                 }
@@ -408,7 +386,7 @@ impl StartupDisplay {
                         } else {
                             (format!("{green}{}{reset}", val), display_width)
                         }
-                    }
+                    },
                     ConfigEntryStyle::Separator => unreachable!(), // Handled above
                 };
 
@@ -491,11 +469,8 @@ pub fn log_ready(service_name: &str) {
 pub fn private_key_hint(pem: &str) -> String {
     // Extract the base64 content from the PEM
     let lines: Vec<&str> = pem.lines().collect();
-    let base64_content: String = lines
-        .iter()
-        .filter(|line| !line.starts_with("-----"))
-        .copied()
-        .collect();
+    let base64_content: String =
+        lines.iter().filter(|line| !line.starts_with("-----")).copied().collect();
 
     if base64_content.len() > 8 {
         let start = &base64_content[..4];
@@ -542,10 +517,7 @@ pub fn print_generated_keypair(pem: &str, config_key: &str) {
     let title_right_pad = content_width.saturating_sub(title_left_pad + title.len());
 
     // Draw top border
-    println!(
-        "{yellow}╔{border}╗{reset}",
-        border = "═".repeat(content_width + 2)
-    );
+    println!("{yellow}╔{border}╗{reset}", border = "═".repeat(content_width + 2));
 
     // Draw title row
     println!(
@@ -555,10 +527,7 @@ pub fn print_generated_keypair(pem: &str, config_key: &str) {
     );
 
     // Draw separator
-    println!(
-        "{yellow}╠{border}╣{reset}",
-        border = "═".repeat(content_width + 2)
-    );
+    println!("{yellow}╠{border}╣{reset}", border = "═".repeat(content_width + 2));
 
     // Draw PEM lines
     for line in &pem_lines {
@@ -570,19 +539,11 @@ pub fn print_generated_keypair(pem: &str, config_key: &str) {
     }
 
     // Draw bottom border
-    println!(
-        "{yellow}╚{border}╝{reset}",
-        border = "═".repeat(content_width + 2)
-    );
+    println!("{yellow}╚{border}╝{reset}", border = "═".repeat(content_width + 2));
 
     // Log follow-up warnings
-    tracing::warn!(
-        "○ To persist this across restarts, add this key to your configuration"
-    );
-    tracing::warn!(
-        "  For more information, see https://inferadb.com/docs/?search={}",
-        config_key
-    );
+    tracing::warn!("○ To persist this across restarts, add this key to your configuration");
+    tracing::warn!("  For more information, see https://inferadb.com/docs/?search={}", config_key);
 
     // Print empty line after table
     println!();

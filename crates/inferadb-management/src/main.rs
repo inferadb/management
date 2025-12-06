@@ -3,8 +3,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use inferadb_management_api::ManagementIdentity;
-use inferadb_management_core::{ManagementConfig, WebhookClient, logging, startup};
-use inferadb_management_core::config::DiscoveryMode;
+use inferadb_management_core::{
+    ManagementConfig, WebhookClient, config::DiscoveryMode, logging, startup,
+};
 use inferadb_management_grpc::ServerApiClient;
 use inferadb_management_storage::factory::{StorageConfig, create_storage_backend};
 
@@ -72,11 +73,7 @@ async fn main() -> Result<()> {
     if !use_json {
         // Create the private key entry based on whether it's configured
         let private_key_entry = if let Some(ref pem) = config.identity.private_key_pem {
-            startup::ConfigEntry::new(
-                "Identity",
-                "Private Key",
-                startup::private_key_hint(pem),
-            )
+            startup::ConfigEntry::new("Identity", "Private Key", startup::private_key_hint(pem))
         } else {
             startup::ConfigEntry::warning("Identity", "Private Key", "○ Unassigned")
         };
@@ -105,10 +102,10 @@ async fn main() -> Result<()> {
         let discovery_entry = match config.discovery.mode {
             DiscoveryMode::None => {
                 startup::ConfigEntry::warning("Network", "Service Discovery", "○ Disabled")
-            }
+            },
             DiscoveryMode::Kubernetes | DiscoveryMode::Tailscale { .. } => {
                 startup::ConfigEntry::new("Network", "Service Discovery", "✓ Enabled")
-            }
+            },
         };
 
         startup::StartupDisplay::new(startup::ServiceInfo {
@@ -125,9 +122,21 @@ async fn main() -> Result<()> {
             // Storage
             startup::ConfigEntry::new("Storage", "Backend", &config.storage.backend),
             // Network
-            startup::ConfigEntry::new("Network", "Public API (REST)", format!("{}:{}", config.server.host, config.server.port)),
-            startup::ConfigEntry::new("Network", "Public API (gRPC)", format!("{}:{}", config.server.grpc_host, config.server.grpc_port)),
-            startup::ConfigEntry::new("Network", "Private API (REST)", format!("{}:{}", config.server.internal_host, config.server.internal_port)),
+            startup::ConfigEntry::new(
+                "Network",
+                "Public API (REST)",
+                format!("{}:{}", config.server.host, config.server.port),
+            ),
+            startup::ConfigEntry::new(
+                "Network",
+                "Public API (gRPC)",
+                format!("{}:{}", config.server.grpc_host, config.server.grpc_port),
+            ),
+            startup::ConfigEntry::new(
+                "Network",
+                "Private API (REST)",
+                format!("{}:{}", config.server.internal_host, config.server.internal_port),
+            ),
             startup::ConfigEntry::separator("Network"),
             policy_entry,
             discovery_entry,
