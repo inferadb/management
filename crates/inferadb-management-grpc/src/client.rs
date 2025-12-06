@@ -1,9 +1,9 @@
 use inferadb_management_types::Result;
 
-/// gRPC client for communicating with @server API
+/// gRPC client for communicating with policy service (server) API
 ///
-/// This is a stub implementation for Phase 5. In production, this would:
-/// - Connect to @server via gRPC
+/// This is a stub implementation. In production, this would:
+/// - Connect to policy service via gRPC with discovery
 /// - Authenticate using Client Assertion (JWT signed with system Ed25519 key)
 /// - Send CreateVault/DeleteVault RPCs
 /// - Handle retries and failures
@@ -11,13 +11,19 @@ use inferadb_management_types::Result;
 /// For now, all operations succeed immediately (mocked)
 pub struct ServerApiClient {
     #[allow(dead_code)]
-    endpoint: String,
+    grpc_url: String,
 }
 
 impl ServerApiClient {
     /// Create a new server API client
-    pub fn new(endpoint: String) -> Result<Self> {
-        Ok(Self { endpoint })
+    ///
+    /// # Arguments
+    ///
+    /// * `service_url` - Base service URL without port (e.g., "http://localhost")
+    /// * `grpc_port` - gRPC port for server communication (e.g., 8080)
+    pub fn new(service_url: String, grpc_port: u16) -> Result<Self> {
+        let grpc_url = format!("{}:{}", service_url.trim_end_matches('/'), grpc_port);
+        Ok(Self { grpc_url })
     }
 
     /// Create a vault on @server

@@ -8,13 +8,17 @@
 
 # Server configuration
 server:
-  # HTTP server binding
+  # Public REST API server binding
   host: "0.0.0.0"
-  port: 3000
+  port: 9090
 
-  # gRPC server binding
+  # Public gRPC API server binding
   grpc_host: "0.0.0.0"
-  grpc_port: 3001
+  grpc_port: 9091
+
+  # Internal/Private REST API server binding
+  internal_host: "0.0.0.0"
+  internal_port: 9092
 
   # Worker threads (recommended: number of CPU cores)
   worker_threads: 8
@@ -110,11 +114,20 @@ id_generation:
   # Example: ${WORKER_ID}
   worker_id: 0
 
-# Server API (InferaDB policy engine) configuration
-server_api:
-  # gRPC endpoint for policy engine
-  # In production, use TLS-enabled endpoint
-  grpc_endpoint: "https://policy-engine.example.com:8080"
+# Policy service (server) configuration
+# All server instances are discovered from this base URL + ports
+# In production with Kubernetes/Tailscale discovery, set discovery.mode appropriately
+policy_service:
+  # Base service URL (without port)
+  # For Kubernetes: use the k8s service name (e.g., "http://inferadb-server.inferadb")
+  # For direct connection: use the host (e.g., "https://policy-engine.example.com")
+  service_url: "https://policy-engine.example.com"
+
+  # gRPC port for policy engine communication
+  grpc_port: 8081
+
+  # Internal/Private HTTP port for webhooks and JWKS
+  internal_port: 8082
 
   # Enable TLS for policy engine communication
   tls_enabled: true

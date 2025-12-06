@@ -81,6 +81,26 @@ async fn main() -> Result<()> {
             startup::ConfigEntry::warning("Identity", "Private Key", "○ Unassigned")
         };
 
+        // Create policy service entry with discovery context
+        let policy_url = config.effective_internal_url();
+        let policy_entry = match &config.discovery.mode {
+            DiscoveryMode::None => startup::ConfigEntry::new(
+                "Network",
+                "Policy Service",
+                format!("{} (local)", policy_url),
+            ),
+            DiscoveryMode::Kubernetes => startup::ConfigEntry::new(
+                "Network",
+                "Policy Service",
+                format!("{} (kubernetes)", policy_url),
+            ),
+            DiscoveryMode::Tailscale { local_cluster, .. } => startup::ConfigEntry::new(
+                "Network",
+                "Policy Service",
+                format!("{} (tailscale:{})", policy_url, local_cluster),
+            ),
+        };
+
         // Create discovery mode entry
         let discovery_entry = match config.discovery.mode {
             DiscoveryMode::None => {
@@ -105,11 +125,11 @@ async fn main() -> Result<()> {
             // Storage
             startup::ConfigEntry::new("Storage", "Backend", &config.storage.backend),
             // Network
-            startup::ConfigEntry::new("Network", "Public API", format!("{}:{}", config.server.host, config.server.port)),
-            startup::ConfigEntry::new("Network", "Private API", format!("{}:{}", config.server.internal_host, config.server.internal_port)),
+            startup::ConfigEntry::new("Network", "Public API (REST)", format!("{}:{}", config.server.host, config.server.port)),
+            startup::ConfigEntry::new("Network", "Public API (gRPC)", format!("{}:{}", config.server.grpc_host, config.server.grpc_port)),
+            startup::ConfigEntry::new("Network", "Private API (REST)", format!("{}:{}", config.server.internal_host, config.server.internal_port)),
             startup::ConfigEntry::separator("Network"),
-            startup::ConfigEntry::new("Network", "Policy Service gRPC", &config.server_api.grpc_endpoint),
-            startup::ConfigEntry::new("Network", "Policy Service Internal", &config.cache_invalidation.server_internal_url),
+            policy_entry,
             discovery_entry,
             // Identity
             startup::ConfigEntry::new("Identity", "Service ID", &config.identity.service_id),
@@ -136,8 +156,11 @@ async fn main() -> Result<()> {
     let storage = Arc::new(create_storage_backend(&storage_config).await?);
     startup::log_initialized(&format!("Storage ({})", config.storage.backend));
 
-    // Server API client (for gRPC communication with @server)
-    let server_client = Arc::new(ServerApiClient::new(config.server_api.grpc_endpoint.clone())?);
+    // Server API client (for gRPC communication with policy service)
+    let server_client = Arc::new(ServerApiClient::new(
+        config.policy_service.service_url.clone(),
+        config.policy_service.grpc_port,
+    )?);
     startup::log_initialized("Policy Service client");
 
     // Management API identity for webhook authentication
@@ -162,9 +185,10 @@ async fn main() -> Result<()> {
     startup::log_initialized("Identity");
 
     // Webhook client for cache invalidation
-    // Always enabled - uses discovery mode to find server instances automatically
+    // Always enabled - uses discovery mode to find policy service (server) instances automatically
     let webhook_client = WebhookClient::new(
-        config.cache_invalidation.server_internal_url.clone(),
+        config.policy_service.service_url.clone(),
+        config.policy_service.internal_port,
         Arc::clone(&management_identity),
         config.cache_invalidation.timeout_ms,
         config.discovery.mode.clone(),

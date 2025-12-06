@@ -34,16 +34,16 @@ pub struct ManagementConfig {
     #[serde(default)]
     pub id_generation: IdGenerationConfig,
 
-    /// Server API configuration (for gRPC communication with @server)
+    /// Policy service (server) configuration
     #[serde(default)]
-    pub server_api: ServerApiConfig,
+    pub policy_service: PolicyServiceConfig,
 
     /// Identity configuration (for webhook authentication)
-    #[serde(default = "default_identity")]
+    #[serde(default)]
     pub identity: IdentityConfig,
 
     /// Cache invalidation webhook configuration
-    #[serde(default = "default_cache_invalidation")]
+    #[serde(default)]
     pub cache_invalidation: CacheInvalidationConfig,
 
     /// Service discovery configuration
@@ -230,15 +230,42 @@ pub struct IdGenerationConfig {
     pub worker_id: u16,
 }
 
-/// Server API configuration (for gRPC communication with @server)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ServerApiConfig {
-    /// gRPC endpoint for @server
-    pub grpc_endpoint: String,
+/// Policy service (server) configuration
+///
+/// This configuration controls how the management service discovers and connects to
+/// policy service (server) instances. Both gRPC and HTTP internal endpoints are
+/// derived from the same base URL with different ports.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PolicyServiceConfig {
+    /// gRPC port for server communication
+    /// Default: 8080
+    #[serde(default = "default_policy_grpc_port")]
+    pub grpc_port: u16,
+
+    /// Internal HTTP port for webhooks/JWKS
+    /// Default: 9090
+    #[serde(default = "default_policy_internal_port")]
+    pub internal_port: u16,
+
+    /// Service URL (base URL without port, used for discovery or direct connection)
+    /// e.g., "http://inferadb-server.inferadb" for K8s or "http://localhost" for dev
+    #[serde(default = "default_policy_service_url")]
+    pub service_url: String,
 
     /// Enable TLS for gRPC communication
     #[serde(default = "default_grpc_tls_enabled")]
     pub tls_enabled: bool,
+}
+
+impl Default for PolicyServiceConfig {
+    fn default() -> Self {
+        Self {
+            grpc_port: default_policy_grpc_port(),
+            internal_port: default_policy_internal_port(),
+            service_url: default_policy_service_url(),
+            tls_enabled: default_grpc_tls_enabled(),
+        }
+    }
 }
 
 /// Identity configuration
@@ -259,13 +286,6 @@ pub struct IdentityConfig {
 /// Cache invalidation webhook configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheInvalidationConfig {
-    /// Server internal API URL for cache invalidation webhooks
-    /// Used when discovery mode is None (development/single-instance)
-    /// When discovery is enabled (Kubernetes/Tailscale), this is used as a template
-    /// for the service URL pattern
-    #[serde(default = "default_server_internal_url")]
-    pub server_internal_url: String,
-
     /// Webhook request timeout in milliseconds
     #[serde(default = "default_webhook_timeout_ms")]
     pub timeout_ms: u64,
@@ -273,6 +293,15 @@ pub struct CacheInvalidationConfig {
     /// Number of retry attempts on webhook failure
     #[serde(default = "default_webhook_retry_attempts")]
     pub retry_attempts: u8,
+}
+
+impl Default for CacheInvalidationConfig {
+    fn default() -> Self {
+        Self {
+            timeout_ms: default_webhook_timeout_ms(),
+            retry_attempts: default_webhook_retry_attempts(),
+        }
+    }
 }
 
 /// Service discovery configuration
@@ -348,7 +377,7 @@ fn default_host() -> String {
 }
 
 fn default_port() -> u16 {
-    3000
+    9090
 }
 
 fn default_grpc_host() -> String {
@@ -356,7 +385,7 @@ fn default_grpc_host() -> String {
 }
 
 fn default_grpc_port() -> u16 {
-    3001
+    9091
 }
 
 fn default_internal_host() -> String {
@@ -364,7 +393,7 @@ fn default_internal_host() -> String {
 }
 
 fn default_internal_port() -> u16 {
-    9091 // Management internal server port (Server uses 9090)
+    9092 // Management internal/private server port
 }
 
 fn default_worker_threads() -> usize {
@@ -443,6 +472,18 @@ fn default_grpc_tls_enabled() -> bool {
     true
 }
 
+fn default_policy_grpc_port() -> u16 {
+    8081 // Server's public gRPC port
+}
+
+fn default_policy_internal_port() -> u16 {
+    8082 // Server's internal/private API port
+}
+
+fn default_policy_service_url() -> String {
+    "http://localhost".to_string() // Default for development
+}
+
 fn default_frontend_base_url() -> String {
     "http://localhost:3000".to_string()
 }
@@ -455,32 +496,18 @@ fn default_jwt_audience() -> String {
     "https://api.inferadb.com/evaluate".to_string()
 }
 
-fn default_identity() -> IdentityConfig {
-    IdentityConfig {
-        service_id: "management-primary".to_string(),
-        kid: "mgmt-2024-01".to_string(),
-        private_key_pem: None, // Auto-generate on startup
-    }
-}
-
-fn default_cache_invalidation() -> CacheInvalidationConfig {
-    CacheInvalidationConfig {
-        server_internal_url: default_server_internal_url(),
-        timeout_ms: 5000,  // 5 seconds
-        retry_attempts: 0, // Fire-and-forget (no retries)
+impl Default for IdentityConfig {
+    fn default() -> Self {
+        Self { service_id: default_service_id(), kid: default_kid(), private_key_pem: None }
     }
 }
 
 fn default_service_id() -> String {
-    "management-primary".to_string()
+    "management-service".to_string()
 }
 
 fn default_kid() -> String {
-    "mgmt-2024-01".to_string()
-}
-
-fn default_server_internal_url() -> String {
-    "http://localhost:9090".to_string() // Server's internal API port
+    "management-service".to_string()
 }
 
 fn default_webhook_timeout_ms() -> u64 {
@@ -552,12 +579,9 @@ impl Default for ManagementConfig {
                 otlp_endpoint: None,
             },
             id_generation: IdGenerationConfig { worker_id: default_worker_id() },
-            server_api: ServerApiConfig {
-                grpc_endpoint: "http://localhost:8080".to_string(),
-                tls_enabled: default_grpc_tls_enabled(),
-            },
-            identity: default_identity(),
-            cache_invalidation: default_cache_invalidation(),
+            policy_service: PolicyServiceConfig::default(),
+            identity: IdentityConfig::default(),
+            cache_invalidation: CacheInvalidationConfig::default(),
             discovery: DiscoveryConfig::default(),
             frontend_base_url: default_frontend_base_url(),
         }
@@ -565,6 +589,26 @@ impl Default for ManagementConfig {
 }
 
 impl ManagementConfig {
+    /// Get the effective gRPC URL for the policy service
+    ///
+    /// Combines `policy_service.service_url` with `policy_service.grpc_port`
+    /// to produce the full gRPC endpoint URL.
+    ///
+    /// Example: "http://localhost" + 8080 → "http://localhost:8080"
+    pub fn effective_grpc_url(&self) -> String {
+        format!("{}:{}", self.policy_service.service_url, self.policy_service.grpc_port)
+    }
+
+    /// Get the effective internal HTTP URL for the policy service
+    ///
+    /// Combines `policy_service.service_url` with `policy_service.internal_port`
+    /// to produce the full internal API endpoint URL.
+    ///
+    /// Example: "http://localhost" + 9090 → "http://localhost:9090"
+    pub fn effective_internal_url(&self) -> String {
+        format!("{}:{}", self.policy_service.service_url, self.policy_service.internal_port)
+    }
+
     /// Load configuration with layered precedence: defaults → file → env vars
     ///
     /// This function implements a proper configuration hierarchy:
@@ -674,22 +718,6 @@ impl ManagementConfig {
             );
         }
 
-        // Validate cache_invalidation.server_internal_url format
-        if !self.cache_invalidation.server_internal_url.starts_with("http://")
-            && !self.cache_invalidation.server_internal_url.starts_with("https://")
-        {
-            return Err(Error::Config(format!(
-                "cache_invalidation.server_internal_url must start with http:// or https://, got: {}",
-                self.cache_invalidation.server_internal_url
-            )));
-        }
-        if self.cache_invalidation.server_internal_url.ends_with('/') {
-            return Err(Error::Config(format!(
-                "cache_invalidation.server_internal_url must not end with trailing slash: {}",
-                self.cache_invalidation.server_internal_url
-            )));
-        }
-
         // Validate cache_invalidation.timeout_ms is reasonable
         if self.cache_invalidation.timeout_ms == 0 {
             return Err(Error::Config(
@@ -718,12 +746,17 @@ impl ManagementConfig {
             ));
         }
 
-        // Validate server_api.grpc_endpoint format
-        if !self.server_api.grpc_endpoint.starts_with("http://")
-            && !self.server_api.grpc_endpoint.starts_with("https://")
+        // Validate policy_service.service_url format
+        if !self.policy_service.service_url.starts_with("http://")
+            && !self.policy_service.service_url.starts_with("https://")
         {
             return Err(Error::Config(
-                "server_api.grpc_endpoint must start with http:// or https://".to_string(),
+                "policy_service.service_url must start with http:// or https://".to_string(),
+            ));
+        }
+        if self.policy_service.service_url.ends_with('/') {
+            return Err(Error::Config(
+                "policy_service.service_url must not end with trailing slash".to_string(),
             ));
         }
 
@@ -754,8 +787,9 @@ mod tests {
     #[test]
     fn test_config_defaults() {
         assert_eq!(default_host(), "127.0.0.1");
-        assert_eq!(default_port(), 3000);
-        assert_eq!(default_grpc_port(), 3001);
+        assert_eq!(default_port(), 9090);
+        assert_eq!(default_grpc_port(), 9091);
+        assert_eq!(default_internal_port(), 9092);
         assert_eq!(default_storage_backend(), "memory");
         assert_eq!(default_password_min_length(), 12);
         assert_eq!(default_max_sessions_per_user(), 10);
@@ -763,62 +797,10 @@ mod tests {
 
     #[test]
     fn test_worker_id_validation() {
-        let mut config = ManagementConfig {
-            server: ServerConfig {
-                host: default_host(),
-                port: default_port(),
-                internal_host: default_internal_host(),
-                internal_port: default_internal_port(),
-                grpc_host: default_grpc_host(),
-                grpc_port: default_grpc_port(),
-                worker_threads: default_worker_threads(),
-            },
-            storage: StorageConfig { backend: "memory".to_string(), fdb_cluster_file: None },
-            auth: AuthConfig {
-                session_ttl_web: default_session_ttl_web(),
-                session_ttl_cli: default_session_ttl_cli(),
-                session_ttl_sdk: default_session_ttl_sdk(),
-                password_min_length: default_password_min_length(),
-                max_sessions_per_user: default_max_sessions_per_user(),
-                webauthn: WebAuthnConfig {
-                    rp_id: "localhost".to_string(),
-                    rp_name: default_rp_name(),
-                    origin: "http://localhost:3000".to_string(),
-                },
-                key_encryption_secret: Some("test-secret".to_string()),
-                jwt_issuer: default_jwt_issuer(),
-                jwt_audience: default_jwt_audience(),
-            },
-            email: EmailConfig {
-                smtp_host: "localhost".to_string(),
-                smtp_port: default_smtp_port(),
-                smtp_username: None,
-                smtp_password: None,
-                from_email: "noreply@inferadb.com".to_string(),
-                from_name: default_from_name(),
-            },
-            rate_limiting: RateLimitingConfig {
-                login_attempts_per_ip_per_hour: default_login_attempts_per_ip_per_hour(),
-                registrations_per_ip_per_day: default_registrations_per_ip_per_day(),
-                email_verification_tokens_per_hour: default_email_verification_tokens_per_hour(),
-                password_reset_tokens_per_hour: default_password_reset_tokens_per_hour(),
-            },
-            observability: ObservabilityConfig {
-                log_level: default_log_level(),
-                metrics_enabled: default_metrics_enabled(),
-                tracing_enabled: default_tracing_enabled(),
-                otlp_endpoint: None,
-            },
-            id_generation: IdGenerationConfig { worker_id: 0 },
-            server_api: ServerApiConfig {
-                grpc_endpoint: "http://localhost:8080".to_string(),
-                tls_enabled: false,
-            },
-            identity: default_identity(),
-            cache_invalidation: default_cache_invalidation(),
-            discovery: DiscoveryConfig::default(),
-            frontend_base_url: default_frontend_base_url(),
-        };
+        let mut config = ManagementConfig::default();
+        config.auth.webauthn.rp_id = "localhost".to_string();
+        config.auth.webauthn.origin = "http://localhost:3000".to_string();
+        config.auth.key_encryption_secret = Some("test-secret".to_string());
 
         // Valid worker ID
         assert!(config.validate().is_ok());
@@ -830,62 +812,11 @@ mod tests {
 
     #[test]
     fn test_storage_backend_validation() {
-        let mut config = ManagementConfig {
-            server: ServerConfig {
-                host: default_host(),
-                port: default_port(),
-                internal_host: default_internal_host(),
-                internal_port: default_internal_port(),
-                grpc_host: default_grpc_host(),
-                grpc_port: default_grpc_port(),
-                worker_threads: default_worker_threads(),
-            },
-            storage: StorageConfig { backend: "invalid".to_string(), fdb_cluster_file: None },
-            auth: AuthConfig {
-                session_ttl_web: default_session_ttl_web(),
-                session_ttl_cli: default_session_ttl_cli(),
-                session_ttl_sdk: default_session_ttl_sdk(),
-                password_min_length: default_password_min_length(),
-                max_sessions_per_user: default_max_sessions_per_user(),
-                webauthn: WebAuthnConfig {
-                    rp_id: "localhost".to_string(),
-                    rp_name: default_rp_name(),
-                    origin: "http://localhost:3000".to_string(),
-                },
-                key_encryption_secret: Some("test-secret".to_string()),
-                jwt_issuer: default_jwt_issuer(),
-                jwt_audience: default_jwt_audience(),
-            },
-            email: EmailConfig {
-                smtp_host: "localhost".to_string(),
-                smtp_port: default_smtp_port(),
-                smtp_username: None,
-                smtp_password: None,
-                from_email: "noreply@inferadb.com".to_string(),
-                from_name: default_from_name(),
-            },
-            rate_limiting: RateLimitingConfig {
-                login_attempts_per_ip_per_hour: default_login_attempts_per_ip_per_hour(),
-                registrations_per_ip_per_day: default_registrations_per_ip_per_day(),
-                email_verification_tokens_per_hour: default_email_verification_tokens_per_hour(),
-                password_reset_tokens_per_hour: default_password_reset_tokens_per_hour(),
-            },
-            observability: ObservabilityConfig {
-                log_level: default_log_level(),
-                metrics_enabled: default_metrics_enabled(),
-                tracing_enabled: default_tracing_enabled(),
-                otlp_endpoint: None,
-            },
-            id_generation: IdGenerationConfig { worker_id: 0 },
-            server_api: ServerApiConfig {
-                grpc_endpoint: "http://localhost:8080".to_string(),
-                tls_enabled: false,
-            },
-            identity: default_identity(),
-            cache_invalidation: default_cache_invalidation(),
-            discovery: DiscoveryConfig::default(),
-            frontend_base_url: default_frontend_base_url(),
-        };
+        let mut config = ManagementConfig::default();
+        config.auth.webauthn.rp_id = "localhost".to_string();
+        config.auth.webauthn.origin = "http://localhost:3000".to_string();
+        config.auth.key_encryption_secret = Some("test-secret".to_string());
+        config.storage.backend = "invalid".to_string();
 
         // Invalid storage backend
         assert!(config.validate().is_err());
@@ -897,5 +828,19 @@ mod tests {
         config.storage.backend = "foundationdb".to_string();
         config.storage.fdb_cluster_file = Some("/path/to/fdb.cluster".to_string());
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_effective_urls() {
+        let config = ManagementConfig::default();
+        assert_eq!(config.effective_grpc_url(), "http://localhost:8081");
+        assert_eq!(config.effective_internal_url(), "http://localhost:8082");
+
+        let mut config = ManagementConfig::default();
+        config.policy_service.service_url = "http://inferadb-server.inferadb".to_string();
+        config.policy_service.grpc_port = 9000;
+        config.policy_service.internal_port = 9191;
+        assert_eq!(config.effective_grpc_url(), "http://inferadb-server.inferadb:9000");
+        assert_eq!(config.effective_internal_url(), "http://inferadb-server.inferadb:9191");
     }
 }

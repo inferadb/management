@@ -68,8 +68,8 @@ impl WebhookClient {
     ///
     /// # Arguments
     ///
-    /// * `server_internal_url` - Server internal API URL (e.g., "http://localhost:9090")
-    ///   Used directly when discovery is None, or as a template for service discovery
+    /// * `service_url` - Base service URL without port (e.g., "http://localhost" or "http://inferadb-server.inferadb")
+    /// * `internal_port` - Internal API port for webhooks (e.g., 9090)
     /// * `management_identity` - Management identity for signing webhook JWTs
     /// * `timeout_ms` - Request timeout in milliseconds (default: 5000)
     /// * `discovery_mode` - Service discovery mode (None, Kubernetes, or Tailscale)
@@ -84,7 +84,8 @@ impl WebhookClient {
     ///
     /// let identity = Arc::new(ManagementIdentity::generate("mgmt-1".to_string(), "key-1".to_string()));
     /// let client = WebhookClient::new(
-    ///     "http://localhost:9090".to_string(),
+    ///     "http://localhost".to_string(),
+    ///     9090,
     ///     identity,
     ///     5000,
     ///     DiscoveryMode::None,
@@ -92,7 +93,8 @@ impl WebhookClient {
     /// ).unwrap();
     /// ```
     pub fn new(
-        server_internal_url: String,
+        service_url: String,
+        internal_port: u16,
         management_identity: Arc<ManagementIdentity>,
         timeout_ms: u64,
         discovery_mode: DiscoveryMode,
@@ -104,14 +106,15 @@ impl WebhookClient {
             .build()
             .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
-        let url = url::Url::parse(&server_internal_url)
-            .map_err(|e| format!("Invalid server internal URL: {}", e))?;
+        // Parse the base service URL to extract host
+        let url = url::Url::parse(&service_url)
+            .map_err(|e| format!("Invalid service URL: {}", e))?;
 
         let service_host =
-            url.host_str().ok_or_else(|| "No host in server internal URL".to_string())?;
-        let service_port = url
-            .port_or_known_default()
-            .ok_or_else(|| "No port in server internal URL".to_string())?;
+            url.host_str().ok_or_else(|| "No host in service URL".to_string())?;
+
+        // Construct the full internal URL
+        let server_internal_url = format!("{}:{}", service_url.trim_end_matches('/'), internal_port);
 
         let internal_discovery_mode = match discovery_mode {
             DiscoveryMode::None => {
@@ -132,17 +135,17 @@ impl WebhookClient {
                 info!(
                     service_name = %service_name,
                     namespace = %namespace,
-                    port = service_port,
-                    "Configured Kubernetes service discovery"
+                    port = internal_port,
+                    "Configured Kubernetes service discovery for webhooks"
                 );
 
-                InternalDiscoveryMode::Kubernetes { service_name, namespace, port: service_port }
+                InternalDiscoveryMode::Kubernetes { service_name, namespace, port: internal_port }
             }
             DiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
                 info!(
                     local_cluster = %local_cluster,
                     remote_cluster_count = remote_clusters.len(),
-                    "Configured Tailscale multi-region discovery"
+                    "Configured Tailscale multi-region discovery for webhooks"
                 );
 
                 InternalDiscoveryMode::Tailscale { local_cluster, remote_clusters }
@@ -960,7 +963,8 @@ mod tests {
         let identity =
             Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
         let client = WebhookClient::new(
-            "http://localhost:8080".to_string(),
+            "http://localhost".to_string(),
+            9090,
             identity,
             5000,
             DiscoveryMode::None,
@@ -976,7 +980,8 @@ mod tests {
 
         // Test with DiscoveryMode::None
         let client = WebhookClient::new(
-            "http://localhost:8080".to_string(),
+            "http://localhost".to_string(),
+            9090,
             identity.clone(),
             5000,
             DiscoveryMode::None,
@@ -986,7 +991,8 @@ mod tests {
 
         // Test with DiscoveryMode::Kubernetes
         let client = WebhookClient::new(
-            "http://inferadb-server:8080".to_string(),
+            "http://inferadb-server".to_string(),
+            9090,
             identity,
             5000,
             DiscoveryMode::Kubernetes,
@@ -1029,7 +1035,8 @@ mod tests {
             Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
 
         let client = WebhookClient::new(
-            "http://server1:8080".to_string(),
+            "http://server1".to_string(),
+            9090,
             identity,
             5000,
             DiscoveryMode::None,
@@ -1039,11 +1046,11 @@ mod tests {
 
         // First call should cache
         let result1 = client.get_endpoints().await;
-        assert_eq!(result1, vec!["http://server1:8080".to_string()]);
+        assert_eq!(result1, vec!["http://server1:9090".to_string()]);
 
         // Second call should use cache (same result)
         let result2 = client.get_endpoints().await;
-        assert_eq!(result2, vec!["http://server1:8080".to_string()]);
+        assert_eq!(result2, vec!["http://server1:9090".to_string()]);
     }
 
     #[tokio::test]
@@ -1053,7 +1060,8 @@ mod tests {
 
         // With static discovery, we get a single endpoint
         let client = WebhookClient::new(
-            "http://server1:8080".to_string(),
+            "http://server1".to_string(),
+            9090,
             identity,
             5000,
             DiscoveryMode::None,
@@ -1071,7 +1079,8 @@ mod tests {
 
         // Simple service name
         let client = WebhookClient::new(
-            "http://inferadb-server:8080".to_string(),
+            "http://inferadb-server".to_string(),
+            9090,
             identity.clone(),
             5000,
             DiscoveryMode::Kubernetes,
@@ -1081,7 +1090,8 @@ mod tests {
 
         // Service with namespace
         let client = WebhookClient::new(
-            "http://inferadb-server.default:8080".to_string(),
+            "http://inferadb-server.default".to_string(),
+            9090,
             identity.clone(),
             5000,
             DiscoveryMode::Kubernetes,
@@ -1091,7 +1101,8 @@ mod tests {
 
         // Full FQDN
         let client = WebhookClient::new(
-            "http://inferadb-server.default.svc.cluster.local:8080".to_string(),
+            "http://inferadb-server.default.svc.cluster.local".to_string(),
+            9090,
             identity,
             5000,
             DiscoveryMode::Kubernetes,

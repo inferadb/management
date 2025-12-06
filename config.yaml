@@ -1,24 +1,23 @@
 # InferaDB Management API Configuration
 
 # Frontend base URL for email verification and password reset links
-# Development: http://localhost:3000
+# Development: http://localhost:9090
 # Production: https://app.inferadb.com
-frontend_base_url: "http://localhost:3000"
+frontend_base_url: "http://localhost:9090"
 
 server:
-  # Public server (client-facing traffic - web, CLI, SDK)
+  # Public REST API server (client-facing traffic - web, CLI, SDK)
   host: "127.0.0.1"
-  port: 3000
+  port: 9090
 
-  # Internal server (server-to-server communication)
-  # Always enabled for network-level security isolation
+  # Public gRPC API server
+  grpc_host: "127.0.0.1"
+  grpc_port: 9091
+
+  # Internal/Private REST API server (server-to-server communication)
   # Runs a separate HTTP server for internal endpoints (JWKS)
   internal_host: "0.0.0.0"
-  internal_port: 9091 # Server uses 9090, Management uses 9091
-
-  # gRPC server configuration
-  grpc_host: "127.0.0.1"
-  grpc_port: 3001
+  internal_port: 9092
 
   worker_threads: 4
 
@@ -37,7 +36,7 @@ auth:
   webauthn:
     rp_id: "localhost"
     rp_name: "InferaDB"
-    origin: "http://localhost:3000"
+    origin: "http://localhost:9090"
   # Set via environment variable: INFERADB_MGMT__AUTH__KEY_ENCRYPTION_SECRET
   # key_encryption_secret: "your-secret-key-here"
 
@@ -64,6 +63,10 @@ observability:
 id_generation:
   worker_id: 0
 
-server_api:
-  grpc_endpoint: "http://localhost:8080"
+# Policy service (server) configuration
+# All server instances are discovered from this base URL + ports
+policy_service:
+  service_url: "http://localhost"
+  grpc_port: 8081
+  internal_port: 8082
   tls_enabled: false

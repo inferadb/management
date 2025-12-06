@@ -195,13 +195,15 @@ id_generation:
   worker_id: 0
   max_clock_skew_ms: 1000
 
-server_api:
-  grpc_endpoint: "http://localhost:8080"
+policy_service:
+  service_url: "http://localhost"
+  grpc_port: 8080
+  internal_port: 9090
   tls_enabled: false
 "#;
 
         let config: ManagementConfig = serde_yaml::from_str(config_str).unwrap();
-        let server_client = ServerApiClient::new("http://localhost:8080".to_string()).unwrap();
+        let server_client = ServerApiClient::new("http://localhost".to_string(), 8080).unwrap();
 
         // Create mock email service for testing
         let email_sender = Box::new(inferadb_management_core::MockEmailSender::new());

@@ -1,13 +1,21 @@
 # InferaDB Management API Configuration - Integration Tests
 # This config is optimized for Docker container E2E testing
 
-frontend_base_url: "http://localhost:3000"
+frontend_base_url: "http://localhost:9090"
 
 server:
+  # Public REST API server
   host: "0.0.0.0" # Bind to all interfaces for Docker
-  port: 8081 # Match docker-compose exposed port
+  port: 9090
+
+  # Public gRPC API server
   grpc_host: "0.0.0.0"
-  grpc_port: 8082
+  grpc_port: 9091
+
+  # Internal/Private REST API server
+  internal_host: "0.0.0.0"
+  internal_port: 9092
+
   worker_threads: 2 # Reduced for test environment
 
 storage:
@@ -23,7 +31,7 @@ auth:
   webauthn:
     rp_id: "localhost"
     rp_name: "InferaDB Test"
-    origin: "http://localhost:3000"
+    origin: "http://localhost:9090"
 
 email:
   smtp_host: "localhost"
@@ -45,8 +53,12 @@ observability:
 id_generation:
   worker_id: 0
 
-server_api:
-  grpc_endpoint: "http://server:8080" # Docker service name
+# Policy service (server) configuration for Kubernetes
+# Discovery mode discovers all server pod IPs
+policy_service:
+  service_url: "http://inferadb-server.inferadb"
+  grpc_port: 8081
+  internal_port: 8082
   tls_enabled: false
 
 identity:
@@ -54,7 +66,6 @@ identity:
   kid: "mgmt-test-2024"
 
 cache_invalidation:
-  server_internal_url: "http://inferadb-server.inferadb:9090"
   timeout_ms: 5000
   retry_attempts: 0
 
