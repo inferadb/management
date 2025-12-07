@@ -71,4 +71,4 @@ cache_invalidation:
 discovery:
   mode:
     type: kubernetes
-  cache_ttl_seconds: 30
+  cache_ttl: 30

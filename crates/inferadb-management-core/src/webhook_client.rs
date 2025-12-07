@@ -51,14 +51,14 @@ pub struct WebhookClient {
     /// Cached discovered endpoints
     endpoint_cache: Arc<RwLock<Option<CachedEndpoints>>>,
     /// Cache TTL in seconds
-    cache_ttl_seconds: u64,
+    cache_ttl: u64,
 }
 
 impl std::fmt::Debug for WebhookClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WebhookClient")
             .field("discovery_mode", &self.discovery_mode)
-            .field("cache_ttl_seconds", &self.cache_ttl_seconds)
+            .field("cache_ttl", &self.cache_ttl)
             .finish()
     }
 }
@@ -73,7 +73,7 @@ impl WebhookClient {
     /// * `management_identity` - Management identity for signing webhook JWTs
     /// * `timeout_ms` - Request timeout in milliseconds (default: 5000)
     /// * `discovery_mode` - Service discovery mode (None, Kubernetes, or Tailscale)
-    /// * `cache_ttl_seconds` - Cache TTL for discovered endpoints (default: 300)
+    /// * `cache_ttl` - Cache TTL for discovered endpoints in seconds (default: 300)
     ///
     /// # Example
     ///
@@ -98,7 +98,7 @@ impl WebhookClient {
         management_identity: Arc<ManagementIdentity>,
         timeout_ms: u64,
         discovery_mode: DiscoveryMode,
-        cache_ttl_seconds: u64,
+        cache_ttl: u64,
     ) -> Result<Self, String> {
         let http_client = HttpClient::builder()
             .timeout(Duration::from_millis(timeout_ms))
@@ -157,7 +157,7 @@ impl WebhookClient {
             discovery_mode: internal_discovery_mode,
             management_identity,
             endpoint_cache: Arc::new(RwLock::new(None)),
-            cache_ttl_seconds,
+            cache_ttl,
         })
     }
 
@@ -237,7 +237,7 @@ impl WebhookClient {
             *cache = Some(CachedEndpoints {
                 endpoints: endpoints.clone(),
                 cached_at: Instant::now(),
-                ttl: Duration::from_secs(self.cache_ttl_seconds),
+                ttl: Duration::from_secs(self.cache_ttl),
             });
         }
 

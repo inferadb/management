@@ -3429,7 +3429,7 @@ server_api:
 ```yaml
 management_auth:
   jwks_url: "https://management.inferadb.com/.well-known/system-jwks.json"
-  jwks_cache_ttl_seconds: 300 # 5 minutes
+  jwks_cache_ttl: 300 # 5 minutes
   allowed_issuers: ["inferadb-management"]
   required_audience: "inferadb-server"
 
@@ -3463,7 +3463,7 @@ server_api:
 ```yaml
 management_auth:
   jwks_url: "http://localhost:3000/.well-known/system-jwks.json"
-  jwks_cache_ttl_seconds: 60 # Shorter cache for faster development iteration
+  jwks_cache_ttl: 60 # Shorter cache for faster development iteration
   jti_replay_protection:
     enabled: false # Can be disabled in dev for faster iteration (NOT SAFE for production)
 ```

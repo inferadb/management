@@ -93,9 +93,7 @@ policy_service:
   internal_port: 8082
   tls_enabled: false
 
-identity:
-  service_id: "management-service"
-  kid: "management-service"
+identity: {}
 
 cache_invalidation:
   timeout_ms: 5000
@@ -104,7 +102,7 @@ cache_invalidation:
 discovery:
   mode:
     type: none
-  cache_ttl_seconds: 300
+  cache_ttl: 300
 ```
 
 **Load configuration file**:
@@ -571,34 +569,35 @@ Controls Management API identity for service-to-service authentication.
 
 ### Options
 
-| Option            | Type              | Default                | Description                       |
-| ----------------- | ----------------- | ---------------------- | --------------------------------- |
-| `service_id`      | string            | `"management-service"` | Service ID for JWT subject claim  |
-| `kid`             | string            | `"management-service"` | Key ID (kid) for JWKS             |
-| `private_key_pem` | string (optional) | `null`                 | Ed25519 private key in PEM format |
+| Option            | Type              | Default | Description                                                   |
+| ----------------- | ----------------- | ------- | ------------------------------------------------------------- |
+| `private_key_pem` | string (optional) | `null`  | Ed25519 private key in PEM format (auto-generated if not set) |
 
 ### Example
 
 ```yaml
 identity:
-  service_id: "management-service"
-  kid: "management-2024"
   private_key_pem: "${MANAGEMENT_PRIVATE_KEY}"
+```
+
+Or with no configuration (all values auto-generated):
+
+```yaml
+identity: {}
 ```
 
 ### Environment Variables
 
 ```bash
-export INFERADB_MGMT__IDENTITY__SERVICE_ID="management-service"
-export INFERADB_MGMT__IDENTITY__KID="management-2024"
 export INFERADB_MGMT__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..."
 ```
 
-### Notes
+### Recommendations
 
-- If `private_key_pem` is not provided, a key is auto-generated on startup
-- Auto-generated keys are not recommended for production (not persistent across restarts)
-- The public key is exposed at the internal JWKS endpoint for servers to validate
+- In production, always provide `private_key_pem` rather than relying on auto-generation
+- Use Kubernetes secrets or a secret manager for the private key
+- The `kid` is deterministically derived from the public key (RFC 7638), so it remains consistent when using the same private key
+- The `management_id` is auto-generated from the hostname (Kubernetes pod name or hostname + random suffix)
 
 ## Cache Invalidation Configuration
 
@@ -641,9 +640,9 @@ Controls service discovery for multi-node deployments.
 | Option                          | Type    | Default | Description                        |
 | ------------------------------- | ------- | ------- | ---------------------------------- |
 | `mode`                          | object  | `none`  | Discovery mode configuration       |
-| `cache_ttl_seconds`             | integer | `300`   | Cache TTL for discovered endpoints |
+| `cache_ttl`             | integer | `300`   | Cache TTL for discovered endpoints |
 | `enable_health_check`           | boolean | `false` | Enable health checking             |
-| `health_check_interval_seconds` | integer | `30`    | Health check interval              |
+| `health_check_interval`         | integer | `30`    | Health check interval (seconds)    |
 
 ### Discovery Modes
 
@@ -665,9 +664,9 @@ Discover pod IPs via Kubernetes service:
 discovery:
   mode:
     type: kubernetes
-  cache_ttl_seconds: 30
+  cache_ttl: 30
   enable_health_check: true
-  health_check_interval_seconds: 10
+  health_check_interval: 10
 ```
 
 #### Tailscale
@@ -777,9 +776,7 @@ policy_service:
   internal_port: 8082
   tls_enabled: false
 
-identity:
-  service_id: "management-dev"
-  kid: "dev-key"
+identity: {}
 
 cache_invalidation:
   timeout_ms: 5000
@@ -853,8 +850,6 @@ policy_service:
   tls_enabled: false
 
 identity:
-  service_id: "management-service"
-  kid: "management-prod-2024"
   private_key_pem: "${MANAGEMENT_PRIVATE_KEY}"
 
 cache_invalidation:
@@ -864,7 +859,7 @@ cache_invalidation:
 discovery:
   mode:
     type: kubernetes
-  cache_ttl_seconds: 30
+  cache_ttl: 30
   enable_health_check: true
 ```
 
@@ -925,9 +920,7 @@ policy_service:
   internal_port: 8082
   tls_enabled: false
 
-identity:
-  service_id: "management-integration-test"
-  kid: "mgmt-test-2024"
+identity: {}
 
 cache_invalidation:
   timeout_ms: 5000
@@ -936,7 +929,7 @@ cache_invalidation:
 discovery:
   mode:
     type: kubernetes
-  cache_ttl_seconds: 30
+  cache_ttl: 30
 ```
 
 ## Secrets Management
@@ -1029,8 +1022,7 @@ The Management API validates configuration at startup with clear error messages.
 
 **Identity**:
 
-- `service_id` cannot be empty
-- `kid` cannot be empty
+- `private_key_pem` is optional (auto-generated if not set)
 
 **Cache Invalidation**:
 

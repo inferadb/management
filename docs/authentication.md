@@ -1155,38 +1155,34 @@ The Server API uses an Ed25519 keypair as its identity:
 **Development Mode** (auto-generation):
 
 ```yaml
-auth:
-  management_api_url: "http://localhost:8081"
-  # Omit server_identity_private_key to auto-generate
-  server_identity_kid: "server-primary-2024"
-  server_id: "inferadb-server-dev"
+identity: {}
+
+management_service:
+  service_url: "http://localhost:8081"
 ```
 
 On startup without a configured key, the server will:
 
 1. Generate a new Ed25519 keypair
-2. Log the PEM-encoded private key (WARNING level)
+2. Log the PEM-encoded private key
 3. Use this key for the current session
 4. Expose the public key via JWKS endpoint
 
 **Production Mode** (configured key):
 
 ```yaml
-auth:
-  management_api_url: "https://management.example.com"
-  server_identity_private_key: |
-    -----BEGIN PRIVATE KEY-----
-    MC4CAQAwBQYDK2VwBCIEIJ+DYvh6SEqVTm50DFtMDoQikTmiCqirVv9mWG9qfSnF
-    -----END PRIVATE KEY-----
-  server_identity_kid: "server-primary-2024"
-  server_id: "inferadb-server-prod-us-east-1"
+identity:
+  private_key_pem: "${SERVER_PRIVATE_KEY}"
+
+management_service:
+  service_url: "https://management.example.com"
 ```
 
 Key management best practices:
 
 - Store private keys in secure secret management (Vault, AWS Secrets Manager, etc.)
-- Use unique `server_id` per deployment/region
-- Rotate keys periodically (update `kid` when rotating)
+- The `server_id` is auto-generated from the hostname (Kubernetes pod name or hostname + random suffix)
+- The `kid` is deterministically derived from the public key (RFC 7638), so it remains consistent when using the same private key
 - Never commit private keys to version control
 
 ### Server JWT Claims Structure
@@ -1248,7 +1244,7 @@ Response:
 
 - **kty**: Key type (always "OKP" for Ed25519)
 - **alg**: Algorithm (always "EdDSA" for Ed25519 signatures)
-- **kid**: Key identifier (matches server_identity_kid config)
+- **kid**: Key identifier (RFC 7638 JWK Thumbprint, derived from public key)
 - **crv**: Curve name (always "Ed25519")
 - **x**: Base64url-encoded public key (32 bytes)
 - **use**: Key usage (always "sig" for signature)
@@ -1385,10 +1381,10 @@ if cert.revoked {
 **Key Rotation**:
 
 - Generate new Ed25519 keypair
-- Update configuration with new private key
-- Change `server_identity_kid` to new value
+- Update configuration with new `private_key_pem`
+- The `kid` will automatically change (it's derived from the public key via RFC 7638)
 - Deploy updated configuration
-- Old JWKS entries expire from Management API cache (15 min)
+- Old JWKS entries expire from cache (based on `jwks_cache_ttl`)
 
 **Threat Model**:
 

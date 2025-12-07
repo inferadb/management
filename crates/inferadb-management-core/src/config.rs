@@ -296,7 +296,7 @@ pub struct DiscoveryConfig {
 
     /// Cache TTL for discovered endpoints (in seconds)
     #[serde(default = "default_discovery_cache_ttl")]
-    pub cache_ttl_seconds: u64,
+    pub cache_ttl: u64,
 
     /// Whether to enable health checking of endpoints
     #[serde(default = "default_discovery_health_check")]
@@ -304,16 +304,16 @@ pub struct DiscoveryConfig {
 
     /// Health check interval (in seconds)
     #[serde(default = "default_discovery_health_check_interval")]
-    pub health_check_interval_seconds: u64,
+    pub health_check_interval: u64,
 }
 
 impl Default for DiscoveryConfig {
     fn default() -> Self {
         Self {
             mode: DiscoveryMode::None,
-            cache_ttl_seconds: default_discovery_cache_ttl(),
+            cache_ttl: default_discovery_cache_ttl(),
             enable_health_check: default_discovery_health_check(),
-            health_check_interval_seconds: default_discovery_health_check_interval(),
+            health_check_interval: default_discovery_health_check_interval(),
         }
     }
 }
