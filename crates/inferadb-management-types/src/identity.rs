@@ -5,16 +5,20 @@
 
 use std::sync::Arc;
 
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Management API identity containing Ed25519 keypair for signing JWTs
 #[derive(Clone)]
 pub struct ManagementIdentity {
     /// Management API ID (used in JWT sub claim as "management:{management_id}")
+    /// Auto-generated from environment (pod name or hostname)
     pub management_id: String,
-    /// Key ID for JWKS
+    /// Key ID for JWKS (RFC 7638 JWK Thumbprint)
+    /// Auto-generated as SHA-256 hash of the canonical JWK representation
     pub kid: String,
     /// Ed25519 signing key (private key)
     signing_key: SigningKey,
@@ -64,8 +68,8 @@ pub struct Jwk {
 }
 
 impl ManagementIdentity {
-    /// Generate a new management identity with a random Ed25519 keypair
-    pub fn generate(management_id: String, kid: String) -> Self {
+    /// Generate a new management identity with a random Ed25519 keypair.
+    pub fn generate() -> Self {
         use rand::RngCore;
 
         let mut rng = rand::rng();
@@ -75,11 +79,14 @@ impl ManagementIdentity {
         let signing_key = SigningKey::from_bytes(&secret_bytes);
         let verifying_key = signing_key.verifying_key();
 
+        let management_id = Self::generate_management_id();
+        let kid = Self::generate_kid(&verifying_key);
+
         Self { management_id, kid, signing_key, verifying_key }
     }
 
-    /// Create management identity from an existing Ed25519 private key (PEM format)
-    pub fn from_pem(management_id: String, kid: String, pem: &str) -> Result<Self, String> {
+    /// Create management identity from an existing Ed25519 private key (PEM format).
+    pub fn from_pem(pem: &str) -> Result<Self, String> {
         // Parse PEM to extract the private key bytes
         let pem = pem::parse(pem).map_err(|e| format!("Failed to parse PEM: {}", e))?;
 
@@ -101,7 +108,51 @@ impl ManagementIdentity {
         let signing_key = SigningKey::from_bytes(&private_key_bytes);
         let verifying_key = signing_key.verifying_key();
 
+        let management_id = Self::generate_management_id();
+        let kid = Self::generate_kid(&verifying_key);
+
         Ok(Self { management_id, kid, signing_key, verifying_key })
+    }
+
+    /// Generate the management_id from the environment.
+    ///
+    /// In Kubernetes, uses the pod name from HOSTNAME.
+    /// Otherwise, uses hostname + random suffix.
+    fn generate_management_id() -> String {
+        // Try Kubernetes pod name first (HOSTNAME env var)
+        if let Ok(pod_name) = std::env::var("HOSTNAME") {
+            // In Kubernetes, HOSTNAME is typically the pod name (e.g., "inferadb-management-0")
+            return format!("mgmt-{}", pod_name);
+        }
+
+        // Fallback to hostname + random suffix for non-Kubernetes environments
+        let hostname = hostname::get()
+            .map(|h| h.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "unknown".to_string());
+        let random_suffix = &uuid::Uuid::new_v4().to_string()[..8];
+        format!("mgmt-{}-{}", hostname, random_suffix)
+    }
+
+    /// Generate the kid as an RFC 7638 JWK Thumbprint.
+    ///
+    /// For Ed25519 (OKP) keys, the canonical JWK representation is:
+    /// `{"crv":"Ed25519","kty":"OKP","x":"<base64url-encoded-public-key>"}`
+    ///
+    /// The thumbprint is the base64url-encoded SHA-256 hash of this representation.
+    fn generate_kid(verifying_key: &VerifyingKey) -> String {
+        let public_key_bytes = verifying_key.as_bytes();
+        let x = URL_SAFE_NO_PAD.encode(public_key_bytes);
+
+        // RFC 7638: Canonical JWK representation (alphabetically ordered, no whitespace)
+        let canonical_jwk = format!(r#"{{"crv":"Ed25519","kty":"OKP","x":"{}"}}"#, x);
+
+        // SHA-256 hash of the canonical representation
+        let mut hasher = Sha256::new();
+        hasher.update(canonical_jwk.as_bytes());
+        let hash = hasher.finalize();
+
+        // Base64url-encode the hash
+        URL_SAFE_NO_PAD.encode(hash)
     }
 
     /// Export the private key as PEM format (for saving to config)
@@ -160,8 +211,6 @@ impl ManagementIdentity {
 
     /// Get the JWKS representation of the public key
     pub fn to_jwks(&self) -> Jwks {
-        use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-
         let public_key_bytes = self.verifying_key.as_bytes();
         let x = URL_SAFE_NO_PAD.encode(public_key_bytes);
 
@@ -187,25 +236,50 @@ mod tests {
 
     #[test]
     fn test_generate_management_identity() {
-        let identity =
-            ManagementIdentity::generate("test-mgmt".to_string(), "test-kid".to_string());
-        assert_eq!(identity.management_id, "test-mgmt");
-        assert_eq!(identity.kid, "test-kid");
+        let identity = ManagementIdentity::generate();
+        // management_id should start with "mgmt-"
+        assert!(identity.management_id.starts_with("mgmt-"));
+        // kid should be a base64url-encoded SHA-256 hash (43 characters for 256 bits)
+        assert_eq!(identity.kid.len(), 43);
     }
 
     #[test]
     fn test_pem_round_trip() {
-        let identity = ManagementIdentity::generate("test".to_string(), "kid-1".to_string());
+        let identity = ManagementIdentity::generate();
         let pem = identity.to_pem();
 
-        let restored = ManagementIdentity::from_pem("test".to_string(), "kid-1".to_string(), &pem);
+        let restored = ManagementIdentity::from_pem(&pem);
         assert!(restored.is_ok());
+        let restored = restored.unwrap();
+        // The kid should be the same since it's derived from the key
+        assert_eq!(identity.kid, restored.kid);
+    }
+
+    #[test]
+    fn test_kid_is_deterministic() {
+        // Same key should always produce the same kid
+        let identity = ManagementIdentity::generate();
+        let pem = identity.to_pem();
+
+        let restored1 = ManagementIdentity::from_pem(&pem).unwrap();
+        let restored2 = ManagementIdentity::from_pem(&pem).unwrap();
+
+        assert_eq!(restored1.kid, restored2.kid);
+        assert_eq!(identity.kid, restored1.kid);
+    }
+
+    #[test]
+    fn test_different_keys_have_different_kids() {
+        let identity1 = ManagementIdentity::generate();
+        let identity2 = ManagementIdentity::generate();
+
+        // Different keys should have different kids
+        assert_ne!(identity1.kid, identity2.kid);
     }
 
     #[test]
     fn test_sign_jwt() {
-        let identity =
-            ManagementIdentity::generate("test-mgmt".to_string(), "test-kid".to_string());
+        let identity = ManagementIdentity::generate();
         let jwt = identity.sign_jwt("http://localhost:8080");
         assert!(jwt.is_ok());
 
@@ -216,16 +290,29 @@ mod tests {
 
     #[test]
     fn test_to_jwks() {
-        let identity =
-            ManagementIdentity::generate("test-mgmt".to_string(), "test-kid".to_string());
+        let identity = ManagementIdentity::generate();
         let jwks = identity.to_jwks();
 
         assert_eq!(jwks.keys.len(), 1);
         assert_eq!(jwks.keys[0].kty, "OKP");
         assert_eq!(jwks.keys[0].alg, "EdDSA");
-        assert_eq!(jwks.keys[0].kid, "test-kid");
+        assert_eq!(jwks.keys[0].kid, identity.kid); // kid should match
         assert_eq!(jwks.keys[0].crv, "Ed25519");
         assert_eq!(jwks.keys[0].key_use, "sig");
         assert!(!jwks.keys[0].x.is_empty());
+    }
+
+    #[test]
+    fn test_rfc7638_thumbprint_format() {
+        // Verify the kid is a valid base64url-encoded SHA-256 hash
+        let identity = ManagementIdentity::generate();
+
+        // SHA-256 produces 32 bytes, base64url encodes to 43 characters (no padding)
+        assert_eq!(identity.kid.len(), 43);
+
+        // Should be valid base64url (no + or /, no padding)
+        assert!(!identity.kid.contains('+'));
+        assert!(!identity.kid.contains('/'));
+        assert!(!identity.kid.contains('='));
     }
 }

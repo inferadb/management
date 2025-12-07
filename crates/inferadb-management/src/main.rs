@@ -140,9 +140,6 @@ async fn main() -> Result<()> {
             startup::ConfigEntry::separator("Network"),
             policy_entry,
             discovery_entry,
-            // Identity
-            startup::ConfigEntry::new("Identity", "Service ID", &config.identity.service_id),
-            startup::ConfigEntry::new("Identity", "Service KID", &config.identity.kid),
             private_key_entry,
         ])
         .display();
@@ -174,22 +171,22 @@ async fn main() -> Result<()> {
 
     // Management API identity for webhook authentication
     let management_identity = if let Some(ref pem) = config.identity.private_key_pem {
-        ManagementIdentity::from_pem(
-            config.identity.service_id.clone(),
-            config.identity.kid.clone(),
-            pem,
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to load Management identity from PEM: {}", e))?
+        ManagementIdentity::from_pem(pem)
+            .map_err(|e| anyhow::anyhow!("Failed to load Management identity from PEM: {}", e))?
     } else {
         // Generate new identity and display in formatted box
-        let identity = ManagementIdentity::generate(
-            config.identity.service_id.clone(),
-            config.identity.kid.clone(),
-        );
+        let identity = ManagementIdentity::generate();
         let pem = identity.to_pem();
         startup::print_generated_keypair(&pem, "identity.private_key_pem");
         identity
     };
+
+    tracing::info!(
+        management_id = %management_identity.management_id,
+        kid = %management_identity.kid,
+        "Management identity initialized"
+    );
+
     let management_identity = Arc::new(management_identity);
     startup::log_initialized("Identity");
 

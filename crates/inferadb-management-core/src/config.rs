@@ -264,17 +264,11 @@ impl Default for PolicyServiceConfig {
 }
 
 /// Identity configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IdentityConfig {
-    /// Service instance ID (unique identifier for this management instance)
-    #[serde(default = "default_service_id")]
-    pub service_id: String,
-
-    /// Key ID for JWKS
-    #[serde(default = "default_kid")]
-    pub kid: String,
-
     /// Ed25519 private key in PEM format (optional - will auto-generate if not provided)
+    /// If provided, the key is persisted across restarts.
+    /// If not provided, a new keypair is generated on each startup.
     pub private_key_pem: Option<String>,
 }
 
@@ -484,20 +478,6 @@ fn default_frontend_base_url() -> String {
 
 fn default_jwt_issuer() -> String {
     "https://api.inferadb.com".to_string()
-}
-
-impl Default for IdentityConfig {
-    fn default() -> Self {
-        Self { service_id: default_service_id(), kid: default_kid(), private_key_pem: None }
-    }
-}
-
-fn default_service_id() -> String {
-    "management-service".to_string()
-}
-
-fn default_kid() -> String {
-    "management-service".to_string()
 }
 
 fn default_webhook_timeout_ms() -> u64 {
@@ -755,14 +735,6 @@ impl ManagementConfig {
                 min_length = self.auth.password_min_length,
                 "auth.password_min_length is less than 8. Consider using at least 8 characters for security."
             );
-        }
-
-        // Validate identity configuration
-        if self.identity.service_id.is_empty() {
-            return Err(Error::Config("identity.service_id cannot be empty".to_string()));
-        }
-        if self.identity.kid.is_empty() {
-            return Err(Error::Config("identity.kid cannot be empty".to_string()));
         }
 
         Ok(())

@@ -61,9 +61,7 @@ policy_service:
   internal_port: 8082
   tls_enabled: false
 
-identity:
-  service_id: "management-integration-test"
-  kid: "mgmt-test-2024"
+identity: {}
 
 cache_invalidation:
   timeout_ms: 5000

@@ -4,9 +4,8 @@ use axum::{
     http::StatusCode,
 };
 use inferadb_management_core::{
-    IdGenerator, JwtSigner, PrivateKeyEncryptor, RepositoryContext, VaultTokenClaims,
-    error::Error as CoreError,
-    REQUIRED_AUDIENCE,
+    IdGenerator, JwtSigner, PrivateKeyEncryptor, REQUIRED_AUDIENCE, RepositoryContext,
+    VaultTokenClaims, error::Error as CoreError,
 };
 use inferadb_management_types::{
     dto::{

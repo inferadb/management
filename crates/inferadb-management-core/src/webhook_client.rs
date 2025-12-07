@@ -82,7 +82,7 @@ impl WebhookClient {
     /// use inferadb_management_core::{WebhookClient, ManagementIdentity};
     /// use inferadb_management_core::config::DiscoveryMode;
     ///
-    /// let identity = Arc::new(ManagementIdentity::generate("mgmt-1".to_string(), "key-1".to_string()));
+    /// let identity = Arc::new(ManagementIdentity::generate());
     /// let client = WebhookClient::new(
     ///     "http://localhost".to_string(),
     ///     9090,
@@ -960,8 +960,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_webhook_client_creation() {
-        let identity =
-            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
+        let identity = Arc::new(ManagementIdentity::generate());
         let client = WebhookClient::new(
             "http://localhost".to_string(),
             9090,
@@ -975,8 +974,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_webhook_client_creation_with_discovery() {
-        let identity =
-            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
+        let identity = Arc::new(ManagementIdentity::generate());
 
         // Test with DiscoveryMode::None
         let client = WebhookClient::new(
@@ -1031,8 +1029,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_endpoints_caching() {
-        let identity =
-            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
+        let identity = Arc::new(ManagementIdentity::generate());
 
         let client = WebhookClient::new(
             "http://server1".to_string(),
@@ -1055,8 +1052,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_endpoint_count() {
-        let identity =
-            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
+        let identity = Arc::new(ManagementIdentity::generate());
 
         // With static discovery, we get a single endpoint
         let client = WebhookClient::new(
@@ -1074,8 +1070,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_kubernetes_discovery_mode_parsing() {
-        let identity =
-            Arc::new(ManagementIdentity::generate("test-mgmt".to_string(), "test-key".to_string()));
+        let identity = Arc::new(ManagementIdentity::generate());
 
         // Simple service name
         let client = WebhookClient::new(
