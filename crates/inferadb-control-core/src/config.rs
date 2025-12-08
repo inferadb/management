@@ -11,12 +11,12 @@ use serde::{Deserialize, Serialize};
 /// ```yaml
 /// engine:
 ///   listen:
-///     public_rest: "127.0.0.1:8080"
+///     http: "127.0.0.1:8080"
 ///   # ... other engine config (ignored by control)
 ///
 /// control:
 ///   listen:
-///     public_rest: "127.0.0.1:9090"
+///     http: "127.0.0.1:9090"
 ///   # ... control config
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -38,44 +38,27 @@ pub struct ManagementConfig {
     #[serde(default = "default_logging")]
     pub logging: String,
 
-    /// Listen address configuration for API servers
-    #[serde(default)]
-    pub listen: ListenConfig,
-
-    /// Storage configuration
-    #[serde(default)]
-    pub storage: StorageConfig,
-
-    /// Authentication configuration
-    #[serde(default)]
-    pub auth: AuthConfig,
-
-    /// Email configuration
-    #[serde(default)]
-    pub email: EmailConfig,
-
-    /// Rate limits configuration
-    #[serde(default)]
-    pub limits: LimitsConfig,
-
-    /// Engine service configuration (for policy engine communication)
-    #[serde(default)]
-    pub engine: EngineConfig,
-
-    /// Ed25519 private key in PEM format (optional - will auto-generate if not provided)
+    /// Ed25519 private key in PEM format (optional - will auto-generate if not provided for control API.
     /// If provided, the key is persisted across restarts.
     /// If not provided, a new keypair is generated on each startup.
     pub pem: Option<String>,
 
-    /// Cache invalidation webhook configuration
     #[serde(default)]
-    pub cache_invalidation: CacheInvalidationConfig,
-
-    /// Service discovery configuration
+    pub listen: ListenConfig,
+    #[serde(default)]
+    pub storage: StorageConfig,
+    #[serde(default)]
+    pub authentication: AuthenticationConfig,
+    #[serde(default)]
+    pub email: EmailConfig,
+    #[serde(default)]
+    pub limits: LimitsConfig,
+    #[serde(default)]
+    pub engine: EngineConfig,
+    #[serde(default)]
+    pub webhook: WebhookConfig,
     #[serde(default)]
     pub discovery: DiscoveryConfig,
-
-    /// Frontend configuration for web UI links
     #[serde(default)]
     pub frontend: FrontendConfig,
 }
@@ -83,20 +66,20 @@ pub struct ManagementConfig {
 /// Listen address configuration for API servers
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ListenConfig {
-    /// Public REST API server address (client-facing)
+    /// Client-facing HTTP/REST API server address
     /// Format: "host:port" (e.g., "127.0.0.1:9090")
-    #[serde(default = "default_public_rest")]
-    pub public_rest: String,
+    #[serde(default = "default_http")]
+    pub http: String,
 
-    /// Public gRPC API server address
+    /// Client-facing gRPC API server address
     /// Format: "host:port" (e.g., "127.0.0.1:9091")
-    #[serde(default = "default_public_grpc")]
-    pub public_grpc: String,
+    #[serde(default = "default_grpc")]
+    pub grpc: String,
 
-    /// Internal/Private REST API server address (server-to-server, JWKS endpoint)
+    /// Service mesh / inter-service communication address (server-to-server, JWKS endpoint)
     /// Format: "host:port" (e.g., "0.0.0.0:9092")
-    #[serde(default = "default_private_rest")]
-    pub private_rest: String,
+    #[serde(default = "default_mesh")]
+    pub mesh: String,
 }
 
 /// Storage backend configuration
@@ -112,7 +95,7 @@ pub struct StorageConfig {
 
 /// Authentication configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct AuthConfig {
+pub struct AuthenticationConfig {
     /// Session TTL for WEB sessions (seconds)
     #[serde(default = "default_session_ttl_web")]
     pub session_ttl_web: u64,
@@ -139,9 +122,6 @@ pub struct AuthConfig {
     /// Key encryption secret for encrypting private keys at rest
     /// Should be set via environment variable INFERADB_CTRL_KEY_ENCRYPTION_SECRET
     pub key_encryption_secret: Option<String>,
-    // Note: JWT issuer and audience are now hardcoded in jwt.rs as REQUIRED_ISSUER
-    // and REQUIRED_AUDIENCE to ensure consistency with the Server API and follow
-    // RFC 8725 best practices.
 }
 
 /// WebAuthn configuration
@@ -250,9 +230,9 @@ impl Default for EngineConfig {
     }
 }
 
-/// Cache invalidation webhook configuration
+/// Webhook configuration for cache invalidation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CacheInvalidationConfig {
+pub struct WebhookConfig {
     /// Webhook request timeout in milliseconds
     #[serde(default = "default_webhook_timeout_ms")]
     pub timeout_ms: u64,
@@ -262,7 +242,7 @@ pub struct CacheInvalidationConfig {
     pub retry_attempts: u8,
 }
 
-impl Default for CacheInvalidationConfig {
+impl Default for WebhookConfig {
     fn default() -> Self {
         Self {
             timeout_ms: default_webhook_timeout_ms(),
@@ -333,16 +313,16 @@ pub struct RemoteCluster {
 }
 
 // Default value functions
-fn default_public_rest() -> String {
+fn default_http() -> String {
     "127.0.0.1:9090".to_string()
 }
 
-fn default_public_grpc() -> String {
+fn default_grpc() -> String {
     "127.0.0.1:9091".to_string()
 }
 
-fn default_private_rest() -> String {
-    "0.0.0.0:9092".to_string() // Management internal/private server port
+fn default_mesh() -> String {
+    "0.0.0.0:9092".to_string() // Management internal/mesh server port
 }
 
 fn default_threads() -> usize {
@@ -444,12 +424,12 @@ impl Default for ManagementConfig {
             threads: default_threads(),
             logging: default_logging(),
             listen: ListenConfig {
-                public_rest: default_public_rest(),
-                public_grpc: default_public_grpc(),
-                private_rest: default_private_rest(),
+                http: default_http(),
+                grpc: default_grpc(),
+                mesh: default_mesh(),
             },
             storage: StorageConfig { backend: default_storage_backend(), fdb_cluster_file: None },
-            auth: AuthConfig {
+            authentication: AuthenticationConfig {
                 session_ttl_web: default_session_ttl_web(),
                 session_ttl_cli: default_session_ttl_cli(),
                 session_ttl_sdk: default_session_ttl_sdk(),
@@ -478,7 +458,7 @@ impl Default for ManagementConfig {
             },
             engine: EngineConfig::default(),
             pem: None,
-            cache_invalidation: CacheInvalidationConfig::default(),
+            webhook: WebhookConfig::default(),
             discovery: DiscoveryConfig::default(),
             frontend: FrontendConfig::default(),
         }
@@ -597,7 +577,7 @@ impl ManagementConfig {
         }
 
         // Validate key encryption secret is set
-        if self.auth.key_encryption_secret.is_none() {
+        if self.authentication.key_encryption_secret.is_none() {
             tracing::warn!(
                 "KEY_ENCRYPTION_SECRET not set - private keys will not be encrypted at rest!"
             );
@@ -624,31 +604,31 @@ impl ManagementConfig {
             );
         }
 
-        // Validate cache_invalidation.timeout_ms is reasonable
-        if self.cache_invalidation.timeout_ms == 0 {
+        // Validate webhook.timeout_ms is reasonable
+        if self.webhook.timeout_ms == 0 {
             return Err(Error::Config(
-                "cache_invalidation.timeout_ms must be greater than 0".to_string(),
+                "webhook.timeout_ms must be greater than 0".to_string(),
             ));
         }
-        if self.cache_invalidation.timeout_ms > 60000 {
+        if self.webhook.timeout_ms > 60000 {
             tracing::warn!(
-                timeout_ms = self.cache_invalidation.timeout_ms,
-                "cache_invalidation.timeout_ms is very high (>60s). Consider using a lower timeout."
+                timeout_ms = self.webhook.timeout_ms,
+                "webhook.timeout_ms is very high (>60s). Consider using a lower timeout."
             );
         }
 
         // Validate WebAuthn configuration
-        if self.auth.webauthn.rp_id.is_empty() {
-            return Err(Error::Config("auth.webauthn.rp_id cannot be empty".to_string()));
+        if self.authentication.webauthn.rp_id.is_empty() {
+            return Err(Error::Config("authentication.webauthn.rp_id cannot be empty".to_string()));
         }
-        if self.auth.webauthn.origin.is_empty() {
-            return Err(Error::Config("auth.webauthn.origin cannot be empty".to_string()));
+        if self.authentication.webauthn.origin.is_empty() {
+            return Err(Error::Config("authentication.webauthn.origin cannot be empty".to_string()));
         }
-        if !self.auth.webauthn.origin.starts_with("http://")
-            && !self.auth.webauthn.origin.starts_with("https://")
+        if !self.authentication.webauthn.origin.starts_with("http://")
+            && !self.authentication.webauthn.origin.starts_with("https://")
         {
             return Err(Error::Config(
-                "auth.webauthn.origin must start with http:// or https://".to_string(),
+                "authentication.webauthn.origin must start with http:// or https://".to_string(),
             ));
         }
 
@@ -667,10 +647,10 @@ impl ManagementConfig {
         }
 
         // Validate password minimum length is reasonable
-        if self.auth.password_min_length < 8 {
+        if self.authentication.password_min_length < 8 {
             tracing::warn!(
-                min_length = self.auth.password_min_length,
-                "auth.password_min_length is less than 8. Consider using at least 8 characters for security."
+                min_length = self.authentication.password_min_length,
+                "authentication.password_min_length is less than 8. Consider using at least 8 characters for security."
             );
         }
 
@@ -684,9 +664,9 @@ mod tests {
 
     #[test]
     fn test_config_defaults() {
-        assert_eq!(default_public_rest(), "127.0.0.1:9090");
-        assert_eq!(default_public_grpc(), "127.0.0.1:9091");
-        assert_eq!(default_private_rest(), "0.0.0.0:9092");
+        assert_eq!(default_http(), "127.0.0.1:9090");
+        assert_eq!(default_grpc(), "127.0.0.1:9091");
+        assert_eq!(default_mesh(), "0.0.0.0:9092");
         assert_eq!(default_storage_backend(), "memory");
         assert_eq!(default_password_min_length(), 12);
         assert_eq!(default_max_sessions_per_user(), 10);
@@ -695,9 +675,9 @@ mod tests {
     #[test]
     fn test_storage_backend_validation() {
         let mut config = ManagementConfig::default();
-        config.auth.webauthn.rp_id = "localhost".to_string();
-        config.auth.webauthn.origin = "http://localhost:3000".to_string();
-        config.auth.key_encryption_secret = Some("test-secret".to_string());
+        config.authentication.webauthn.rp_id = "localhost".to_string();
+        config.authentication.webauthn.origin = "http://localhost:3000".to_string();
+        config.authentication.key_encryption_secret = Some("test-secret".to_string());
         config.storage.backend = "invalid".to_string();
 
         // Invalid storage backend

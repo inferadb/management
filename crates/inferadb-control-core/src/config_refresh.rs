@@ -293,7 +293,7 @@ control:
             r#"
 control:
   listen:
-    public_rest: "0.0.0.0:3001"
+    http: "0.0.0.0:3001"
   storage:
     backend: "memory"
   auth:
@@ -311,7 +311,7 @@ control:
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial address
-        assert_eq!(config.read().listen.public_rest, "0.0.0.0:3001");
+        assert_eq!(config.read().listen.http, "0.0.0.0:3001");
 
         // Modify config file with a different address (using nested format)
         fs::write(
@@ -319,7 +319,7 @@ control:
             r#"
 control:
   listen:
-    public_rest: "0.0.0.0:3002"
+    http: "0.0.0.0:3002"
   storage:
     backend: "memory"
   auth:
@@ -342,7 +342,7 @@ control:
         // Verify address was updated
         let current = config.read();
         assert_eq!(
-            current.listen.public_rest, "0.0.0.0:3002",
+            current.listen.http, "0.0.0.0:3002",
             "Address should be updated to 0.0.0.0:3002"
         );
     }
@@ -359,7 +359,7 @@ control:
             r#"
 control:
   listen:
-    public_rest: "0.0.0.0:3001"
+    http: "0.0.0.0:3001"
   storage:
     backend: "memory"
 "#,
@@ -371,7 +371,7 @@ control:
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial values
-        assert_eq!(config.read().listen.public_rest, "0.0.0.0:3001");
+        assert_eq!(config.read().listen.http, "0.0.0.0:3001");
 
         // Write invalid config (invalid address format)
         fs::write(
@@ -379,7 +379,7 @@ control:
             r#"
 control:
   listen:
-    public_rest: "invalid-address"
+    http: "invalid-address"
   storage:
     backend: "memory"
 "#,
@@ -395,7 +395,7 @@ control:
 
         // Verify config was not changed (should still be valid)
         let current = config.read();
-        assert_eq!(current.listen.public_rest, "0.0.0.0:3001");
+        assert_eq!(current.listen.http, "0.0.0.0:3001");
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -410,7 +410,7 @@ control:
             r#"
 control:
   listen:
-    public_rest: "0.0.0.0:3001"
+    http: "0.0.0.0:3001"
   storage:
     backend: "memory"
   auth:
@@ -428,7 +428,7 @@ control:
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial address
-        assert_eq!(config.read().listen.public_rest, "0.0.0.0:3001");
+        assert_eq!(config.read().listen.http, "0.0.0.0:3001");
 
         // Create and spawn refresher with 1 second interval
         let refresher = Arc::new(ConfigRefresher::new(config.clone(), config_path.clone(), 1));
@@ -442,7 +442,7 @@ control:
             r#"
 control:
   listen:
-    public_rest: "0.0.0.0:3002"
+    http: "0.0.0.0:3002"
   storage:
     backend: "memory"
   auth:
@@ -461,7 +461,7 @@ control:
         // Verify config was updated
         let current = config.read();
         assert_eq!(
-            current.listen.public_rest, "0.0.0.0:3002",
+            current.listen.http, "0.0.0.0:3002",
             "Address should be updated to 0.0.0.0:3002"
         );
     }

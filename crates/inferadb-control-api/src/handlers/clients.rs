@@ -296,7 +296,7 @@ pub async fn create_certificate(
     tracing::debug!("Retrieving key encryption secret from config");
     let master_secret = state
         .config
-        .auth
+        .authentication
         .key_encryption_secret
         .as_ref()
         .ok_or_else(|| CoreError::Internal("Key encryption secret not configured".to_string()))?

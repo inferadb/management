@@ -122,9 +122,9 @@ async fn main() -> Result<()> {
             // Storage
             startup::ConfigEntry::new("Storage", "Backend", &config.storage.backend),
             // Listen
-            startup::ConfigEntry::new("Listen", "Public API (REST)", &config.listen.public_rest),
-            startup::ConfigEntry::new("Listen", "Public API (gRPC)", &config.listen.public_grpc),
-            startup::ConfigEntry::new("Listen", "Private API (REST)", &config.listen.private_rest),
+            startup::ConfigEntry::new("Listen", "HTTP", &config.listen.http),
+            startup::ConfigEntry::new("Listen", "gRPC", &config.listen.grpc),
+            startup::ConfigEntry::new("Listen", "Mesh", &config.listen.mesh),
             startup::ConfigEntry::separator("Listen"),
             policy_entry,
             discovery_entry,
@@ -200,7 +200,7 @@ async fn main() -> Result<()> {
         config.engine.service_url.clone(),
         config.engine.internal_port,
         Arc::clone(&management_identity),
-        config.cache_invalidation.timeout_ms,
+        config.webhook.timeout_ms,
         config.discovery.mode.clone(),
         config.discovery.cache_ttl,
     )

@@ -15,14 +15,14 @@ control:
   logging: "info"
 
   listen:
-    # Public REST API server (client-facing traffic - web, CLI, SDK)
-    public_rest: "0.0.0.0:9090"
+    # Client-facing HTTP/REST API server (web, CLI, SDK)
+    http: "0.0.0.0:9090"
 
-    # Public gRPC API server
-    public_grpc: "0.0.0.0:9091"
+    # Client-facing gRPC API server
+    grpc: "0.0.0.0:9091"
 
-    # Internal/Private REST API server (server-to-server communication)
-    private_rest: "0.0.0.0:9092"
+    # Service mesh / inter-service communication
+    mesh: "0.0.0.0:9092"
 
   # Storage backend configuration
   storage:
@@ -34,7 +34,7 @@ control:
     fdb_cluster_file: "/etc/foundationdb/fdb.cluster"
 
   # Authentication and security
-  auth:
+  authentication:
     # Session TTLs (in seconds)
     session_ttl_web: 2592000  # 30 days
     session_ttl_cli: 7776000  # 90 days

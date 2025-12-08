@@ -1740,7 +1740,7 @@ Response includes:
 
 1. Validate email is not already in use (globally unique constraint)
 2. Validate password meets minimum requirements:
-   - Minimum length: 12 characters (configurable via `config.auth.password_min_length`)
+   - Minimum length: 12 characters (configurable via `config.authentication.password_min_length`)
    - No additional complexity requirements (length alone provides sufficient entropy)
    - Rationale: Modern guidance (NIST SP 800-63B) recommends length over complexity rules
 3. Create User entity with `tos_accepted_at = now()`
@@ -1949,7 +1949,7 @@ Backend applications authenticate to @engine using **Client Assertion** (OAuth 2
 - **Sliding window expiry**: `last_activity_at` updates on each request
   - Web sessions: 30-day expiry, extends on activity
   - CLI sessions: 90-day expiry, extends on activity
-- **Max concurrent sessions**: 10 per user (configurable via `config.auth.max_sessions_per_user`)
+- **Max concurrent sessions**: 10 per user (configurable via `config.authentication.max_sessions_per_user`)
   - When exceeded, the least recently active session is revoked (oldest `last_activity_at` timestamp)
   - Expired sessions (where `expires_at < now`) are not counted toward the limit
 - **Session revocation**: Users can manually revoke sessions via `/users/sessions/:id` DELETE

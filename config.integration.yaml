@@ -12,19 +12,19 @@ control:
     url: "http://localhost:9090"
 
   listen:
-    # Public REST API server (combined host:port)
-    public_rest: "0.0.0.0:9090"
+    # Client-facing HTTP/REST API server
+    http: "0.0.0.0:9090"
 
-    # Public gRPC API server
-    public_grpc: "0.0.0.0:9091"
+    # Client-facing gRPC API server
+    grpc: "0.0.0.0:9091"
 
-    # Internal/Private REST API server
-    private_rest: "0.0.0.0:9092"
+    # Service mesh / inter-service communication
+    mesh: "0.0.0.0:9092"
 
   storage:
     backend: "memory"  # In-memory for fast tests
 
-  auth:
+  authentication:
     session_ttl_web: 3600  # 1 hour for tests
     session_ttl_cli: 7200  # 2 hours for tests
     session_ttl_sdk: 7200  # 2 hours for tests
@@ -55,7 +55,7 @@ control:
     grpc_port: 8081
     internal_port: 8082
 
-  cache_invalidation:
+  webhook:
     timeout_ms: 5000
     retry_attempts: 0
 
