@@ -6,7 +6,7 @@ use inferadb_management_api::ManagementIdentity;
 use inferadb_management_core::{
     ManagementConfig, WebhookClient, config::DiscoveryMode, logging, startup,
 };
-use inferadb_management_grpc::ServerApiClient;
+use inferadb_management_server_client::ServerApiClient;
 use inferadb_management_storage::factory::{StorageConfig, create_storage_backend};
 
 #[derive(Parser, Debug)]

@@ -453,7 +453,7 @@ fn default_discovery_cache_ttl() -> u64 {
 }
 
 fn default_discovery_health_check() -> bool {
-    false
+    true // Enabled by default for production reliability
 }
 
 fn default_discovery_health_check_interval() -> u64 {

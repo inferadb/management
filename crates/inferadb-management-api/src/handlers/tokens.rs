@@ -142,13 +142,8 @@ pub async fn generate_vault_token(
     // Create access token claims
     // Note: issuer and audience are hardcoded in VaultTokenClaims::new
     let access_ttl = req.access_token_ttl.unwrap_or(300); // Default 5 minutes (per spec)
-    let claims = VaultTokenClaims::new(
-        org_ctx.organization_id,
-        client.id,
-        vault_id,
-        vault_role,
-        access_ttl,
-    );
+    let claims =
+        VaultTokenClaims::new(org_ctx.organization_id, client.id, vault_id, vault_role, access_ttl);
 
     // Sign the access token
     let access_token = signer.sign_vault_token(&claims, &certificate)?;

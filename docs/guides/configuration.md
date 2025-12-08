@@ -45,9 +45,9 @@ frontend_base_url: "https://app.inferadb.com"
 
 server:
   # Combined address strings (host:port format)
-  public_rest: "127.0.0.1:9090"   # Client-facing REST API
-  public_grpc: "127.0.0.1:9091"   # Client-facing gRPC API
-  private_rest: "0.0.0.0:9092"    # Internal REST API (JWKS, webhooks)
+  public_rest: "127.0.0.1:9090" # Client-facing REST API
+  public_grpc: "127.0.0.1:9091" # Client-facing gRPC API
+  private_rest: "0.0.0.0:9092" # Internal REST API (JWKS, webhooks)
   worker_threads: 4
 
 storage:
@@ -163,12 +163,12 @@ Controls HTTP/gRPC server behavior. The Management API exposes three interfaces:
 
 ### Options
 
-| Option           | Type    | Default             | Description                                      |
-| ---------------- | ------- | ------------------- | ------------------------------------------------ |
-| `public_rest`    | string  | `"127.0.0.1:9090"`  | Public REST API address (host:port format)       |
-| `public_grpc`    | string  | `"127.0.0.1:9091"`  | Public gRPC API address (host:port format)       |
-| `private_rest`   | string  | `"0.0.0.0:9092"`    | Internal REST API address (JWKS, webhooks)       |
-| `worker_threads` | integer | `4`                 | Number of Tokio worker threads                   |
+| Option           | Type    | Default            | Description                                |
+| ---------------- | ------- | ------------------ | ------------------------------------------ |
+| `public_rest`    | string  | `"127.0.0.1:9090"` | Public REST API address (host:port format) |
+| `public_grpc`    | string  | `"127.0.0.1:9091"` | Public gRPC API address (host:port format) |
+| `private_rest`   | string  | `"0.0.0.0:9092"`   | Internal REST API address (JWKS, webhooks) |
+| `worker_threads` | integer | `4`                | Number of Tokio worker threads             |
 
 ### Examples
 
@@ -252,14 +252,14 @@ Controls user authentication, sessions, and security.
 
 ### Options
 
-| Option                  | Type              | Default                               | Description                                |
-| ----------------------- | ----------------- | ------------------------------------- | ------------------------------------------ |
-| `session_ttl_web`       | integer           | `2592000` (30 days)                   | Web session TTL in seconds                 |
-| `session_ttl_cli`       | integer           | `7776000` (90 days)                   | CLI session TTL in seconds                 |
-| `session_ttl_sdk`       | integer           | `7776000` (90 days)                   | SDK session TTL in seconds                 |
-| `password_min_length`   | integer           | `12`                                  | Minimum password length                    |
-| `max_sessions_per_user` | integer           | `10`                                  | Maximum concurrent sessions per user       |
-| `key_encryption_secret` | string (optional) | `null`                                | Secret for encrypting private keys at rest |
+| Option                  | Type              | Default             | Description                                |
+| ----------------------- | ----------------- | ------------------- | ------------------------------------------ |
+| `session_ttl_web`       | integer           | `2592000` (30 days) | Web session TTL in seconds                 |
+| `session_ttl_cli`       | integer           | `7776000` (90 days) | CLI session TTL in seconds                 |
+| `session_ttl_sdk`       | integer           | `7776000` (90 days) | SDK session TTL in seconds                 |
+| `password_min_length`   | integer           | `12`                | Minimum password length                    |
+| `max_sessions_per_user` | integer           | `10`                | Maximum concurrent sessions per user       |
+| `key_encryption_secret` | string (optional) | `null`              | Secret for encrypting private keys at rest |
 
 > **Note**: The JWT issuer and audience are hardcoded to `https://api.inferadb.com` per RFC 8725 best practices.
 > Since we own the entire experience end-to-end, these values are not configurable and ensure
@@ -615,12 +615,12 @@ Controls service discovery for multi-node deployments.
 
 ### Options
 
-| Option                          | Type    | Default | Description                        |
-| ------------------------------- | ------- | ------- | ---------------------------------- |
-| `mode`                          | object  | `none`  | Discovery mode configuration       |
+| Option                  | Type    | Default | Description                        |
+| ----------------------- | ------- | ------- | ---------------------------------- |
+| `mode`                  | object  | `none`  | Discovery mode configuration       |
 | `cache_ttl`             | integer | `300`   | Cache TTL for discovered endpoints |
-| `enable_health_check`           | boolean | `false` | Enable health checking             |
-| `health_check_interval`         | integer | `30`    | Health check interval (seconds)    |
+| `enable_health_check`   | boolean | `false` | Enable health checking             |
+| `health_check_interval` | integer | `30`    | Health check interval (seconds)    |
 
 ### Discovery Modes
 

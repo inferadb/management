@@ -12,7 +12,7 @@ version.workspace = true
 [dependencies]
 # Workspace crates
 inferadb-management-core = { path = "../inferadb-management-core" }
-inferadb-management-grpc = { path = "../inferadb-management-grpc" }
+inferadb-management-server-client = { path = "../inferadb-management-server-client" }
 inferadb-management-storage = { path = "../inferadb-management-storage" }
 inferadb-management-types = { path = "../inferadb-management-types" }
 

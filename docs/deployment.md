@@ -103,7 +103,7 @@ export SMTP_PASSWORD="your-password"
 
 ```yaml
 policy_service:
-  service_url: "http://inferadb-server.inferadb"  # K8s service name
+  service_url: "http://inferadb-server.inferadb" # K8s service name
   grpc_port: 8081
   internal_port: 8082
 ```

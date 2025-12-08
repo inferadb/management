@@ -61,9 +61,9 @@ storage:
 ```yaml
 # config.local.yaml
 server:
-  public_rest: "127.0.0.1:8080"   # Changed from 9090
-  public_grpc: "127.0.0.1:8081"   # Changed from 9091
-  private_rest: "0.0.0.0:8082"    # Changed from 9092
+  public_rest: "127.0.0.1:8080" # Changed from 9090
+  public_grpc: "127.0.0.1:8081" # Changed from 9091
+  private_rest: "0.0.0.0:8082" # Changed from 9092
 ```
 
 **Option 2**: Use environment variables

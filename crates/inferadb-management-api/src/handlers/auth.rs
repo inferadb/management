@@ -11,7 +11,7 @@ use inferadb_management_core::{
     IdGenerator, RepositoryContext, UserPasswordResetToken, error::Error as CoreError,
     hash_password, verify_password,
 };
-use inferadb_management_grpc::ServerApiClient;
+use inferadb_management_server_client::ServerApiClient;
 use inferadb_management_storage::Backend;
 use inferadb_management_types::{
     dto::{

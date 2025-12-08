@@ -40,7 +40,7 @@ server:
   # Combined address strings (host:port)
   public_rest: "127.0.0.1:9090"
   public_grpc: "127.0.0.1:9091"
-  private_rest: "0.0.0.0:9092"  # Internal API for server-to-server
+  private_rest: "0.0.0.0:9092" # Internal API for server-to-server
 
 storage:
   backend: "memory" # Use in-memory backend for development

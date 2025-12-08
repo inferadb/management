@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use inferadb_management_core::{ManagementConfig, startup};
-use inferadb_management_grpc::ServerApiClient;
+use inferadb_management_server_client::ServerApiClient;
 use inferadb_management_storage::Backend;
 use tracing::info;
 

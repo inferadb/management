@@ -3858,9 +3858,9 @@ Configuration follows @server patterns using YAML and environment variables.
 
 ```yaml
 server:
-  public_rest: "0.0.0.0:9090"   # Public REST API
-  public_grpc: "0.0.0.0:9091"   # Public gRPC API
-  private_rest: "0.0.0.0:9092"  # Internal REST API (JWKS, webhooks)
+  public_rest: "0.0.0.0:9090" # Public REST API
+  public_grpc: "0.0.0.0:9091" # Public gRPC API
+  private_rest: "0.0.0.0:9092" # Internal REST API (JWKS, webhooks)
 
 storage:
   backend: "memory" # or "foundationdb"

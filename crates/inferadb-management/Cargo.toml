@@ -17,7 +17,7 @@ path = "src/main.rs"
 # Workspace crates
 inferadb-management-api = { path = "../inferadb-management-api" }
 inferadb-management-core = { path = "../inferadb-management-core" }
-inferadb-management-grpc = { path = "../inferadb-management-grpc" }
+inferadb-management-server-client = { path = "../inferadb-management-server-client" }
 inferadb-management-storage = { path = "../inferadb-management-storage" }
 
 # External dependencies

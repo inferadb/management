@@ -338,7 +338,10 @@ server_api:
 
         // Verify address was updated
         let current = config.read();
-        assert_eq!(current.server.public_rest, "0.0.0.0:3002", "Address should be updated to 0.0.0.0:3002");
+        assert_eq!(
+            current.server.public_rest, "0.0.0.0:3002",
+            "Address should be updated to 0.0.0.0:3002"
+        );
     }
 
     #[tokio::test]
@@ -450,6 +453,9 @@ server_api:
 
         // Verify config was updated
         let current = config.read();
-        assert_eq!(current.server.public_rest, "0.0.0.0:3002", "Address should be updated to 0.0.0.0:3002");
+        assert_eq!(
+            current.server.public_rest, "0.0.0.0:3002",
+            "Address should be updated to 0.0.0.0:3002"
+        );
     }
 }
