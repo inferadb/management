@@ -2199,16 +2199,60 @@ paths:
               schema:
                 $ref: "#/components/schemas/JWKS"
 
-  # Health Endpoints
-  /v1/health:
+  # Health Endpoints (Kubernetes conventions: /livez, /readyz, /startupz, /healthz)
+  /livez:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: |
+        Kubernetes liveness probe. Returns 200 if the process is alive.
+        If this fails, Kubernetes will restart the container.
+      operationId: livez
+      responses:
+        "200":
+          description: Process alive
+        "503":
+          description: Process unhealthy
+
+  /readyz:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: |
+        Kubernetes readiness probe. Returns 200 if the service is ready to accept traffic.
+        If this fails, Kubernetes removes the pod from the load balancer.
+      operationId: readyz
+      responses:
+        "200":
+          description: Ready to accept traffic
+        "503":
+          description: Not ready
+
+  /startupz:
+    get:
+      tags: [Health]
+      summary: Startup probe
+      description: |
+        Kubernetes startup probe. Returns 200 once initialization is complete.
+        Kubernetes will not send traffic until this succeeds.
+      operationId: startupz
+      responses:
+        "200":
+          description: Startup complete
+        "503":
+          description: Still initializing
+
+  /healthz:
     get:
       tags: [Health]
       summary: Detailed health check
-      description: Comprehensive health status including dependencies
-      operationId: healthDetailed
+      description: |
+        Returns comprehensive health information for debugging and monitoring.
+        Includes service status, version, uptime, and component health.
+      operationId: healthz
       responses:
         "200":
-          description: Service healthy
+          description: Service healthy or degraded
           content:
             application/json:
               schema:
@@ -2217,74 +2261,26 @@ paths:
                   status:
                     type: string
                     enum: [healthy, degraded, unhealthy]
-                  timestamp:
+                  service:
                     type: string
-                    format: date-time
+                    example: inferadb-management
+                  version:
+                    type: string
+                    example: "0.1.0"
+                  instance_id:
+                    type: integer
+                    example: 1
                   uptime_seconds:
                     type: integer
-                  checks:
-                    type: object
-                    properties:
-                      database:
-                        type: object
-                        properties:
-                          status:
-                            type: string
-                            enum: [healthy, unhealthy]
-                          latency_ms:
-                            type: number
-                      leader:
-                        type: object
-                        properties:
-                          is_leader:
-                            type: boolean
-                          worker_id:
-                            type: integer
-
-  /v1/health/live:
-    get:
-      tags: [Health]
-      summary: Liveness probe
-      description: Kubernetes liveness probe (process alive)
-      operationId: healthLive
-      responses:
-        "200":
-          description: Process alive
-          content:
-            text/plain:
-              schema:
-                type: string
-                example: OK
-
-  /v1/health/ready:
-    get:
-      tags: [Health]
-      summary: Readiness probe
-      description: Kubernetes readiness probe (ready to accept traffic)
-      operationId: healthReady
-      responses:
-        "200":
-          description: Ready to accept traffic
-          content:
-            text/plain:
-              schema:
-                type: string
-                example: OK
-
-  /v1/health/startup:
-    get:
-      tags: [Health]
-      summary: Startup probe
-      description: Kubernetes startup probe (initialization complete)
-      operationId: healthStartup
-      responses:
-        "200":
-          description: Startup complete
-          content:
-            text/plain:
-              schema:
-                type: string
-                example: OK
+                    example: 3600
+                  storage_healthy:
+                    type: boolean
+                    example: true
+                  is_leader:
+                    type: boolean
+                    example: true
+        "503":
+          description: Service unhealthy
 
   /metrics:
     get:

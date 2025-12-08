@@ -1,3 +1,11 @@
+//! Health check endpoints for Kubernetes probes
+//!
+//! Provides standard Kubernetes health endpoints following the API server conventions:
+//! - `/livez` - Liveness probe (is the process alive?)
+//! - `/readyz` - Readiness probe (can it accept traffic?)
+//! - `/startupz` - Startup probe (has initialization completed?)
+//! - `/healthz` - Detailed health status for debugging/monitoring
+
 use std::time::SystemTime;
 
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
@@ -21,6 +29,9 @@ pub struct HealthResponse {
     /// Overall health status
     pub status: HealthStatus,
 
+    /// Service name
+    pub service: String,
+
     /// Service version
     pub version: String,
 
@@ -28,7 +39,7 @@ pub struct HealthResponse {
     pub instance_id: u16,
 
     /// Uptime in seconds
-    pub uptime: u64,
+    pub uptime_seconds: u64,
 
     /// Whether storage backend is healthy
     pub storage_healthy: bool,
@@ -41,49 +52,60 @@ pub struct HealthResponse {
     pub details: Option<String>,
 }
 
-/// Liveness probe
+/// Liveness probe handler (`/livez`)
 ///
+/// Indicates whether the service is running. If this fails, Kubernetes will restart the pod.
 /// Always returns 200 OK if the server is running.
-/// This endpoint is used by Kubernetes liveness probes.
 ///
-/// GET /v1/health/live
-pub async fn health_live() -> impl IntoResponse {
+/// Returns:
+/// - 200 OK if the service is alive
+/// - 503 Service Unavailable if the service is dead (unreachable in practice)
+pub async fn livez_handler() -> impl IntoResponse {
     StatusCode::OK
 }
 
-/// Readiness probe
+/// Readiness probe handler (`/readyz`)
 ///
-/// Returns 200 if the service is ready to accept traffic.
+/// Indicates whether the service is ready to accept traffic.
+/// If this fails, Kubernetes will remove the pod from the load balancer.
+///
 /// Checks:
 /// - Storage backend is accessible
-/// - Leader election is functioning (if enabled)
 ///
-/// GET /v1/health/ready
-pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
+/// Returns:
+/// - 200 OK if the service is ready
+/// - 503 Service Unavailable if the service is not ready
+pub async fn readyz_handler(State(state): State<AppState>) -> impl IntoResponse {
     // Check storage health by doing a simple operation
     let storage_healthy = state.storage.get(b"health_check".as_ref()).await.is_ok();
 
     if storage_healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE }
 }
 
-/// Startup probe
+/// Startup probe handler (`/startupz`)
 ///
-/// Returns 200 once the service has completed initialization.
-/// This can be the same as the readiness probe for now.
+/// Indicates whether the service has completed initialization.
+/// Kubernetes will not send traffic until this succeeds.
 ///
-/// GET /v1/health/startup
-pub async fn health_startup(State(state): State<AppState>) -> impl IntoResponse {
-    // For now, same as readiness
-    health_ready(State(state)).await
+/// Returns:
+/// - 200 OK if startup is complete
+/// - 503 Service Unavailable if still initializing
+pub async fn startupz_handler(State(state): State<AppState>) -> impl IntoResponse {
+    // For now, same as readiness (storage must be accessible)
+    readyz_handler(State(state)).await
 }
 
-/// Detailed health status
+/// Detailed health check handler (`/healthz`)
 ///
-/// Returns comprehensive health information about the service.
-/// Useful for monitoring and debugging.
+/// Returns comprehensive health information including component status.
+/// Useful for debugging and monitoring dashboards.
 ///
-/// GET /v1/health
-pub async fn health_detailed(State(state): State<AppState>) -> impl IntoResponse {
+/// Returns JSON with detailed health status including:
+/// - Overall status (healthy/degraded/unhealthy)
+/// - Service name and version
+/// - Uptime in seconds
+/// - Storage and leader election status
+pub async fn healthz_handler(State(state): State<AppState>) -> impl IntoResponse {
     // Check storage health
     let storage_healthy = state.storage.get(b"health_check".as_ref()).await.is_ok();
 
@@ -103,16 +125,17 @@ pub async fn health_detailed(State(state): State<AppState>) -> impl IntoResponse
         .unwrap_or(false);
 
     // Calculate uptime
-    let uptime = SystemTime::now().duration_since(start_time).unwrap_or_default().as_secs();
+    let uptime_seconds = SystemTime::now().duration_since(start_time).unwrap_or_default().as_secs();
 
     // Determine overall status
     let status = if storage_healthy { HealthStatus::Healthy } else { HealthStatus::Unhealthy };
 
     let response = HealthResponse {
         status,
+        service: "inferadb-management".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         instance_id,
-        uptime,
+        uptime_seconds,
         storage_healthy,
         is_leader,
         details: None,
@@ -130,26 +153,26 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_health_live() {
-        let response = health_live().await.into_response();
+    async fn test_livez() {
+        let response = livez_handler().await.into_response();
         assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[tokio::test]
-    async fn test_health_ready_with_healthy_storage() {
+    async fn test_readyz_with_healthy_storage() {
         let storage = Arc::new(Backend::Memory(MemoryBackend::new()));
         let state = crate::handlers::AppState::new_test(storage);
 
-        let response = health_ready(State(state)).await.into_response();
+        let response = readyz_handler(State(state)).await.into_response();
         assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[tokio::test]
-    async fn test_health_detailed() {
+    async fn test_healthz() {
         let storage = Arc::new(Backend::Memory(MemoryBackend::new()));
         let state = crate::handlers::AppState::new_test(storage);
 
-        let response = health_detailed(State(state)).await.into_response();
+        let response = healthz_handler(State(state)).await.into_response();
         assert_eq!(response.status(), StatusCode::OK);
     }
 }

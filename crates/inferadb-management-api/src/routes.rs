@@ -179,12 +179,11 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
     // Combine public, protected, and org-scoped routes
     Router::new()
         // Health check endpoints (no authentication)
-        .route("/v1/health", get(health::health_detailed))
-        .route("/v1/health/live", get(health::health_live))
-        .route("/v1/health/ready", get(health::health_ready))
-        .route("/v1/health/startup", get(health::health_startup))
-        // Legacy health check endpoint
-        .route("/health", get(health_check))
+        // Follow Kubernetes API server conventions (/livez, /readyz, /startupz, /healthz)
+        .route("/livez", get(health::livez_handler))
+        .route("/readyz", get(health::readyz_handler))
+        .route("/startupz", get(health::startupz_handler))
+        .route("/healthz", get(health::healthz_handler))
         // Metrics endpoint (no authentication)
         .route("/metrics", get(metrics_handler::metrics_handler))
         // Internal audit logging endpoint (no authentication, for internal use)
@@ -211,11 +210,6 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         .merge(protected)
         // Add logging middleware to log all requests
         .layer(middleware::from_fn(logging_middleware))
-}
-
-/// Health check endpoint
-async fn health_check() -> &'static str {
-    "OK"
 }
 
 /// Create public routes (client-facing)
