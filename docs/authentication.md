@@ -1157,7 +1157,7 @@ The Server API uses an Ed25519 keypair as its identity:
 ```yaml
 identity: {}
 
-management_service:
+control:
   service_url: "http://localhost:8081"
 ```
 
@@ -1174,7 +1174,7 @@ On startup without a configured key, the server will:
 identity:
   private_key_pem: "${SERVER_PRIVATE_KEY}"
 
-management_service:
+control:
   service_url: "https://management.example.com"
 ```
 

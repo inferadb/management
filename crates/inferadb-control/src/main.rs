@@ -11,7 +11,7 @@ use inferadb_control_storage::factory::{StorageConfig, create_storage_backend};
 
 #[derive(Parser, Debug)]
 #[command(name = "inferadb-control")]
-#[command(about = "InferaDB Management Service", long_about = None)]
+#[command(about = "InferaDB Control", long_about = None)]
 struct Args {
     /// Path to configuration file
     #[arg(short, long, default_value = "config.yaml")]
@@ -83,17 +83,17 @@ async fn main() -> Result<()> {
         let policy_entry = match &config.discovery.mode {
             DiscoveryMode::None => startup::ConfigEntry::new(
                 "Network",
-                "Policy Service",
+                "Engine Endpoint",
                 format!("{} (local)", policy_url),
             ),
             DiscoveryMode::Kubernetes => startup::ConfigEntry::new(
                 "Network",
-                "Policy Service",
+                "Engine Endpoint",
                 format!("{} (kubernetes)", policy_url),
             ),
             DiscoveryMode::Tailscale { local_cluster, .. } => startup::ConfigEntry::new(
                 "Network",
-                "Policy Service",
+                "Engine Endpoint",
                 format!("{} (tailscale:{})", policy_url, local_cluster),
             ),
         };
@@ -110,7 +110,7 @@ async fn main() -> Result<()> {
 
         startup::StartupDisplay::new(startup::ServiceInfo {
             name: "InferaDB",
-            subtext: "Management Service",
+            subtext: "Control",
             version: env!("CARGO_PKG_VERSION"),
             environment: args.environment.clone(),
         })
@@ -137,7 +137,7 @@ async fn main() -> Result<()> {
             environment = %args.environment,
             config_file = %args.config,
             worker_id = config.id_generation.worker_id,
-            "Starting InferaDB Management Service"
+            "Starting InferaDB Control"
         );
     }
 
@@ -155,9 +155,9 @@ async fn main() -> Result<()> {
         config.policy_service.service_url.clone(),
         config.policy_service.grpc_port,
     )?);
-    startup::log_initialized("Policy Service client");
+    startup::log_initialized("Engine client");
 
-    // Management API identity for webhook authentication
+    // Identity for webhook authentication
     let management_identity = if let Some(ref pem) = config.identity.private_key_pem {
         ManagementIdentity::from_pem(pem)
             .map_err(|e| anyhow::anyhow!("Failed to load Management identity from PEM: {}", e))?
@@ -172,7 +172,7 @@ async fn main() -> Result<()> {
     tracing::info!(
         management_id = %management_identity.management_id,
         kid = %management_identity.kid,
-        "Management identity initialized"
+        "Control identity initialized"
     );
 
     let management_identity = Arc::new(management_identity);

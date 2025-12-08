@@ -100,7 +100,7 @@ pub async fn serve(
     let internal_listener = tokio::net::TcpListener::bind(&config.server.private_rest).await?;
 
     // Log ready status
-    startup::log_ready("Management Service");
+    startup::log_ready("Control");
 
     // Setup graceful shutdown
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel::<()>(2);
