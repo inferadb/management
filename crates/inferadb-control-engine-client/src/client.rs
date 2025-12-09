@@ -8,13 +8,14 @@ use std::{
     time::{Duration, Instant},
 };
 
+use inferadb_control_discovery::DiscoveryMode;
 use inferadb_control_types::{ControlIdentity, Result};
 use parking_lot::RwLock;
 use reqwest::Client as HttpClient;
 use serde::Serialize;
 use tracing::{debug, info, warn};
 
-use crate::discovery::{DiscoveryMode, ServiceDiscovery};
+use crate::discovery::ServiceDiscovery;
 
 /// Circuit breaker thresholds (matching engine's implementation)
 const FAILURE_THRESHOLD: u32 = 5;

@@ -14,5 +14,5 @@ pub mod discovery;
 pub mod refresh;
 
 pub use client::EngineClient;
-pub use discovery::{DiscoveryMode, RemoteCluster, ServiceDiscovery};
+pub use discovery::ServiceDiscovery;
 pub use refresh::DiscoveryRefresher;

@@ -8,23 +8,14 @@ use std::{
     time::{Duration, Instant},
 };
 
+// Re-export RemoteCluster for tests and consumers
+#[cfg(test)]
+use inferadb_control_discovery::RemoteCluster;
+use inferadb_control_discovery::{DiscoveryMode, EndpointDiscovery, create_discovery};
 use inferadb_control_types::ControlIdentity;
 use parking_lot::RwLock;
 use reqwest::Client as HttpClient;
 use tracing::{debug, error, info, warn};
-
-use crate::config::{DiscoveryMode, RemoteCluster};
-
-/// Discovery mode for server endpoints
-#[derive(Debug, Clone)]
-enum InternalDiscoveryMode {
-    /// Static endpoints (no discovery)
-    Static(Vec<String>),
-    /// Kubernetes service discovery
-    Kubernetes { service_name: String, namespace: String, port: u16 },
-    /// Tailscale multi-region mesh discovery
-    Tailscale { local_cluster: String, remote_clusters: Vec<RemoteCluster> },
-}
 
 /// Cached endpoints with TTL validation
 #[derive(Debug, Clone)]
@@ -44,8 +35,12 @@ impl CachedEndpoints {
 pub struct WebhookClient {
     /// HTTP client for making requests
     http_client: HttpClient,
-    /// Discovery mode for endpoints
-    discovery_mode: InternalDiscoveryMode,
+    /// Discovery service for finding endpoints
+    discovery: Box<dyn EndpointDiscovery>,
+    /// Service URL (for static fallback and discovery context)
+    service_url: String,
+    /// Internal port for webhooks
+    internal_port: u16,
     /// Control identity for signing webhook JWTs
     control_identity: Arc<ControlIdentity>,
     /// Cached discovered endpoints
@@ -57,7 +52,9 @@ pub struct WebhookClient {
 impl std::fmt::Debug for WebhookClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WebhookClient")
-            .field("discovery_mode", &self.discovery_mode)
+            .field("discovery", &self.discovery)
+            .field("service_url", &self.service_url)
+            .field("internal_port", &self.internal_port)
             .field("cache_ttl", &self.cache_ttl)
             .finish()
     }
@@ -74,24 +71,6 @@ impl WebhookClient {
     /// * `timeout_ms` - Request timeout in milliseconds (default: 5000)
     /// * `discovery_mode` - Service discovery mode (None, Kubernetes, or Tailscale)
     /// * `cache_ttl` - Cache TTL for discovered endpoints in seconds (default: 300)
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use std::sync::Arc;
-    /// use inferadb_control_core::{WebhookClient, ControlIdentity};
-    /// use inferadb_control_core::config::DiscoveryMode;
-    ///
-    /// let identity = Arc::new(ControlIdentity::generate());
-    /// let client = WebhookClient::new(
-    ///     "http://localhost".to_string(),
-    ///     9090,
-    ///     identity,
-    ///     5000,
-    ///     DiscoveryMode::None,
-    ///     300
-    /// ).unwrap();
-    /// ```
     pub fn new(
         service_url: String,
         internal_port: u16,
@@ -106,55 +85,21 @@ impl WebhookClient {
             .build()
             .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
-        // Parse the base service URL to extract host
-        let url =
-            url::Url::parse(&service_url).map_err(|e| format!("Invalid service URL: {}", e))?;
+        // Create discovery service based on mode
+        let discovery = create_discovery(&discovery_mode);
 
-        let service_host = url.host_str().ok_or_else(|| "No host in service URL".to_string())?;
-
-        // Construct the full internal URL
-        let server_internal_url =
-            format!("{}:{}", service_url.trim_end_matches('/'), internal_port);
-
-        let internal_discovery_mode = match discovery_mode {
-            DiscoveryMode::None => {
-                debug!(url = %server_internal_url, "Using static endpoint (no discovery)");
-                InternalDiscoveryMode::Static(vec![server_internal_url])
-            },
-            DiscoveryMode::Kubernetes => {
-                // Extract service name and namespace from hostname
-                let parts: Vec<&str> = service_host.split('.').collect();
-                let default_namespace =
-                    std::env::var("KUBERNETES_NAMESPACE").unwrap_or_else(|_| "default".to_string());
-                let (service_name, namespace) = if parts.len() >= 2 {
-                    (parts[0].to_string(), parts[1].to_string())
-                } else {
-                    (parts[0].to_string(), default_namespace)
-                };
-
-                info!(
-                    service_name = %service_name,
-                    namespace = %namespace,
-                    port = internal_port,
-                    "Configured Kubernetes service discovery for webhooks"
-                );
-
-                InternalDiscoveryMode::Kubernetes { service_name, namespace, port: internal_port }
-            },
-            DiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
-                info!(
-                    local_cluster = %local_cluster,
-                    remote_cluster_count = remote_clusters.len(),
-                    "Configured Tailscale multi-region discovery for webhooks"
-                );
-
-                InternalDiscoveryMode::Tailscale { local_cluster, remote_clusters }
-            },
-        };
+        info!(
+            service_url = %service_url,
+            internal_port = internal_port,
+            discovery_mode = ?discovery_mode,
+            "Created webhook client"
+        );
 
         Ok(Self {
             http_client,
-            discovery_mode: internal_discovery_mode,
+            discovery,
+            service_url,
+            internal_port,
             control_identity,
             endpoint_cache: Arc::new(RwLock::new(None)),
             cache_ttl,
@@ -179,55 +124,23 @@ impl WebhookClient {
         crate::metrics::record_discovery_cache_miss();
         debug!("Cache miss or expired, discovering endpoints");
 
-        // Discover endpoints based on mode
-        let endpoints = match &self.discovery_mode {
-            InternalDiscoveryMode::Static(endpoints) => {
-                debug!(count = endpoints.len(), "Using static endpoints");
-                endpoints.clone()
+        // Build the service URL for discovery
+        let full_service_url =
+            format!("{}:{}", self.service_url.trim_end_matches('/'), self.internal_port);
+
+        // Discover endpoints using the discovery service
+        let endpoints = match self.discovery.discover(&full_service_url).await {
+            Ok(discovered) => {
+                info!(count = discovered.len(), "Discovered endpoints");
+                discovered.into_iter().map(|e| e.url).collect()
             },
-            InternalDiscoveryMode::Kubernetes { service_name, namespace, port } => {
-                let service_url = format!("http://{}:{}", service_name, port);
-                match Self::discover_k8s_endpoints(service_name, namespace, *port).await {
-                    Ok(discovered) => {
-                        info!(
-                            count = discovered.len(),
-                            service_name = %service_name,
-                            namespace = %namespace,
-                            "Discovered Kubernetes endpoints"
-                        );
-                        discovered
-                    },
-                    Err(e) => {
-                        error!(
-                            error = %e,
-                            service_name = %service_name,
-                            namespace = %namespace,
-                            "Discovery failed, using service URL fallback"
-                        );
-                        vec![service_url]
-                    },
-                }
-            },
-            InternalDiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
-                match Self::discover_tailscale_endpoints(local_cluster, remote_clusters).await {
-                    Ok(discovered) => {
-                        info!(
-                            count = discovered.len(),
-                            local_cluster = %local_cluster,
-                            remote_cluster_count = remote_clusters.len(),
-                            "Discovered Tailscale endpoints across clusters"
-                        );
-                        discovered
-                    },
-                    Err(e) => {
-                        error!(
-                            error = %e,
-                            local_cluster = %local_cluster,
-                            "Tailscale discovery failed, returning empty list"
-                        );
-                        vec![]
-                    },
-                }
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    service_url = %full_service_url,
+                    "Discovery failed, using static fallback"
+                );
+                vec![full_service_url]
             },
         };
 
@@ -252,160 +165,6 @@ impl WebhookClient {
         self.get_endpoints().await.len()
     }
 
-    /// Discover Tailscale service endpoints across multiple clusters
-    async fn discover_tailscale_endpoints(
-        _local_cluster: &str,
-        remote_clusters: &[RemoteCluster],
-    ) -> Result<Vec<String>, String> {
-        use tokio::net::lookup_host;
-
-        debug!(
-            remote_cluster_count = remote_clusters.len(),
-            "Discovering Tailscale endpoints across clusters"
-        );
-
-        let mut all_endpoints = Vec::new();
-
-        // Discover endpoints for each remote cluster in parallel
-        let mut tasks = Vec::new();
-
-        for cluster in remote_clusters {
-            let cluster_clone = cluster.clone();
-
-            let task = tokio::spawn(async move {
-                let tailscale_hostname =
-                    format!("{}.{}", cluster_clone.service_name, cluster_clone.tailscale_domain);
-
-                debug!(
-                    cluster = %cluster_clone.name,
-                    hostname = %tailscale_hostname,
-                    "Resolving Tailscale MagicDNS name"
-                );
-
-                // Perform DNS lookup for the Tailscale hostname
-                let addrs: Vec<std::net::SocketAddr> =
-                    match lookup_host(format!("{}:{}", tailscale_hostname, cluster_clone.port))
-                        .await
-                    {
-                        Ok(iter) => iter.collect(),
-                        Err(e) => {
-                            warn!(
-                                cluster = %cluster_clone.name,
-                                hostname = %tailscale_hostname,
-                                error = %e,
-                                "Failed to resolve Tailscale hostname"
-                            );
-                            return vec![];
-                        },
-                    };
-
-                // Build endpoint URLs from resolved IPs
-                let mut endpoints = Vec::new();
-                for addr in addrs {
-                    let endpoint_url = format!("http://{}:{}", addr.ip(), cluster_clone.port);
-                    endpoints.push(endpoint_url);
-                }
-
-                info!(
-                    cluster = %cluster_clone.name,
-                    endpoint_count = endpoints.len(),
-                    "Discovered Tailscale endpoints for cluster"
-                );
-
-                endpoints
-            });
-
-            tasks.push(task);
-        }
-
-        // Collect results from all tasks
-        for task in tasks {
-            match task.await {
-                Ok(endpoints) => {
-                    all_endpoints.extend(endpoints);
-                },
-                Err(e) => {
-                    error!(error = %e, "Tailscale discovery task failed");
-                },
-            }
-        }
-
-        if all_endpoints.is_empty() {
-            return Err("No Tailscale endpoints discovered across any cluster".to_string());
-        }
-
-        info!(total_endpoints = all_endpoints.len(), "Completed Tailscale multi-cluster discovery");
-
-        Ok(all_endpoints)
-    }
-
-    /// Discover Kubernetes service endpoints
-    async fn discover_k8s_endpoints(
-        service_name: &str,
-        namespace: &str,
-        port: u16,
-    ) -> Result<Vec<String>, String> {
-        use k8s_openapi::api::core::v1::Endpoints as K8sEndpoints;
-        use kube::{Api, Client};
-
-        debug!(
-            service_name = %service_name,
-            namespace = %namespace,
-            port = port,
-            "Discovering Kubernetes service endpoints"
-        );
-
-        // Create Kubernetes client
-        let client = Client::try_default()
-            .await
-            .map_err(|e| format!("Failed to create Kubernetes client: {}", e))?;
-
-        // Get the Endpoints resource for this service
-        let endpoints_api: Api<K8sEndpoints> = Api::namespaced(client, namespace);
-
-        let endpoints = endpoints_api.get(service_name).await.map_err(|e| {
-            if e.to_string().contains("404") {
-                format!("Service {}.{} not found", service_name, namespace)
-            } else {
-                format!("Failed to get endpoints for {}.{}: {}", service_name, namespace, e)
-            }
-        })?;
-
-        // Extract pod IPs from the Endpoints resource
-        let mut pod_endpoints = Vec::new();
-
-        if let Some(subsets) = endpoints.subsets {
-            for subset in subsets {
-                // Only use ready addresses (healthy pods)
-                if let Some(addresses) = subset.addresses {
-                    for address in addresses {
-                        let pod_ip = &address.ip;
-                        let endpoint_url = format!("http://{}:{}", pod_ip, port);
-                        pod_endpoints.push(endpoint_url);
-                    }
-                }
-            }
-        }
-
-        if pod_endpoints.is_empty() {
-            warn!(
-                service_name = %service_name,
-                namespace = %namespace,
-                "No ready endpoints found for service"
-            );
-            return Ok(vec![]);
-        }
-
-        info!(
-            service_name = %service_name,
-            namespace = %namespace,
-            endpoint_count = pod_endpoints.len(),
-            "Discovered Kubernetes service endpoints"
-        );
-
-        Ok(pod_endpoints)
-    }
-
     /// Invalidate vault cache on all server instances
     ///
     /// Sends cache invalidation webhooks to all configured server endpoints in parallel.
@@ -414,12 +173,6 @@ impl WebhookClient {
     /// # Arguments
     ///
     /// * `vault_id` - The vault ID to invalidate
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// client.invalidate_vault(12345).await;
-    /// ```
     pub async fn invalidate_vault(&self, vault_id: i64) {
         let endpoints = self.get_endpoints().await;
 
@@ -518,12 +271,6 @@ impl WebhookClient {
     /// # Arguments
     ///
     /// * `org_id` - The organization ID to invalidate
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// client.invalidate_organization(67890).await;
-    /// ```
     pub async fn invalidate_organization(&self, org_id: i64) {
         let endpoints = self.get_endpoints().await;
 
@@ -624,12 +371,6 @@ impl WebhookClient {
     /// * `org_id` - The organization ID
     /// * `client_id` - The client ID
     /// * `cert_id` - The certificate ID to invalidate
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// client.invalidate_certificate(123, 456, 789).await;
-    /// ```
     pub async fn invalidate_certificate(&self, org_id: i64, client_id: i64, cert_id: i64) {
         let endpoints = self.get_endpoints().await;
 
@@ -741,222 +482,11 @@ impl WebhookClient {
             "Completed certificate invalidation webhooks"
         );
     }
-
-    /// Discover server endpoints, with support for Kubernetes service discovery
-    ///
-    /// If the endpoint is a Kubernetes service format (e.g., "http://service-name:port")
-    /// and running in Kubernetes (KUBERNETES_SERVICE_HOST env var is set), this will
-    /// use the Kubernetes API to discover all pod endpoints behind the service.
-    ///
-    /// Otherwise, it returns the static endpoints as-is.
-    ///
-    /// # Arguments
-    ///
-    /// * `endpoints` - List of static endpoints or Kubernetes service names
-    ///
-    /// # Returns
-    ///
-    /// Discovered endpoints (either from k8s or static)
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// use inferadb_control_core::WebhookClient;
-    ///
-    /// let endpoints = vec!["http://inferadb-engine:8080".to_string()];
-    /// let discovered = WebhookClient::discover_endpoints(endpoints).await;
-    /// ```
-    pub async fn discover_endpoints(endpoints: Vec<String>) -> Vec<String> {
-        // Check if running in Kubernetes
-        let in_kubernetes = std::env::var("KUBERNETES_SERVICE_HOST").is_ok();
-
-        if !in_kubernetes {
-            debug!("Not running in Kubernetes - using static endpoints: {:?}", endpoints);
-            return endpoints;
-        }
-
-        debug!("Running in Kubernetes - attempting service discovery");
-
-        let mut discovered_endpoints = Vec::new();
-
-        for endpoint in &endpoints {
-            // Check if this looks like a Kubernetes service (no dots in hostname, simple format)
-            if is_kubernetes_service(endpoint) {
-                match discover_k8s_service_endpoints(endpoint).await {
-                    Ok(pod_endpoints) => {
-                        info!(
-                            service = %endpoint,
-                            pod_count = pod_endpoints.len(),
-                            "Discovered Kubernetes service endpoints"
-                        );
-                        discovered_endpoints.extend(pod_endpoints);
-                    },
-                    Err(e) => {
-                        warn!(
-                            service = %endpoint,
-                            error = %e,
-                            "Failed to discover Kubernetes endpoints, falling back to service URL"
-                        );
-                        discovered_endpoints.push(endpoint.clone());
-                    },
-                }
-            } else {
-                // Not a k8s service, use as-is
-                discovered_endpoints.push(endpoint.clone());
-            }
-        }
-
-        discovered_endpoints
-    }
-}
-
-/// Check if an endpoint looks like a Kubernetes service
-///
-/// Kubernetes services typically have simple hostnames without dots:
-/// - http://service-name:8080
-/// - http://service-name.namespace:8080
-/// - http://service-name.namespace.svc.cluster.local:8080
-fn is_kubernetes_service(endpoint: &str) -> bool {
-    // Parse the URL to extract hostname
-    if let Ok(url) = url::Url::parse(endpoint) {
-        if let Some(host) = url.host_str() {
-            // Check if it's an IP address (not a k8s service)
-            if host.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                return false;
-            }
-
-            // Kubernetes services have specific patterns:
-            // 1. No dots (simple service name): "service-name"
-            // 2. Ends with .svc.cluster.local: "service.namespace.svc.cluster.local"
-            // 3. Contains .svc.: "service.namespace.svc.something"
-            // 4. Has exactly one dot (service.namespace format): "service.namespace"
-            let dot_count = host.chars().filter(|&c| c == '.').count();
-
-            return !host.contains('.')
-                || host.ends_with(".svc.cluster.local")
-                || host.contains(".svc.")
-                || (dot_count == 1
-                    && !host.contains(".com")
-                    && !host.contains(".io")
-                    && !host.contains(".net"));
-        }
-    }
-    false
-}
-
-/// Discover Kubernetes service endpoints using the Kubernetes API
-///
-/// This queries the Kubernetes API to find all pod IPs behind a service.
-///
-/// # Arguments
-///
-/// * `service_endpoint` - The Kubernetes service URL (e.g., "http://service-name:8080")
-///
-/// # Returns
-///
-/// List of pod endpoints (e.g., ["http://10.0.1.2:8080", "http://10.0.1.3:8080"])
-async fn discover_k8s_service_endpoints(service_endpoint: &str) -> Result<Vec<String>, String> {
-    use k8s_openapi::api::core::v1::Endpoints as K8sEndpoints;
-    use kube::{Api, Client};
-
-    // Parse the service URL
-    let url =
-        url::Url::parse(service_endpoint).map_err(|e| format!("Invalid service URL: {}", e))?;
-
-    let service_host = url.host_str().ok_or_else(|| "No host in service URL".to_string())?;
-    let service_port =
-        url.port_or_known_default().ok_or_else(|| "No port in service URL".to_string())?;
-    let scheme = url.scheme();
-
-    // Extract service name and namespace from hostname
-    // Formats supported:
-    // - "service-name" -> (service-name, default namespace from env)
-    // - "service-name.namespace" -> (service-name, namespace)
-    // - "service-name.namespace.svc.cluster.local" -> (service-name, namespace)
-    let parts: Vec<&str> = service_host.split('.').collect();
-    let default_namespace =
-        std::env::var("KUBERNETES_NAMESPACE").unwrap_or_else(|_| "default".to_string());
-    let (service_name, namespace) = if parts.len() >= 2 {
-        (parts[0], parts[1])
-    } else {
-        (parts[0], default_namespace.as_str())
-    };
-
-    debug!(
-        service_name = %service_name,
-        namespace = %namespace,
-        port = service_port,
-        "Discovering Kubernetes service endpoints"
-    );
-
-    // Create Kubernetes client
-    let client = Client::try_default()
-        .await
-        .map_err(|e| format!("Failed to create Kubernetes client: {}", e))?;
-
-    // Get the Endpoints resource for this service
-    let endpoints_api: Api<K8sEndpoints> = Api::namespaced(client, namespace);
-
-    let endpoints = endpoints_api.get(service_name).await.map_err(|e| {
-        if e.to_string().contains("404") {
-            format!("Service {}.{} not found", service_name, namespace)
-        } else {
-            format!("Failed to get endpoints for {}.{}: {}", service_name, namespace, e)
-        }
-    })?;
-
-    // Extract pod IPs from the Endpoints resource
-    let mut pod_endpoints = Vec::new();
-
-    if let Some(subsets) = endpoints.subsets {
-        for subset in subsets {
-            // Only use ready addresses (healthy pods)
-            if let Some(addresses) = subset.addresses {
-                for address in addresses {
-                    let pod_ip = &address.ip;
-                    let endpoint_url = format!("{}://{}:{}", scheme, pod_ip, service_port);
-                    pod_endpoints.push(endpoint_url);
-                }
-            }
-        }
-    }
-
-    if pod_endpoints.is_empty() {
-        warn!(
-            service_name = %service_name,
-            namespace = %namespace,
-            "No ready endpoints found for service - falling back to service URL"
-        );
-        return Ok(vec![service_endpoint.to_string()]);
-    }
-
-    info!(
-        service_name = %service_name,
-        namespace = %namespace,
-        endpoint_count = pod_endpoints.len(),
-        "Discovered Kubernetes service endpoints"
-    );
-
-    Ok(pod_endpoints)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::DiscoveryMode;
-
-    #[test]
-    fn test_is_kubernetes_service() {
-        // Kubernetes services
-        assert!(is_kubernetes_service("http://inferadb-engine:8080"));
-        assert!(is_kubernetes_service("http://inferadb-engine.default:8080"));
-        assert!(is_kubernetes_service("http://inferadb-engine.default.svc.cluster.local:8080"));
-
-        // Not Kubernetes services
-        assert!(!is_kubernetes_service("http://192.168.1.1:8080"));
-        assert!(!is_kubernetes_service("http://example.com:8080"));
-        assert!(!is_kubernetes_service("https://api.inferadb.io:443"));
-    }
 
     #[tokio::test]
     async fn test_webhook_client_creation() {
@@ -997,16 +527,6 @@ mod tests {
             300,
         );
         assert!(client.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_discover_endpoints_static() {
-        let endpoints = vec!["http://server1:8080".to_string(), "http://server2:8080".to_string()];
-
-        // When not in Kubernetes, should return static endpoints as-is
-        std::env::remove_var("KUBERNETES_SERVICE_HOST");
-        let discovered = WebhookClient::discover_endpoints(endpoints.clone()).await;
-        assert_eq!(discovered, endpoints);
     }
 
     #[tokio::test]
@@ -1069,7 +589,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_kubernetes_discovery_mode_parsing() {
+    async fn test_kubernetes_discovery_mode() {
         let identity = Arc::new(ControlIdentity::generate());
 
         // Simple service name
@@ -1101,6 +621,28 @@ mod tests {
             identity,
             5000,
             DiscoveryMode::Kubernetes,
+            300,
+        );
+        assert!(client.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_tailscale_discovery_mode() {
+        let identity = Arc::new(ControlIdentity::generate());
+
+        let remote_clusters = vec![RemoteCluster::new(
+            "eu-west-1".to_string(),
+            "prod.ts.net".to_string(),
+            "inferadb-engine".to_string(),
+            9090,
+        )];
+
+        let client = WebhookClient::new(
+            "http://inferadb-engine".to_string(),
+            9090,
+            identity,
+            5000,
+            DiscoveryMode::Tailscale { local_cluster: "us-west-1".to_string(), remote_clusters },
             300,
         );
         assert!(client.is_ok());

@@ -28,6 +28,9 @@ unicode-width = { workspace = true }
 # Configuration (now in separate crate)
 inferadb-control-config = { path = "../inferadb-control-config" }
 
+# Service discovery
+inferadb-control-discovery = { path = "../inferadb-control-discovery" }
+
 # Constants
 inferadb-control-const = { path = "../inferadb-control-const" }
 
@@ -59,10 +62,6 @@ validator = { workspace = true }
 # HTTP client (for webhook notifications)
 reqwest = { workspace = true }
 url = { workspace = true }
-
-# Kubernetes client (for service discovery)
-k8s-openapi = { workspace = true }
-kube = { workspace = true }
 
 # Metrics
 metrics = { workspace = true }

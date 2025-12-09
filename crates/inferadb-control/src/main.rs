@@ -4,9 +4,9 @@ use anyhow::Result;
 use clap::Parser;
 use inferadb_control_api::ControlIdentity;
 use inferadb_control_core::{
-    ControlConfig, IdGenerator, WebhookClient, WorkerRegistry, acquire_worker_id,
-    config::DiscoveryMode, logging, startup,
+    ControlConfig, IdGenerator, WebhookClient, WorkerRegistry, acquire_worker_id, logging, startup,
 };
+use inferadb_control_discovery::DiscoveryMode;
 use inferadb_control_engine_client::EngineClient;
 use inferadb_control_storage::factory::{StorageConfig, create_storage_backend};
 
@@ -188,29 +188,11 @@ async fn main() -> Result<()> {
 
     // Engine client (for communication with engine)
     // Uses control identity for JWT authentication and discovery for load balancing
-    let discovery_mode = match &config.discovery.mode {
-        DiscoveryMode::None => inferadb_control_engine_client::DiscoveryMode::None,
-        DiscoveryMode::Kubernetes => inferadb_control_engine_client::DiscoveryMode::Kubernetes,
-        DiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
-            inferadb_control_engine_client::DiscoveryMode::Tailscale {
-                local_cluster: local_cluster.clone(),
-                remote_clusters: remote_clusters
-                    .iter()
-                    .map(|c| inferadb_control_engine_client::RemoteCluster {
-                        name: c.name.clone(),
-                        tailscale_domain: c.tailscale_domain.clone(),
-                        service_name: c.service_name.clone(),
-                        port: c.port,
-                    })
-                    .collect(),
-            }
-        },
-    };
     let engine_client = Arc::new(EngineClient::with_config(
         config.mesh.url.clone(),
         config.mesh.grpc,
         Some(Arc::clone(&control_identity)),
-        discovery_mode,
+        config.discovery.mode.clone(),
         config.discovery.cache_ttl,
         config.webhook.timeout,
     )?);

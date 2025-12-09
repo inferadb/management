@@ -30,6 +30,8 @@ pub mod refresh;
 
 use std::path::Path;
 
+// Import discovery config types (used in ControlConfig struct)
+use inferadb_control_discovery::DiscoveryConfig;
 use inferadb_control_types::error::{Error, Result};
 pub use refresh::ConfigRefresher;
 use serde::{Deserialize, Serialize};
@@ -274,67 +276,6 @@ impl Default for WebhookConfig {
     }
 }
 
-/// Service discovery configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiscoveryConfig {
-    /// Discovery mode (none or kubernetes)
-    #[serde(default)]
-    pub mode: DiscoveryMode,
-
-    /// Cache TTL for discovered endpoints (in seconds)
-    #[serde(default = "default_discovery_cache_ttl")]
-    pub cache_ttl: u64,
-
-    /// Health check interval (in seconds)
-    #[serde(default = "default_discovery_health_check_interval")]
-    pub health_check_interval: u64,
-}
-
-impl Default for DiscoveryConfig {
-    fn default() -> Self {
-        Self {
-            mode: DiscoveryMode::None,
-            cache_ttl: default_discovery_cache_ttl(),
-            health_check_interval: default_discovery_health_check_interval(),
-        }
-    }
-}
-
-/// Service discovery mode
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase", tag = "type")]
-pub enum DiscoveryMode {
-    /// No service discovery - use service URL directly
-    #[default]
-    None,
-    /// Kubernetes service discovery - resolve to pod IPs
-    Kubernetes,
-    /// Tailscale mesh networking for multi-region discovery
-    Tailscale {
-        /// Local cluster name (e.g., "us-west-1")
-        local_cluster: String,
-        /// Remote clusters to discover across
-        #[serde(default)]
-        remote_clusters: Vec<RemoteCluster>,
-    },
-}
-
-/// Remote cluster configuration for Tailscale mesh networking
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RemoteCluster {
-    /// Cluster name (e.g., "eu-west-1", "ap-southeast-1")
-    pub name: String,
-
-    /// Tailscale domain for this cluster (e.g., "eu-west-1.ts.net")
-    pub tailscale_domain: String,
-
-    /// Service name within the cluster (e.g., "inferadb-control")
-    pub service_name: String,
-
-    /// Service port
-    pub port: u16,
-}
-
 // Default value functions
 fn default_http() -> String {
     "127.0.0.1:9090".to_string()
@@ -406,14 +347,6 @@ fn default_webhook_timeout() -> u64 {
 
 fn default_webhook_retries() -> u8 {
     0 // Fire-and-forget
-}
-
-fn default_discovery_cache_ttl() -> u64 {
-    300 // 5 minutes
-}
-
-fn default_discovery_health_check_interval() -> u64 {
-    30 // 30 seconds
 }
 
 fn default_key_file() -> Option<String> {

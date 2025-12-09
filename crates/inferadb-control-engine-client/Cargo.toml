@@ -11,12 +11,11 @@ version.workspace = true
 
 [dependencies]
 # Workspace crates
+inferadb-control-discovery = { path = "../inferadb-control-discovery" }
 inferadb-control-types = { path = "../inferadb-control-types" }
 
 # External dependencies
 anyhow = { workspace = true }
-k8s-openapi = { workspace = true }
-kube = { workspace = true }
 parking_lot = "0.12"
 reqwest = { workspace = true }
 serde = { workspace = true }

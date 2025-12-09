@@ -1,0 +1,27 @@
+[package]
+authors.workspace = true
+description = "Service discovery for InferaDB Control"
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+name = "inferadb-control-discovery"
+publish.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+k8s-openapi = { workspace = true }
+kube = { workspace = true }
+parking_lot = "0.12"
+prometheus = { version = "0.13", default-features = false }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
