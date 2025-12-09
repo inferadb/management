@@ -164,17 +164,17 @@ pub async fn get_org_jwks(
 
 /// Get Control's public JWKS (for engine-to-control authentication)
 ///
-/// GET /.well-known/management-jwks.json
+/// GET /.well-known/control-jwks.json
 /// Public endpoint - no authentication required
 ///
 /// This endpoint returns Control's own public key, which engines use
 /// to validate JWTs signed by Control when receiving webhook callbacks.
-pub async fn get_management_jwks(
+pub async fn get_control_jwks(
     State(state): State<AppState>,
 ) -> Result<Json<JwksResponse>, (StatusCode, String)> {
-    // Get the management identity from AppState
-    let identity = state.management_identity.as_ref().ok_or_else(|| {
-        (StatusCode::SERVICE_UNAVAILABLE, "Management identity not configured".to_string())
+    // Get the control identity from AppState
+    let identity = state.control_identity.as_ref().ok_or_else(|| {
+        (StatusCode::SERVICE_UNAVAILABLE, "Control identity not configured".to_string())
     })?;
 
     let jwks = identity.to_jwks();

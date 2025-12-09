@@ -1,4 +1,4 @@
-// Request/Response DTOs for Management API
+// Request/Response DTOs for Control API
 
 pub mod audit_logs;
 pub mod auth;

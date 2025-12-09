@@ -2,7 +2,7 @@
 ///
 /// Note: This is just a re-export of the idgenerator functionality.
 /// The actual initialization and worker ID management happens in
-/// infera-management-core::id module.
+/// inferadb-control-core::id module.
 pub struct IdGenerator;
 
 impl IdGenerator {

@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use inferadb_control_types::{ManagementIdentity, Result};
+use inferadb_control_types::{ControlIdentity, Result};
 use parking_lot::RwLock;
 use reqwest::Client as HttpClient;
 use serde::Serialize;
@@ -148,11 +148,11 @@ struct CreateVaultRequest {
 /// - Load balancing with round-robin selection
 /// - Circuit breaker pattern (opens after 5 failures, recovers after 30s)
 /// - Automatic retry with failover (up to 3 attempts)
-/// - JWT authentication for management→engine communication
+/// - JWT authentication for control→engine communication
 pub struct EngineClient {
     http_client: HttpClient,
     discovery: ServiceDiscovery,
-    management_identity: Option<Arc<ManagementIdentity>>,
+    control_identity: Option<Arc<ControlIdentity>>,
     endpoint_cache: Arc<RwLock<Option<CachedEndpoints>>>,
     lb_state: Arc<RwLock<LoadBalancerState>>,
     cache_ttl: Duration,
@@ -186,14 +186,14 @@ impl EngineClient {
     ///
     /// * `service_url` - Base service URL without port (e.g., "http://localhost")
     /// * `port` - Engine's public REST API port (e.g., 8080)
-    /// * `management_identity` - Management identity for JWT authentication
+    /// * `control_identity` - Control identity for JWT authentication
     /// * `discovery_mode` - Service discovery mode
     /// * `cache_ttl` - Cache TTL for discovered endpoints in seconds
     /// * `timeout_ms` - Request timeout in milliseconds
     pub fn with_config(
         service_url: String,
         port: u16,
-        management_identity: Option<Arc<ManagementIdentity>>,
+        control_identity: Option<Arc<ControlIdentity>>,
         discovery_mode: DiscoveryMode,
         cache_ttl: u64,
         timeout_ms: u64,
@@ -217,7 +217,7 @@ impl EngineClient {
         Ok(Self {
             http_client,
             discovery,
-            management_identity,
+            control_identity,
             endpoint_cache: Arc::new(RwLock::new(None)),
             lb_state: Arc::new(RwLock::new(LoadBalancerState::new(vec![initial_endpoint]))),
             cache_ttl: Duration::from_secs(cache_ttl),
@@ -354,7 +354,7 @@ impl EngineClient {
                 let url = format!("{}/v1/organizations/{}/vaults", endpoint, organization_id);
 
                 // Sign JWT for authentication
-                let jwt = match &self.management_identity {
+                let jwt = match &self.control_identity {
                     Some(identity) => identity.sign_jwt(&endpoint).map_err(|e| {
                         inferadb_control_types::Error::External(format!(
                             "Failed to sign JWT: {}",
@@ -413,7 +413,7 @@ impl EngineClient {
                 let url = format!("{}/v1/vaults/{}", endpoint, vault_id);
 
                 // Sign JWT for authentication
-                let jwt = match &self.management_identity {
+                let jwt = match &self.control_identity {
                     Some(identity) => identity.sign_jwt(&endpoint).map_err(|e| {
                         inferadb_control_types::Error::External(format!(
                             "Failed to sign JWT: {}",

@@ -1,4 +1,4 @@
-// Re-export types from infera-management-types
+// Re-export types from inferadb-control-types
 pub use inferadb_control_types::{entities::*, error::*, *};
 
 pub mod auth;
@@ -21,7 +21,7 @@ pub mod webhook_client;
 
 pub use auth::{PasswordHasher, hash_password, verify_password};
 pub use clock::{ClockStatus, ClockValidator};
-pub use config::ManagementConfig;
+pub use config::ControlConfig;
 pub use config_refresh::ConfigRefresher;
 pub use crypto::{MasterKey, PrivateKeyEncryptor, keypair};
 pub use email::{

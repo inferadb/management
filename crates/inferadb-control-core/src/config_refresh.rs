@@ -18,12 +18,12 @@ use parking_lot::RwLock;
 use tokio::{sync::mpsc, time::interval};
 use tracing::{debug, error, info, warn};
 
-use crate::config::ManagementConfig;
+use crate::config::ControlConfig;
 
 /// Configuration refresher that watches files and polls environment variables
 pub struct ConfigRefresher {
     /// Current configuration (protected by RwLock for concurrent access)
-    config: Arc<RwLock<ManagementConfig>>,
+    config: Arc<RwLock<ControlConfig>>,
     /// Path to config file
     config_path: PathBuf,
     /// How often to check for environment variable changes (polling interval)
@@ -39,7 +39,7 @@ impl ConfigRefresher {
     /// * `config_path` - Path to the config file (will be watched for changes)
     /// * `env_poll_interval_secs` - How often to poll for environment variable changes (in seconds)
     pub fn new(
-        config: Arc<RwLock<ManagementConfig>>,
+        config: Arc<RwLock<ControlConfig>>,
         config_path: PathBuf,
         env_poll_interval_secs: u64,
     ) -> Self {
@@ -158,7 +158,7 @@ impl ConfigRefresher {
 
     /// Reload configuration and apply if changed
     async fn reload_config(&self, trigger: &str) {
-        match ManagementConfig::load(&self.config_path) {
+        match ControlConfig::load(&self.config_path) {
             Ok(new_config) => {
                 // Check if configuration actually changed
                 let changed = {
@@ -203,7 +203,7 @@ impl ConfigRefresher {
     pub async fn refresh_once(&self) -> Result<bool, Box<dyn std::error::Error>> {
         debug!("Performing one-time configuration refresh");
 
-        let new_config = ManagementConfig::load(&self.config_path)?;
+        let new_config = ControlConfig::load(&self.config_path)?;
 
         // Check if configuration changed
         let changed = {
@@ -235,7 +235,7 @@ impl ConfigRefresher {
 /// Note: This is a simplified comparison that serializes to JSON and compares.
 /// For production use, you may want to implement custom comparison logic that
 /// ignores specific fields or only compares critical configuration values.
-fn configs_equal(a: &ManagementConfig, b: &ManagementConfig) -> bool {
+fn configs_equal(a: &ControlConfig, b: &ControlConfig) -> bool {
     // Simple approach: serialize both and compare JSON
     // This will detect any field changes
     match (serde_json::to_value(a), serde_json::to_value(b)) {
@@ -269,7 +269,7 @@ control:
         .unwrap();
 
         // Load initial config
-        let initial_config = ManagementConfig::load(&config_path).unwrap();
+        let initial_config = ControlConfig::load(&config_path).unwrap();
         let config = Arc::new(RwLock::new(initial_config));
 
         // Create refresher
@@ -304,7 +304,7 @@ control:
         .unwrap();
 
         // Load initial config
-        let initial_config = ManagementConfig::load(&config_path).unwrap();
+        let initial_config = ControlConfig::load(&config_path).unwrap();
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial address
@@ -361,7 +361,7 @@ control:
         .unwrap();
 
         // Load initial config
-        let initial_config = ManagementConfig::load(&config_path).unwrap();
+        let initial_config = ControlConfig::load(&config_path).unwrap();
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial values
@@ -415,7 +415,7 @@ control:
         .unwrap();
 
         // Load initial config
-        let initial_config = ManagementConfig::load(&config_path).unwrap();
+        let initial_config = ControlConfig::load(&config_path).unwrap();
         let config = Arc::new(RwLock::new(initial_config));
 
         // Verify initial address

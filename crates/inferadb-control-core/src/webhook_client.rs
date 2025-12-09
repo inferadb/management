@@ -1,14 +1,14 @@
 //! Webhook client for invalidating server-side caches
 //!
 //! This module provides a client for sending cache invalidation webhooks to InferaDB server
-//! instances when vaults or organizations are updated in the Management API.
+//! instances when vaults or organizations are updated in the Control API.
 
 use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use inferadb_control_types::ManagementIdentity;
+use inferadb_control_types::ControlIdentity;
 use parking_lot::RwLock;
 use reqwest::Client as HttpClient;
 use tracing::{debug, error, info, warn};
@@ -46,8 +46,8 @@ pub struct WebhookClient {
     http_client: HttpClient,
     /// Discovery mode for endpoints
     discovery_mode: InternalDiscoveryMode,
-    /// Management identity for signing webhook JWTs
-    management_identity: Arc<ManagementIdentity>,
+    /// Control identity for signing webhook JWTs
+    control_identity: Arc<ControlIdentity>,
     /// Cached discovered endpoints
     endpoint_cache: Arc<RwLock<Option<CachedEndpoints>>>,
     /// Cache TTL in seconds
@@ -70,7 +70,7 @@ impl WebhookClient {
     ///
     /// * `service_url` - Base service URL without port (e.g., "http://localhost" or "http://inferadb-engine.inferadb")
     /// * `internal_port` - Internal API port for webhooks (e.g., 9090)
-    /// * `management_identity` - Management identity for signing webhook JWTs
+    /// * `control_identity` - Control identity for signing webhook JWTs
     /// * `timeout_ms` - Request timeout in milliseconds (default: 5000)
     /// * `discovery_mode` - Service discovery mode (None, Kubernetes, or Tailscale)
     /// * `cache_ttl` - Cache TTL for discovered endpoints in seconds (default: 300)
@@ -79,10 +79,10 @@ impl WebhookClient {
     ///
     /// ```rust,no_run
     /// use std::sync::Arc;
-    /// use inferadb_control_core::{WebhookClient, ManagementIdentity};
+    /// use inferadb_control_core::{WebhookClient, ControlIdentity};
     /// use inferadb_control_core::config::DiscoveryMode;
     ///
-    /// let identity = Arc::new(ManagementIdentity::generate());
+    /// let identity = Arc::new(ControlIdentity::generate());
     /// let client = WebhookClient::new(
     ///     "http://localhost".to_string(),
     ///     9090,
@@ -95,7 +95,7 @@ impl WebhookClient {
     pub fn new(
         service_url: String,
         internal_port: u16,
-        management_identity: Arc<ManagementIdentity>,
+        control_identity: Arc<ControlIdentity>,
         timeout_ms: u64,
         discovery_mode: DiscoveryMode,
         cache_ttl: u64,
@@ -155,7 +155,7 @@ impl WebhookClient {
         Ok(Self {
             http_client,
             discovery_mode: internal_discovery_mode,
-            management_identity,
+            control_identity,
             endpoint_cache: Arc::new(RwLock::new(None)),
             cache_ttl,
         })
@@ -441,7 +441,7 @@ impl WebhookClient {
             let http_client = self.http_client.clone();
             let url = format!("{}/internal/cache/invalidate/vault/{}", endpoint, vault_id);
             let endpoint_clone = endpoint.clone();
-            let management_identity = Arc::clone(&self.management_identity);
+            let control_identity = Arc::clone(&self.control_identity);
 
             let task = tokio::spawn(async move {
                 debug!(
@@ -451,7 +451,7 @@ impl WebhookClient {
                 );
 
                 // Sign JWT for server authentication
-                let jwt = match management_identity.sign_jwt(&endpoint_clone) {
+                let jwt = match control_identity.sign_jwt(&endpoint_clone) {
                     Ok(token) => token,
                     Err(e) => {
                         error!(
@@ -545,7 +545,7 @@ impl WebhookClient {
             let http_client = self.http_client.clone();
             let url = format!("{}/internal/cache/invalidate/organization/{}", endpoint, org_id);
             let endpoint_clone = endpoint.clone();
-            let management_identity = Arc::clone(&self.management_identity);
+            let control_identity = Arc::clone(&self.control_identity);
 
             let task = tokio::spawn(async move {
                 debug!(
@@ -555,7 +555,7 @@ impl WebhookClient {
                 );
 
                 // Sign JWT for server authentication
-                let jwt = match management_identity.sign_jwt(&endpoint_clone) {
+                let jwt = match control_identity.sign_jwt(&endpoint_clone) {
                     Ok(token) => token,
                     Err(e) => {
                         error!(
@@ -661,7 +661,7 @@ impl WebhookClient {
                 endpoint, org_id, client_id, cert_id
             );
             let endpoint_clone = endpoint.clone();
-            let management_identity = Arc::clone(&self.management_identity);
+            let control_identity = Arc::clone(&self.control_identity);
 
             let task = tokio::spawn(async move {
                 debug!(
@@ -673,7 +673,7 @@ impl WebhookClient {
                 );
 
                 // Sign JWT for server authentication
-                let jwt = match management_identity.sign_jwt(&endpoint_clone) {
+                let jwt = match control_identity.sign_jwt(&endpoint_clone) {
                     Ok(token) => token,
                     Err(e) => {
                         error!(
@@ -960,7 +960,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_webhook_client_creation() {
-        let identity = Arc::new(ManagementIdentity::generate());
+        let identity = Arc::new(ControlIdentity::generate());
         let client = WebhookClient::new(
             "http://localhost".to_string(),
             9090,
@@ -974,7 +974,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_webhook_client_creation_with_discovery() {
-        let identity = Arc::new(ManagementIdentity::generate());
+        let identity = Arc::new(ControlIdentity::generate());
 
         // Test with DiscoveryMode::None
         let client = WebhookClient::new(
@@ -1029,7 +1029,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_endpoints_caching() {
-        let identity = Arc::new(ManagementIdentity::generate());
+        let identity = Arc::new(ControlIdentity::generate());
 
         let client = WebhookClient::new(
             "http://server1".to_string(),
@@ -1052,7 +1052,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_endpoint_count() {
-        let identity = Arc::new(ManagementIdentity::generate());
+        let identity = Arc::new(ControlIdentity::generate());
 
         // With static discovery, we get a single endpoint
         let client = WebhookClient::new(
@@ -1070,7 +1070,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_kubernetes_discovery_mode_parsing() {
-        let identity = Arc::new(ManagementIdentity::generate());
+        let identity = Arc::new(ControlIdentity::generate());
 
         // Simple service name
         let client = WebhookClient::new(

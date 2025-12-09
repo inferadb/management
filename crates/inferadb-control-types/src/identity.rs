@@ -11,12 +11,12 @@ use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-/// Management API identity containing Ed25519 keypair for signing JWTs
+/// Control API identity containing Ed25519 keypair for signing JWTs
 #[derive(Clone)]
-pub struct ManagementIdentity {
-    /// Management API ID (used in JWT sub claim as "management:{management_id}")
+pub struct ControlIdentity {
+    /// Control API ID (used in JWT sub claim as "control:{control_id}")
     /// Auto-generated from environment (pod name or hostname)
-    pub management_id: String,
+    pub control_id: String,
     /// Key ID for JWKS (RFC 7638 JWK Thumbprint)
     /// Auto-generated as SHA-256 hash of the canonical JWK representation
     pub kid: String,
@@ -26,14 +26,14 @@ pub struct ManagementIdentity {
     verifying_key: VerifyingKey,
 }
 
-/// JWT claims for management-to-server authentication
+/// JWT claims for control-to-engine authentication
 #[derive(Debug, Serialize, Deserialize)]
-struct ManagementJwtClaims {
-    /// Issuer - the management API instance
+struct ControlJwtClaims {
+    /// Issuer - the control API instance
     iss: String,
-    /// Subject - "management:{management_id}"
+    /// Subject - "control:{control_id}"
     sub: String,
-    /// Audience - the server URL
+    /// Audience - the engine URL
     aud: String,
     /// Issued at (Unix timestamp)
     iat: i64,
@@ -69,8 +69,8 @@ pub struct Jwk {
     pub key_use: String,
 }
 
-impl ManagementIdentity {
-    /// Generate a new management identity with a random Ed25519 keypair.
+impl ControlIdentity {
+    /// Generate a new control identity with a random Ed25519 keypair.
     pub fn generate() -> Self {
         use rand::RngCore;
 
@@ -81,13 +81,13 @@ impl ManagementIdentity {
         let signing_key = SigningKey::from_bytes(&secret_bytes);
         let verifying_key = signing_key.verifying_key();
 
-        let management_id = Self::generate_management_id();
+        let control_id = Self::generate_control_id();
         let kid = Self::generate_kid(&verifying_key);
 
-        Self { management_id, kid, signing_key, verifying_key }
+        Self { control_id, kid, signing_key, verifying_key }
     }
 
-    /// Create management identity from an existing Ed25519 private key (PEM format).
+    /// Create control identity from an existing Ed25519 private key (PEM format).
     pub fn from_pem(pem: &str) -> Result<Self, String> {
         // Parse PEM to extract the private key bytes
         let pem = pem::parse(pem).map_err(|e| format!("Failed to parse PEM: {}", e))?;
@@ -110,21 +110,21 @@ impl ManagementIdentity {
         let signing_key = SigningKey::from_bytes(&private_key_bytes);
         let verifying_key = signing_key.verifying_key();
 
-        let management_id = Self::generate_management_id();
+        let control_id = Self::generate_control_id();
         let kid = Self::generate_kid(&verifying_key);
 
-        Ok(Self { management_id, kid, signing_key, verifying_key })
+        Ok(Self { control_id, kid, signing_key, verifying_key })
     }
 
-    /// Generate the management_id from the environment.
+    /// Generate the control_id from the environment.
     ///
     /// In Kubernetes, uses the pod name from HOSTNAME.
     /// Otherwise, uses hostname + random suffix.
-    fn generate_management_id() -> String {
+    fn generate_control_id() -> String {
         // Try Kubernetes pod name first (HOSTNAME env var)
         if let Ok(pod_name) = std::env::var("HOSTNAME") {
             // In Kubernetes, HOSTNAME is typically the pod name (e.g., "inferadb-control-0")
-            return format!("mgmt-{}", pod_name);
+            return format!("ctrl-{}", pod_name);
         }
 
         // Fallback to hostname + random suffix for non-Kubernetes environments
@@ -132,7 +132,7 @@ impl ManagementIdentity {
             .map(|h| h.to_string_lossy().to_string())
             .unwrap_or_else(|_| "unknown".to_string());
         let random_suffix = &uuid::Uuid::new_v4().to_string()[..8];
-        format!("mgmt-{}-{}", hostname, random_suffix)
+        format!("ctrl-{}-{}", hostname, random_suffix)
     }
 
     /// Generate the kid as an RFC 7638 JWK Thumbprint.
@@ -178,27 +178,27 @@ impl ManagementIdentity {
         pem::encode(&pem)
     }
 
-    /// Sign a JWT for management-to-server authentication
+    /// Sign a JWT for control-to-engine authentication
     ///
     /// # Arguments
     ///
-    /// * `server_url` - The audience (server URL) for the JWT
+    /// * `engine_url` - The audience (engine URL) for the JWT
     ///
     /// # Returns
     ///
     /// A signed JWT valid for 5 minutes
-    pub fn sign_jwt(&self, server_url: &str) -> Result<String, String> {
+    pub fn sign_jwt(&self, engine_url: &str) -> Result<String, String> {
         let now = chrono::Utc::now();
         let exp = now + chrono::Duration::minutes(5);
 
-        let claims = ManagementJwtClaims {
-            iss: format!("inferadb-control:{}", self.management_id),
-            sub: format!("management:{}", self.management_id),
-            aud: server_url.to_string(),
+        let claims = ControlJwtClaims {
+            iss: format!("inferadb-control:{}", self.control_id),
+            sub: format!("control:{}", self.control_id),
+            aud: engine_url.to_string(),
             iat: now.timestamp(),
             exp: exp.timestamp(),
             jti: uuid::Uuid::new_v4().to_string(),
-            // Admin scope for management operations (vault lifecycle, cache invalidation)
+            // Admin scope for control operations (vault lifecycle, cache invalidation)
             scope: "inferadb.admin".to_string(),
         };
 
@@ -231,28 +231,28 @@ impl ManagementIdentity {
     }
 }
 
-/// Thread-safe management identity
-pub type SharedManagementIdentity = Arc<ManagementIdentity>;
+/// Thread-safe control identity
+pub type SharedControlIdentity = Arc<ControlIdentity>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_generate_management_identity() {
-        let identity = ManagementIdentity::generate();
-        // management_id should start with "mgmt-"
-        assert!(identity.management_id.starts_with("mgmt-"));
+    fn test_generate_control_identity() {
+        let identity = ControlIdentity::generate();
+        // control_id should start with "ctrl-"
+        assert!(identity.control_id.starts_with("ctrl-"));
         // kid should be a base64url-encoded SHA-256 hash (43 characters for 256 bits)
         assert_eq!(identity.kid.len(), 43);
     }
 
     #[test]
     fn test_pem_round_trip() {
-        let identity = ManagementIdentity::generate();
+        let identity = ControlIdentity::generate();
         let pem = identity.to_pem();
 
-        let restored = ManagementIdentity::from_pem(&pem);
+        let restored = ControlIdentity::from_pem(&pem);
         assert!(restored.is_ok());
         let restored = restored.unwrap();
         // The kid should be the same since it's derived from the key
@@ -262,11 +262,11 @@ mod tests {
     #[test]
     fn test_kid_is_deterministic() {
         // Same key should always produce the same kid
-        let identity = ManagementIdentity::generate();
+        let identity = ControlIdentity::generate();
         let pem = identity.to_pem();
 
-        let restored1 = ManagementIdentity::from_pem(&pem).unwrap();
-        let restored2 = ManagementIdentity::from_pem(&pem).unwrap();
+        let restored1 = ControlIdentity::from_pem(&pem).unwrap();
+        let restored2 = ControlIdentity::from_pem(&pem).unwrap();
 
         assert_eq!(restored1.kid, restored2.kid);
         assert_eq!(identity.kid, restored1.kid);
@@ -274,8 +274,8 @@ mod tests {
 
     #[test]
     fn test_different_keys_have_different_kids() {
-        let identity1 = ManagementIdentity::generate();
-        let identity2 = ManagementIdentity::generate();
+        let identity1 = ControlIdentity::generate();
+        let identity2 = ControlIdentity::generate();
 
         // Different keys should have different kids
         assert_ne!(identity1.kid, identity2.kid);
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_sign_jwt() {
-        let identity = ManagementIdentity::generate();
+        let identity = ControlIdentity::generate();
         let jwt = identity.sign_jwt("http://localhost:8080");
         assert!(jwt.is_ok());
 
@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_to_jwks() {
-        let identity = ManagementIdentity::generate();
+        let identity = ControlIdentity::generate();
         let jwks = identity.to_jwks();
 
         assert_eq!(jwks.keys.len(), 1);
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn test_rfc7638_thumbprint_format() {
         // Verify the kid is a valid base64url-encoded SHA-256 hash
-        let identity = ManagementIdentity::generate();
+        let identity = ControlIdentity::generate();
 
         // SHA-256 produces 32 bytes, base64url encodes to 43 characters (no padding)
         assert_eq!(identity.kid.len(), 43);

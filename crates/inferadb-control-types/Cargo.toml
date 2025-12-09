@@ -41,7 +41,7 @@ zeroize = { workspace = true }
 # Snowflake ID generation (for entity types)
 idgenerator = { workspace = true }
 
-# JWT and PEM encoding (for ManagementIdentity)
+# JWT and PEM encoding (for ControlIdentity)
 jsonwebtoken = { workspace = true }
 pem = { workspace = true }
 uuid = { workspace = true }

@@ -1,8 +1,8 @@
-//! # Infera Management Types
+//! # InferaDB Control Types
 //!
-//! Shared type definitions for the InferaDB Management API.
+//! Shared type definitions for InferaDB Control.
 //!
-//! This crate provides all core types used across the Management API ecosystem,
+//! This crate provides all core types used across the Control ecosystem,
 //! ensuring a single source of truth and preventing circular dependencies.
 
 use serde::{Deserialize, Serialize};
@@ -24,12 +24,12 @@ pub mod error;
 pub use error::{Error, Result};
 
 // ============================================================================
-// Management Identity (for webhook authentication)
+// Control Identity (for webhook authentication)
 // ============================================================================
 
 pub mod identity;
 
-pub use identity::{ManagementIdentity, SharedManagementIdentity};
+pub use identity::{ControlIdentity, SharedControlIdentity};
 
 // ============================================================================
 // Pagination Types

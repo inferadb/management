@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use inferadb_control_core::{ManagementConfig, startup};
+use inferadb_control_core::{ControlConfig, startup};
 use inferadb_control_engine_client::EngineClient;
 use inferadb_control_storage::Backend;
 use tracing::info;
@@ -16,7 +16,7 @@ pub mod routes;
 pub use handlers::AppState;
 pub use inferadb_control_types::{
     dto::ErrorResponse,
-    identity::{ManagementIdentity, SharedManagementIdentity},
+    identity::{ControlIdentity, SharedControlIdentity},
 };
 pub use middleware::{
     OrganizationContext, SessionContext, VaultContext, extract_session_context,
@@ -56,18 +56,18 @@ async fn shutdown_signal() {
     }
 }
 
-/// Configuration for optional services in the Management API
+/// Configuration for optional services in the Control API
 pub struct ServicesConfig {
     pub leader: Option<Arc<inferadb_control_core::LeaderElection<Backend>>>,
     pub email_service: Option<Arc<inferadb_control_core::EmailService>>,
     pub webhook_client: Option<Arc<inferadb_control_core::WebhookClient>>,
-    pub management_identity: Option<Arc<ManagementIdentity>>,
+    pub control_identity: Option<Arc<ControlIdentity>>,
 }
 
 /// Start the Control API HTTP server (dual-server or single-server mode)
 pub async fn serve(
     storage: Arc<Backend>,
-    config: Arc<ManagementConfig>,
+    config: Arc<ControlConfig>,
     engine_client: Arc<EngineClient>,
     worker_id: u16,
     services: ServicesConfig,
@@ -85,8 +85,8 @@ pub async fn serve(
     if let Some(webhook_client) = services.webhook_client {
         builder = builder.webhook_client(webhook_client);
     }
-    if let Some(management_identity) = services.management_identity {
-        builder = builder.management_identity(management_identity);
+    if let Some(control_identity) = services.control_identity {
+        builder = builder.control_identity(control_identity);
     }
 
     let state = builder.build();

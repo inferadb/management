@@ -188,8 +188,8 @@ mod tests {
     #[test]
     fn test_record_grpc_request() {
         init();
-        record_grpc_request("ManagementService", "CreateVault", "OK", 0.015);
-        record_grpc_request("ManagementService", "DeleteVault", "NotFound", 0.005);
+        record_grpc_request("ControlService", "CreateVault", "OK", 0.015);
+        record_grpc_request("ControlService", "DeleteVault", "NotFound", 0.005);
     }
 
     #[test]

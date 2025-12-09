@@ -1,5 +1,5 @@
 /// Minimal test to verify JWKS public key can verify JWTs signed with the corresponding
-/// private key This test simulates the E2E flow: Management API generates keypair → returns
+/// private key This test simulates the E2E flow: Control API generates keypair → returns
 /// private key → client signs JWT → server fetches JWKS → server verifies JWT
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use inferadb_control_core::keypair;
@@ -14,7 +14,7 @@ struct TestClaims {
 
 #[test]
 fn test_keypair_generate_sign_verify() {
-    // 1. Simulate Management API: Generate keypair
+    // 1. Simulate Control API: Generate keypair
     let (public_key_base64, private_key_bytes) = keypair::generate();
 
     println!("Generated keypair:");

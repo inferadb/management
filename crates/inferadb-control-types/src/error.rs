@@ -3,7 +3,7 @@ use thiserror::Error;
 /// Result type alias for management operations
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Error types for the Management API
+/// Error types for the Control API
 #[derive(Error, Debug)]
 pub enum Error {
     /// Configuration errors

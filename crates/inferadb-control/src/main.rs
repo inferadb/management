@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
-use inferadb_control_api::ManagementIdentity;
+use inferadb_control_api::ControlIdentity;
 use inferadb_control_core::{
-    IdGenerator, ManagementConfig, WebhookClient, WorkerRegistry, acquire_worker_id,
+    IdGenerator, ControlConfig, WebhookClient, WorkerRegistry, acquire_worker_id,
     config::DiscoveryMode, logging, startup,
 };
 use inferadb_control_engine_client::EngineClient;
@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
     }
 
     // Load configuration
-    let config = ManagementConfig::load(&args.config)?;
+    let config = ControlConfig::load(&args.config)?;
     config.validate()?;
 
     // Initialize structured logging with environment-appropriate format
@@ -166,28 +166,28 @@ async fn main() -> Result<()> {
     startup::log_initialized(&format!("Worker ID ({})", worker_id));
 
     // Identity for engine authentication (needs to be created before engine_client)
-    let management_identity = if let Some(ref pem) = config.pem {
-        ManagementIdentity::from_pem(pem)
-            .map_err(|e| anyhow::anyhow!("Failed to load Management identity from PEM: {}", e))?
+    let control_identity = if let Some(ref pem) = config.pem {
+        ControlIdentity::from_pem(pem)
+            .map_err(|e| anyhow::anyhow!("Failed to load Control identity from PEM: {}", e))?
     } else {
         // Generate new identity and display in formatted box
-        let identity = ManagementIdentity::generate();
+        let identity = ControlIdentity::generate();
         let pem = identity.to_pem();
         startup::print_generated_keypair(&pem, "pem");
         identity
     };
 
     tracing::info!(
-        management_id = %management_identity.management_id,
-        kid = %management_identity.kid,
+        control_id = %control_identity.control_id,
+        kid = %control_identity.kid,
         "Control identity initialized"
     );
 
-    let management_identity = Arc::new(management_identity);
+    let control_identity = Arc::new(control_identity);
     startup::log_initialized("Identity");
 
     // Engine client (for communication with engine)
-    // Uses management identity for JWT authentication and discovery for load balancing
+    // Uses control identity for JWT authentication and discovery for load balancing
     let discovery_mode = match &config.discovery.mode {
         DiscoveryMode::None => inferadb_control_engine_client::DiscoveryMode::None,
         DiscoveryMode::Kubernetes => inferadb_control_engine_client::DiscoveryMode::Kubernetes,
@@ -209,7 +209,7 @@ async fn main() -> Result<()> {
     let engine_client = Arc::new(EngineClient::with_config(
         config.mesh.url.clone(),
         config.mesh.grpc,
-        Some(Arc::clone(&management_identity)),
+        Some(Arc::clone(&control_identity)),
         discovery_mode,
         config.discovery.cache_ttl,
         config.webhook.timeout,
@@ -221,7 +221,7 @@ async fn main() -> Result<()> {
     let webhook_client = WebhookClient::new(
         config.mesh.url.clone(),
         config.mesh.port,
-        Arc::clone(&management_identity),
+        Arc::clone(&control_identity),
         config.webhook.timeout,
         config.discovery.mode.clone(),
         config.discovery.cache_ttl,
@@ -242,7 +242,7 @@ async fn main() -> Result<()> {
             leader: None,        // leader election (optional, for multi-node)
             email_service: None, // email service (optional, can be initialized later)
             webhook_client,      // cache invalidation webhooks
-            management_identity: Some(management_identity), // management identity for JWKS endpoint
+            control_identity: Some(control_identity), // control identity for JWKS endpoint
         },
     )
     .await?;

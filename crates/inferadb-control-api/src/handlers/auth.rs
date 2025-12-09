@@ -31,33 +31,33 @@ use time;
 #[derive(Clone)]
 pub struct AppState {
     pub storage: Arc<Backend>,
-    pub config: Arc<inferadb_control_core::ManagementConfig>,
+    pub config: Arc<inferadb_control_core::ControlConfig>,
     pub engine_client: Arc<EngineClient>,
     pub worker_id: u16,
     pub start_time: std::time::SystemTime,
     pub leader: Option<Arc<inferadb_control_core::LeaderElection<Backend>>>,
     pub email_service: Option<Arc<inferadb_control_core::EmailService>>,
     pub webhook_client: Option<Arc<inferadb_control_core::WebhookClient>>,
-    pub management_identity: Option<Arc<inferadb_control_types::ManagementIdentity>>,
+    pub control_identity: Option<Arc<inferadb_control_types::ControlIdentity>>,
 }
 
 /// Builder for AppState to avoid too many function parameters
 pub struct AppStateBuilder {
     storage: Arc<Backend>,
-    config: Arc<inferadb_control_core::ManagementConfig>,
+    config: Arc<inferadb_control_core::ControlConfig>,
     engine_client: Arc<EngineClient>,
     worker_id: u16,
     leader: Option<Arc<inferadb_control_core::LeaderElection<Backend>>>,
     email_service: Option<Arc<inferadb_control_core::EmailService>>,
     webhook_client: Option<Arc<inferadb_control_core::WebhookClient>>,
-    management_identity: Option<Arc<inferadb_control_types::ManagementIdentity>>,
+    control_identity: Option<Arc<inferadb_control_types::ControlIdentity>>,
 }
 
 impl AppStateBuilder {
     /// Create a new AppStateBuilder with required parameters
     pub fn new(
         storage: Arc<Backend>,
-        config: Arc<inferadb_control_core::ManagementConfig>,
+        config: Arc<inferadb_control_core::ControlConfig>,
         engine_client: Arc<EngineClient>,
         worker_id: u16,
     ) -> Self {
@@ -69,7 +69,7 @@ impl AppStateBuilder {
             leader: None,
             email_service: None,
             webhook_client: None,
-            management_identity: None,
+            control_identity: None,
         }
     }
 
@@ -97,12 +97,12 @@ impl AppStateBuilder {
         self
     }
 
-    /// Set management identity (optional)
-    pub fn management_identity(
+    /// Set control identity (optional)
+    pub fn control_identity(
         mut self,
-        management_identity: Arc<inferadb_control_types::ManagementIdentity>,
+        control_identity: Arc<inferadb_control_types::ControlIdentity>,
     ) -> Self {
-        self.management_identity = Some(management_identity);
+        self.control_identity = Some(control_identity);
         self
     }
 
@@ -117,7 +117,7 @@ impl AppStateBuilder {
             leader: self.leader,
             email_service: self.email_service,
             webhook_client: self.webhook_client,
-            management_identity: self.management_identity,
+            control_identity: self.control_identity,
         }
     }
 }
@@ -135,7 +135,7 @@ impl AppState {
     /// ```
     pub fn builder(
         storage: Arc<Backend>,
-        config: Arc<inferadb_control_core::ManagementConfig>,
+        config: Arc<inferadb_control_core::ControlConfig>,
         engine_client: Arc<EngineClient>,
         worker_id: u16,
     ) -> AppStateBuilder {
@@ -146,10 +146,10 @@ impl AppState {
     /// This is used by both unit tests and integration tests
     #[allow(clippy::field_reassign_with_default)]
     pub fn new_test(storage: Arc<Backend>) -> Self {
-        use inferadb_control_core::ManagementConfig;
+        use inferadb_control_core::ControlConfig;
 
         // Create a minimal test config using default and overriding necessary fields
-        let mut config = ManagementConfig::default();
+        let mut config = ControlConfig::default();
         // Use a temporary key file for tests - MasterKey will auto-generate it
         config.key_file = Some("/tmp/test-master.key".to_string());
         config.webauthn.party = "localhost".to_string();
@@ -169,7 +169,7 @@ impl AppState {
             leader: None,
             email_service: Some(Arc::new(email_service)),
             webhook_client: None,      // No webhook client in tests
-            management_identity: None, // No management identity in tests
+            control_identity: None, // No control identity in tests
         }
     }
 }

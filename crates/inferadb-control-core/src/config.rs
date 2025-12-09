@@ -23,13 +23,13 @@ use serde::{Deserialize, Serialize};
 pub struct RootConfig {
     /// Control-specific configuration
     #[serde(default)]
-    pub control: ManagementConfig,
+    pub control: ControlConfig,
     // Note: `engine` section may exist in the file but is ignored by control
 }
 
-/// Configuration for the Control API (formerly Management API)
+/// Configuration for the Control API
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManagementConfig {
+pub struct ControlConfig {
     /// Number of worker threads for the async runtime
     #[serde(default = "default_threads")]
     pub threads: usize,
@@ -314,7 +314,7 @@ fn default_grpc() -> String {
 }
 
 fn default_mesh() -> String {
-    "0.0.0.0:9092".to_string() // Management internal/mesh server port
+    "0.0.0.0:9092".to_string() // Control internal/mesh server port
 }
 
 fn default_threads() -> usize {
@@ -389,7 +389,7 @@ fn default_key_file() -> Option<String> {
     Some("./data/master.key".to_string())
 }
 
-impl Default for ManagementConfig {
+impl Default for ControlConfig {
     fn default() -> Self {
         Self {
             threads: default_threads(),
@@ -426,7 +426,7 @@ impl Default for ManagementConfig {
     }
 }
 
-impl ManagementConfig {
+impl ControlConfig {
     /// Get the effective gRPC URL for the engine service
     ///
     /// Combines `mesh.url` with `mesh.grpc`
@@ -624,7 +624,7 @@ mod tests {
 
     #[test]
     fn test_storage_validation() {
-        let mut config = ManagementConfig::default();
+        let mut config = ControlConfig::default();
         config.webauthn.party = "localhost".to_string();
         config.webauthn.origin = "http://localhost:3000".to_string();
         config.storage = "invalid".to_string();
@@ -643,11 +643,11 @@ mod tests {
 
     #[test]
     fn test_effective_urls() {
-        let config = ManagementConfig::default();
+        let config = ControlConfig::default();
         assert_eq!(config.effective_grpc_url(), "http://localhost:8081");
         assert_eq!(config.effective_mesh_url(), "http://localhost:8082");
 
-        let mut config = ManagementConfig::default();
+        let mut config = ControlConfig::default();
         config.mesh.url = "http://inferadb-engine.inferadb".to_string();
         config.mesh.grpc = 9000;
         config.mesh.port = 9191;

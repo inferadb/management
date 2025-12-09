@@ -1,4 +1,4 @@
-//! FoundationDB storage backend for Management API
+//! FoundationDB storage backend for Control API
 //!
 //! Provides production-ready persistent storage using FoundationDB.
 //! Implements the StorageBackend trait with full support for:
@@ -78,7 +78,7 @@ impl FdbBackend {
         let data_subspace = Subspace::from_bytes(b"data");
         let ttl_subspace = Subspace::from_bytes(b"ttl");
 
-        debug!("FoundationDB backend initialized for Management API");
+        debug!("FoundationDB backend initialized for Control API");
 
         let backend = Self { db: Arc::new(db), data_subspace, ttl_subspace };
 

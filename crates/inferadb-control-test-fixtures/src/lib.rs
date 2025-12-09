@@ -1,4 +1,4 @@
-//! Test fixtures and utilities for InferaDB Management API integration tests.
+//! Test fixtures and utilities for InferaDB Control API integration tests.
 //!
 //! This crate provides shared test helpers to eliminate duplication across integration tests.
 //! All functions are designed to work with the Axum-based API and MemoryBackend storage.
