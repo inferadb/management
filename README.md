@@ -1,6 +1,6 @@
-# InferaDB Control
+# InferaDB Control Plane
 
-Multi-tenant control plane with headless APIs, Kubernetes-native deployment, and WebAuthn authentication.
+Multi-tenant administration headless APIs, Kubernetes-native deployment, and WebAuthn authentication.
 
 > [!IMPORTANT]
 > Under active development. Not production-ready.
@@ -126,4 +126,4 @@ See [docs/deployment.md](docs/deployment.md) for Kubernetes.
 
 ## License
 
-[Business Source License 1.1](LICENSE.md)
+[InferaDB Non‑Commercial Source License](LICENSE.md)

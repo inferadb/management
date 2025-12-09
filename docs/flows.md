@@ -94,7 +94,7 @@ sequenceDiagram
     participant App as Application
     participant API as Control
     participant DB as FoundationDB
-    participant Server as InferaDB Server
+    participant Engine as InferaDB Engine
 
     App->>API: POST /v1/vaults/{vault_id}/token<br/>Cookie: infera_session={session_id}
 
@@ -132,9 +132,9 @@ sequenceDiagram
 
     API-->>App: 200 OK<br/>{access_token, refresh_token, expires_in}
 
-    Note over App: App can now call Server API
-    App->>Server: POST /v1/evaluate<br/>Authorization: Bearer {access_token}
-    Server-->>App: Authorization Decision
+    Note over App: App can now call Engine
+    App->>Engine: POST /v1/evaluate<br/>Authorization: Bearer {access_token}
+    Engine-->>App: Authorization Decision
 ```
 
 ## Organization Creation Flow

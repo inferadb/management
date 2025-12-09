@@ -162,13 +162,13 @@ pub async fn get_org_jwks(
     Ok(Json(JwksResponse { keys }))
 }
 
-/// Get Management API's public JWKS (for server-to-server authentication)
+/// Get Control's public JWKS (for engine-to-control authentication)
 ///
 /// GET /.well-known/management-jwks.json
 /// Public endpoint - no authentication required
 ///
-/// This endpoint returns the Management API's own public key, which servers use
-/// to validate JWTs signed by the Management API when receiving webhook callbacks.
+/// This endpoint returns Control's own public key, which engines use
+/// to validate JWTs signed by Control when receiving webhook callbacks.
 pub async fn get_management_jwks(
     State(state): State<AppState>,
 ) -> Result<Json<JwksResponse>, (StatusCode, String)> {

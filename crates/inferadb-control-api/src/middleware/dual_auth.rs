@@ -6,17 +6,17 @@ use axum::{
 use axum_extra::extract::cookie::CookieJar;
 use inferadb_control_core::error::Error as CoreError;
 
-use super::{ServerContext, SessionContext, require_server_jwt, require_session};
+use super::{EngineContext, SessionContext, require_engine_jwt, require_session};
 use crate::handlers::auth::{ApiError, AppState, SESSION_COOKIE_NAME};
 
 /// Dual authentication middleware
 ///
-/// Accepts EITHER session authentication OR server JWT authentication.
+/// Accepts EITHER session authentication OR engine JWT authentication.
 /// This allows both user requests (via session cookies/tokens) and
-/// server-to-server requests (via JWT) to access the same endpoints.
+/// engine-to-control requests (via JWT) to access the same endpoints.
 ///
-/// Attaches either SessionContext or ServerContext to the request extensions.
-pub async fn require_session_or_server_jwt(
+/// Attaches either SessionContext or EngineContext to the request extensions.
+pub async fn require_session_or_engine_jwt(
     State(state): State<AppState>,
     jar: CookieJar,
     request: Request,
@@ -40,11 +40,11 @@ pub async fn require_session_or_server_jwt(
             .and_then(|token| token.parse::<i64>().ok())
             .is_some();
 
-    // If we have a Bearer token and it's NOT a session (numeric), check if it's a server JWT
+    // If we have a Bearer token and it's NOT a session (numeric), check if it's an engine JWT
     if has_bearer_token && !has_session {
-        // Peek at the JWT to determine if it's a server JWT or client JWT
+        // Peek at the JWT to determine if it's an engine JWT or client JWT
         // We need to decode just the header to check the kid format without consuming the request
-        let is_server_jwt = request
+        let is_engine_jwt = request
             .headers()
             .get("authorization")
             .and_then(|h| h.to_str().ok())
@@ -54,12 +54,12 @@ pub async fn require_session_or_server_jwt(
                 decode_header(token).ok()
             })
             .and_then(|header| header.kid)
-            .map(|kid| !kid.contains("-client-")) // Server JWTs don't have "-client-" in kid
+            .map(|kid| !kid.contains("-client-")) // Engine JWTs don't have "-client-" in kid
             .unwrap_or(false);
 
-        if is_server_jwt {
-            // This is a server JWT, use server JWT auth
-            return require_server_jwt(State(state), request, next).await;
+        if is_engine_jwt {
+            // This is an engine JWT, use engine JWT auth
+            return require_engine_jwt(State(state), request, next).await;
         }
         // Fall through to try session auth for client JWTs
     }
@@ -71,24 +71,24 @@ pub async fn require_session_or_server_jwt(
 
     // No recognizable auth present
     Err(CoreError::Auth(
-        "Authentication required: provide either a session token or server JWT".to_string(),
+        "Authentication required: provide either a session token or engine JWT".to_string(),
     )
     .into())
 }
 
-/// Extract either session context or server context from request
+/// Extract either session context or engine context from request
 ///
-/// Returns SessionContext if session auth was used, or converts ServerContext to a
-/// compatible format if server JWT was used.
+/// Returns SessionContext if session auth was used, or converts EngineContext to a
+/// compatible format if engine JWT was used.
 pub fn extract_dual_auth_context(request: &Request) -> Result<AuthContextType, ApiError> {
     // Try to extract session context first
     if let Some(session_ctx) = request.extensions().get::<SessionContext>() {
         return Ok(AuthContextType::Session(session_ctx.clone()));
     }
 
-    // Try to extract server context
-    if let Some(server_ctx) = request.extensions().get::<ServerContext>() {
-        return Ok(AuthContextType::Server(server_ctx.clone()));
+    // Try to extract engine context
+    if let Some(engine_ctx) = request.extensions().get::<EngineContext>() {
+        return Ok(AuthContextType::Engine(engine_ctx.clone()));
     }
 
     Err(CoreError::Auth("No authentication context found in request".to_string()).into())
@@ -99,8 +99,8 @@ pub fn extract_dual_auth_context(request: &Request) -> Result<AuthContextType, A
 pub enum AuthContextType {
     /// Session-based authentication (user request)
     Session(SessionContext),
-    /// Server JWT authentication (server-to-server)
-    Server(ServerContext),
+    /// Engine JWT authentication (engine-to-control)
+    Engine(EngineContext),
 }
 
 impl AuthContextType {
@@ -108,21 +108,21 @@ impl AuthContextType {
     pub fn user_id(&self) -> Option<i64> {
         match self {
             AuthContextType::Session(ctx) => Some(ctx.user_id),
-            AuthContextType::Server(_) => None,
+            AuthContextType::Engine(_) => None,
         }
     }
 
-    /// Get server ID if this is a server context, None otherwise
-    pub fn server_id(&self) -> Option<&str> {
+    /// Get engine ID if this is an engine context, None otherwise
+    pub fn engine_id(&self) -> Option<&str> {
         match self {
             AuthContextType::Session(_) => None,
-            AuthContextType::Server(ctx) => Some(&ctx.server_id),
+            AuthContextType::Engine(ctx) => Some(&ctx.engine_id),
         }
     }
 
-    /// Check if this is a server authentication
-    pub fn is_server_auth(&self) -> bool {
-        matches!(self, AuthContextType::Server(_))
+    /// Check if this is an engine authentication
+    pub fn is_engine_auth(&self) -> bool {
+        matches!(self, AuthContextType::Engine(_))
     }
 
     /// Check if this is a session authentication

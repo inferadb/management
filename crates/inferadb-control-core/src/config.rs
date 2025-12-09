@@ -95,7 +95,7 @@ pub struct ListenConfig {
     #[serde(default = "default_grpc")]
     pub grpc: String,
 
-    /// Service mesh / inter-service communication address (server-to-server, JWKS endpoint)
+    /// Service mesh / inter-service communication address (engine-to-control, JWKS endpoint)
     /// Format: "host:port" (e.g., "0.0.0.0:9092")
     #[serde(default = "default_mesh")]
     pub mesh: String,

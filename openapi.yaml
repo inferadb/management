@@ -1573,7 +1573,7 @@ paths:
       tags: [Tokens]
       summary: Generate vault token
       description: |
-        Generate vault-scoped JWT for Server API authorization. User must have access to vault.
+        Generate vault-scoped JWT for Engine authorization. User must have access to vault.
         Returns access token (short-lived) and refresh token (90 days).
       operationId: generateVaultToken
       security:
@@ -1604,7 +1604,7 @@ paths:
                 properties:
                   access_token:
                     type: string
-                    description: JWT access token for Server API
+                    description: JWT access token for Engine
                     example: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImNlcnRfMTIzIn0...
                   refresh_token:
                     type: string

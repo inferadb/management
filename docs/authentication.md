@@ -20,31 +20,32 @@
     - [Client Assertion Security](#client-assertion-security)
   - [5. Single-Page Applications (SPAs)](#5-single-page-applications-spas)
     - [Correct SPA Architecture](#correct-spa-architecture)
-- [Server API Token Validation](#server-api-token-validation)
+- [Engine Token Validation](#engine-token-validation)
 - [Security Considerations](#security-considerations)
   - [Token Lifetimes](#token-lifetimes)
   - [Cryptographic Signing](#cryptographic-signing)
   - [Token Scoping](#token-scoping)
   - [Revocation](#revocation)
 - [Integration Points](#integration-points)
-  - [Control Responsibilities](#management-api-responsibilities)
-  - [Server API Responsibilities](#server-api-responsibilities)
+  - [Control Responsibilities](#control-responsibilities)
+  - [Engine Responsibilities](#engine-responsibilities)
 
 ## Overview
 
-The **Control** acts as the central authentication orchestrator for the entire InferaDB system. This architecture allows the **Server API** to focus exclusively on authorization policy enforcement and decision evaluation, while delegating all identity and authentication concerns to Control.
+The **Control** acts as the central authentication orchestrator for the entire InferaDB system. This architecture allows the **Engine** to focus exclusively on authorization policy enforcement and decision evaluation, while delegating all identity and authentication concerns to Control.
 
 ## Two-Token Architecture
 
 InferaDB uses a **two-token system** to maintain clean separation of concerns:
 
 1. **Session Tokens** - Used for Control operations
+
    - Identity and account management
    - Organization and vault administration
    - User profile and settings
    - Authentication method management
 
-2. **Vault-Scoped JWTs** - Used for Server API operations
+2. **Vault-Scoped JWTs** - Used for Engine operations
    - Policy evaluation requests
    - Relationship graph queries
    - Authorization decisions
@@ -93,7 +94,7 @@ This separation ensures that authentication (identity) and authorization (policy
 sequenceDiagram
     participant Client as Client Application
     participant MgmtAPI as Control<br/>(Authentication Orchestrator)
-    participant ServerAPI as Server API<br/>(Authorization Policy Engine)
+    participant ServerAPI as Engine<br/>(Authorization Policy Engine)
 
     Note over Client: User initiates login
     Client->>MgmtAPI: 1. Login Request<br/>(email/password, passkey, OAuth, etc.)
@@ -141,7 +142,7 @@ Vault-scoped JWTs issued by Control contain the following claims:
 
 - **iss** (Issuer): Control URL (`https://api.inferadb.com`)
 - **sub** (Subject): Format `client:<client_id>` for service accounts (where client_id is a Snowflake ID)
-- **aud** (Audience): Target service (Server API evaluation endpoint: `https://api.inferadb.com/evaluate`)
+- **aud** (Audience): Target service (Engine evaluation endpoint: `https://api.inferadb.com/evaluate`)
 - **exp** (Expiration): Unix timestamp when token expires (5 minutes from issuance by default)
 - **iat** (Issued At): Unix timestamp when token was created
 - **org_id**: Organization ID (Snowflake ID as string)
@@ -153,13 +154,13 @@ Vault-scoped JWTs issued by Control contain the following claims:
   - `manage`: "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage"
   - `admin`: "inferadb.check inferadb.read inferadb.write inferadb.expand inferadb.list inferadb.list-relationships inferadb.list-subjects inferadb.list-resources inferadb.vault.manage inferadb.admin"
 
-**Note**: This structure follows the Server API specification where:
+**Note**: This structure follows the Engine specification where:
 
 - `iss` identifies Control (not the organization tenant)
 - `sub` identifies the client/service account making the request
 - `org_id` and `vault_id` are provided as separate claims (Snowflake IDs as strings)
 - Custom claims (`org_id`, `vault_id`, `vault_role`) provide authorization context
-- The Server API validates these claims against its JWKS cache
+- The Engine validates these claims against its JWKS cache
 
 ## Vault Token Request
 
@@ -463,7 +464,7 @@ sequenceDiagram
 
     MgmtAPI-->>Backend: 10. Vault Token Response<br/>{access_token: {vault_jwt},<br/>token_type: Bearer,<br/>expires_in: 300,<br/>vault_role: "write",<br/>scope: "inferadb.check inferadb.read inferadb.write ..."}
 
-    Note over Backend: 11. Cache JWT (~5 min)<br/>12. Use for Server API Requests<br/>13. Repeat when expired
+    Note over Backend: 11. Cache JWT (~5 min)<br/>12. Use for Engine Requests<br/>13. Repeat when expired
 ```
 
 **Token Request Parameters**:
@@ -518,7 +519,7 @@ flowchart TB
     User["👤 End User<br/>(authenticated with YOUR auth)"]
     SPA["🌐 SPA<br/>(React/Vue/etc.)"]
     Backend["🔧 YOUR Backend"]
-    InferaDB["🔐 InferaDB<br/>(Management + Server APIs)"]
+    InferaDB["🔐 InferaDB<br/>(Control + Engine)"]
 
     User -->|"Your Auth JWT"| SPA
     SPA -->|"API call with user token"| Backend
@@ -539,7 +540,7 @@ flowchart TB
 3. SPA calls YOUR backend with user's JWT
 4. YOUR backend validates user's JWT
 5. YOUR backend uses **Client Assertion** to get InferaDB vault token
-6. YOUR backend calls InferaDB Server API to check permissions
+6. YOUR backend calls InferaDB Engine to check permissions
 7. YOUR backend returns authorization decision to SPA
 8. SPA shows/hides features based on permissions
 
@@ -714,22 +715,22 @@ See [examples/spa-integration/CORRECT_SPA_ARCHITECTURE.md](../examples/spa-integ
 
 **Alternative: JWT Token Exchange** - For truly serverless frontends where even serverless functions aren't desired, see [examples/spa-integration/TRULY_SERVERLESS_OPTIONS.md](../examples/spa-integration/TRULY_SERVERLESS_OPTIONS.md) for JWT token exchange pattern.
 
-## Server API Token Validation
+## Engine Token Validation
 
-The Server API validates vault-scoped JWTs without making synchronous calls to Control:
+The Engine validates vault-scoped JWTs without making synchronous calls to Control:
 
 1. **Fetch JWKS** (JSON Web Key Set) from Control's `/.well-known/jwks.json` endpoint
 2. **Cache JWKS** with TTL and background refresh mechanism
 3. **Verify JWT Signature** using Ed25519 public key from JWKS
 4. **Validate Claims**:
    - `iss` matches expected Control endpoint
-   - `aud` matches Server API identifier
+   - `aud` matches Engine identifier
    - `exp` is in the future (token not expired)
    - `vault_id` and `org_id` are valid
    - `vault_role` has sufficient permissions for requested operation
 5. **Execute Policy** with authenticated context
 
-This stateless validation allows the Server API to operate independently while still trusting tokens issued by Control.
+This stateless validation allows the Engine to operate independently while still trusting tokens issued by Control.
 
 ### JWKS Caching Strategy
 
@@ -769,7 +770,7 @@ flowchart TD
 
 1. **During Rotation**: Control publishes both old and new keys in JWKS
 2. **Grace Period**: Both keys remain valid for overlap period (30 minutes)
-3. **Cache Invalidation**: Server API caches all keys from JWKS, automatically picking up new keys
+3. **Cache Invalidation**: Engine caches all keys from JWKS, automatically picking up new keys
 4. **Gradual Migration**: Existing JWTs continue to validate with old key while new JWTs use new key
 
 **Example JWKS Response**:
@@ -868,6 +869,7 @@ InferaDB follows security-first principles with short-lived tokens as the defaul
 **Recommended Configuration** (Security-First):
 
 - **Session Tokens**: Varies by session type
+
   - **Web Sessions**: 24 hours (86,400 seconds)
   - **CLI Sessions**: 7 days (604,800 seconds)
   - **SDK Sessions**: 30 days (2,592,000 seconds)
@@ -876,12 +878,14 @@ InferaDB follows security-first principles with short-lived tokens as the defaul
   - Forces regular re-authentication for enhanced security
 
 - **Vault Access Tokens (JWT)**: 5 minutes (300 seconds)
-  - Used for Server API policy evaluation
+
+  - Used for Engine policy evaluation
   - Very short lifetime minimizes impact of token compromise
   - Automatically refreshed by clients before expiration
   - Limits attack window to 5 minutes maximum
 
 - **Vault Refresh Tokens**: Varies by auth method
+
   - **User Session Refresh Tokens**: 1 hour (3,600 seconds)
     - For interactive user sessions
     - Allows ~12 refreshes before requiring new vault token request
@@ -981,15 +985,17 @@ Authorization: Bearer {admin_session_token}
 **Revocation Strategies**:
 
 1. **Revoke Parent Session** (Recommended)
+
    - Revokes the session that issued the vault tokens
    - Prevents new tokens from being issued
    - Existing JWTs expire after 5 minutes maximum
 
 2. **Remove Vault Membership**
+
    - Remove user from vault member list
    - Future token requests will fail with `access_denied`
    - Existing JWTs continue working until expiration
-   - Server API can optionally verify membership in real-time (performance trade-off)
+   - Engine can optionally verify membership in real-time (performance trade-off)
 
 3. **Emergency: Rotate Signing Keys**
    - Generate new Ed25519 key pair for organization
@@ -1014,7 +1020,7 @@ Authorization: Bearer {admin_session_token}
 
 1. Delete client certificate from Control database
 2. Remove certificate from JWKS endpoint response
-3. Server API cache expires (max 5 minutes)
+3. Engine cache expires (max 5 minutes)
 4. New token requests with this certificate fail
 5. Existing tokens signed with this certificate expire naturally (5 min)
 
@@ -1028,7 +1034,7 @@ Authorization: Bearer {admin_session_token}
 **Effect**:
 
 - Immediate: Cannot issue new client assertions
-- Delayed (max 5 min): JWKS cache expires on Server API
+- Delayed (max 5 min): JWKS cache expires on Engine
 - Delayed (max 5 min): Existing vault JWTs expire
 
 **Use Cases**:
@@ -1044,7 +1050,7 @@ Authorization: Bearer {admin_session_token}
 
 If you need to revoke access immediately (cannot wait 5 minutes):
 
-1. Implement real-time vault membership checks in Server API
+1. Implement real-time vault membership checks in Engine
 2. Use Redis pub/sub to propagate revocation events
 3. Maintain session/client revocation cache
 
@@ -1072,7 +1078,7 @@ sequenceDiagram
     participant Admin as Administrator
     participant MgmtAPI as Control
     participant Redis as Redis Cache
-    participant ServerAPI as Server API
+    participant ServerAPI as Engine
     participant Client as Client Application
 
     Admin->>MgmtAPI: DELETE /v1/sessions/{id}
@@ -1101,46 +1107,46 @@ sequenceDiagram
     ServerAPI-->>Client: 401 Token expired
 ```
 
-## Server-to-Management Authentication
+## Engine-to-Control Authentication
 
 ### Overview
 
-The Server API and Control implement bidirectional JWT authentication using Ed25519 keypairs:
+The Engine and Control implement bidirectional JWT authentication using Ed25519 keypairs:
 
-1. **Management-to-Server**: Control issues vault tokens for clients (documented above)
-2. **Server-to-Management**: Server API authenticates to Control for verification operations
+1. **Control-to-Engine**: Control issues vault tokens for clients (documented above)
+2. **Engine-to-Control**: Engine authenticates to Control for verification operations
 
-This bidirectional architecture allows the Server API to verify vault ownership and organization status by making authenticated requests back to Control.
+This bidirectional architecture allows the Engine to verify vault ownership and organization status by making authenticated requests back to Control.
 
 ### Authentication Flow
 
 ```mermaid
 sequenceDiagram
     participant Client as Client App
-    participant ServerAPI as Server API
+    participant ServerAPI as Engine
     participant MgmtAPI as Control
 
-    Note over ServerAPI: Server boots with Ed25519 keypair
+    Note over ServerAPI: Engine boots with Ed25519 keypair
 
-    ServerAPI->>ServerAPI: Load/generate server identity
+    ServerAPI->>ServerAPI: Load/generate engine identity
     ServerAPI->>ServerAPI: Expose JWKS endpoint
 
-    Note over Client: Client makes request to Server API
+    Note over Client: Client makes request to Engine
 
     Client->>ServerAPI: POST /check<br/>Authorization: Bearer {vault_jwt}
 
     Note over ServerAPI: Need to verify vault ownership
 
-    ServerAPI->>ServerAPI: Generate server JWT (5 min TTL)
-    ServerAPI->>MgmtAPI: GET /v1/vaults/{vault_id}<br/>Authorization: Bearer {server_jwt}
+    ServerAPI->>ServerAPI: Generate engine JWT (5 min TTL)
+    ServerAPI->>MgmtAPI: GET /v1/vaults/{vault_id}<br/>Authorization: Bearer {engine_jwt}
 
     MgmtAPI->>ServerAPI: Fetch JWKS from /.well-known/jwks.json
-    MgmtAPI->>MgmtAPI: Verify server JWT signature
+    MgmtAPI->>MgmtAPI: Verify engine JWT signature
     MgmtAPI->>MgmtAPI: Validate claims (iss, sub, aud, exp)
     MgmtAPI-->>ServerAPI: Vault details (org_id, name, status)
 
     ServerAPI->>ServerAPI: Cache vault details (5 min TTL)
-    ServerAPI->>MgmtAPI: GET /v1/organizations/{org_id}<br/>Authorization: Bearer {server_jwt}
+    ServerAPI->>MgmtAPI: GET /v1/organizations/{org_id}<br/>Authorization: Bearer {engine_jwt}
     MgmtAPI-->>ServerAPI: Organization status
 
     ServerAPI->>ServerAPI: Cache org status (5 min TTL)
@@ -1148,9 +1154,9 @@ sequenceDiagram
     ServerAPI-->>Client: Authorization decision
 ```
 
-### Server Identity Configuration
+### Engine Identity Configuration
 
-The Server API uses an Ed25519 keypair as its identity:
+The Engine uses an Ed25519 keypair as its identity:
 
 **Development Mode** (auto-generation):
 
@@ -1161,7 +1167,7 @@ control:
   service_url: "http://localhost:8081"
 ```
 
-On startup without a configured key, the server will:
+On startup without a configured key, the engine will:
 
 1. Generate a new Ed25519 keypair
 2. Log the PEM-encoded private key
@@ -1185,9 +1191,9 @@ Key management best practices:
 - The `kid` is deterministically derived from the public key (RFC 7638), so it remains consistent when using the same private key
 - Never commit private keys to version control
 
-### Server JWT Claims Structure
+### Engine JWT Claims Structure
 
-Server-to-Management JWTs use the following claims:
+Engine-to-Control JWTs use the following claims:
 
 ```json
 {
@@ -1202,8 +1208,8 @@ Server-to-Management JWTs use the following claims:
 
 **Claim Descriptions**:
 
-- **iss** (issuer): Identifies the server instance (`inferadb-engine:{server_id}`)
-- **sub** (subject): Server principal (`server:{server_id}`)
+- **iss** (issuer): Identifies the engine instance (`inferadb-engine:{server_id}`)
+- **sub** (subject): Engine principal (`server:{server_id}`)
 - **aud** (audience): Control base URL (from config)
 - **iat** (issued at): Unix timestamp of token creation
 - **exp** (expiration): 5 minutes from issuance (short-lived for security)
@@ -1217,7 +1223,7 @@ Server-to-Management JWTs use the following claims:
 
 ### JWKS Endpoint
 
-The Server API exposes its public key at `/.well-known/jwks.json`:
+The Engine exposes its public key at `/.well-known/jwks.json`:
 
 ```bash
 curl http://localhost:8080/.well-known/jwks.json
@@ -1253,10 +1259,10 @@ Response:
 
 Control runs **two separate HTTP servers** for security isolation:
 
-- **Public Server** (port 9090): User-facing API with session authentication and permission checks
-- **Internal Server** (port 9092): Server-to-server API with JWT authentication for privileged operations
+- **Public HTTP Server** (port 9090): User-facing API with session authentication and permission checks
+- **Service Mesh HTTP Server** (port 9092): Engine-to-control API with JWT authentication for privileged operations
 
-This architecture ensures that privileged endpoints are only accessible via the internal network and cannot be reached from the public internet.
+This architecture ensures that privileged endpoints are only accessible via the mesh network and cannot be reached from the public internet.
 
 #### Public Endpoints (Port 9090)
 
@@ -1279,48 +1285,48 @@ curl -X GET http://localhost:9090/v1/organizations/123456789 \
 - User must be a member of the organization
 - User must have appropriate permissions (checked via middleware)
 
-#### Internal Endpoints (Port 9092)
+#### Service Mesh Endpoints (Port 9092)
 
-Privileged server-to-server endpoints with JWT authentication, **no permission checks**:
+Privileged engine-to-control endpoints with JWT authentication, **no permission checks**:
 
-- `GET /internal/organizations/{org}` - Fetch organization details (any valid server JWT)
-- `GET /internal/vaults/{vault}` - Fetch vault details (any valid server JWT)
+- `GET /internal/organizations/{org}` - Fetch organization details (any valid engine JWT)
+- `GET /internal/vaults/{vault}` - Fetch vault details (any valid engine JWT)
 
-**Server Request Example**:
+**Engine Request Example**:
 
 ```bash
-# Request to internal server (port 9092)
+# Request to mesh server (port 9092)
 curl -X GET http://localhost:9092/internal/organizations/123456789 \
-  -H "Authorization: Bearer eyJhbGc...(server JWT)"
+  -H "Authorization: Bearer eyJhbGc...(engine JWT)"
 ```
 
 **Authorization**:
 
-- Server must provide valid Ed25519-signed JWT
-- JWT must be signed by a trusted server (verified via JWKS)
+- Engine must provide valid Ed25519-signed JWT
+- JWT must be signed by a trusted engine (verified via JWKS)
 - No organization membership or vault access checks
-- Used for server-to-server verification (vault ownership, org status)
+- Used for engine-to-control verification (vault ownership, org status)
 
 #### Key Differences
 
-| Aspect             | Public Server (9090)       | Internal Server (9092)        |
-| ------------------ | -------------------------- | ----------------------------- |
-| **Authentication** | Session cookies            | Server JWTs (EdDSA)           |
-| **Authorization**  | Permission checks required | No permission checks          |
-| **Network**        | Public internet            | Internal network only         |
-| **Endpoints**      | `/v1/*`                    | `/internal/*`                 |
-| **Use Case**       | User requests              | Server-to-server verification |
+| Aspect             | Public Server (9090)       | Service Mesh Server (9092)     |
+| ------------------ | -------------------------- | ------------------------------ |
+| **Authentication** | Session cookies            | Engine JWTs (EdDSA)            |
+| **Authorization**  | Permission checks required | No permission checks           |
+| **Network**        | Public internet            | Internal network only          |
+| **Endpoints**      | `/v1/*`                    | `/internal/*`                  |
+| **Use Case**       | User requests              | Engine-to-control verification |
 
 #### Security Benefits
 
-1. **Network Isolation**: Internal endpoints cannot be reached from public internet
-2. **No Permission Bypass**: Public endpoints enforce permissions; internal endpoints are isolated
+1. **Network Isolation**: Service mesh endpoints cannot be reached from public internet
+2. **No Permission Bypass**: Public endpoints enforce permissions; service mesh endpoints are isolated
 3. **Separate Attack Surface**: Compromising public server doesn't expose privileged endpoints
 4. **Audit Trail**: Different ports allow separate logging and monitoring
 
 ### JWKS Caching Strategy
 
-Control caches server JWKS to avoid fetching on every request:
+Control caches engine JWKS to avoid fetching on every request:
 
 ```rust
 static JWKS_CACHE: once_cell::sync::Lazy<JwksCache> =
@@ -1329,7 +1335,7 @@ static JWKS_CACHE: once_cell::sync::Lazy<JwksCache> =
 
 **Cache Behavior**:
 
-1. First server JWT validation triggers JWKS fetch
+1. First engine JWT validation triggers JWKS fetch
 2. JWKS cached for 15 minutes
 3. Subsequent validations use cached keys (no network call)
 4. After TTL expires, next validation refetches JWKS
@@ -1346,7 +1352,7 @@ static JWKS_CACHE: once_cell::sync::Lazy<JwksCache> =
 **Vault Ownership Verification**:
 
 ```rust
-// Server needs to verify vault belongs to expected organization
+// Engine needs to verify vault belongs to expected organization
 let vault = management_client.get_vault(vault_id).await?;
 if vault.organization_id != expected_org_id {
     return Err("Vault does not belong to organization");
@@ -1356,17 +1362,17 @@ if vault.organization_id != expected_org_id {
 **Organization Status Check**:
 
 ```rust
-// Server needs to verify organization is not suspended
+// Engine needs to verify organization is not suspended
 let org = management_client.get_organization(org_id).await?;
 if org.status != "active" {
     return Err("Organization suspended");
 }
 ```
 
-**Client Certificate Verification** (from Management-to-Server flow):
+**Client Certificate Verification** (from Control-to-Engine flow):
 
 ```rust
-// Server validates client certificate via Control
+// Engine validates client certificate via Control
 let cert = management_client
     .get_certificate(org_id, client_id, cert_id)
     .await?;
@@ -1388,14 +1394,14 @@ if cert.revoked {
 
 **Threat Model**:
 
-- **Server key compromise**: Attacker can impersonate server to Control (mitigated by short JWT TTL)
+- **Engine key compromise**: Attacker can impersonate engine to Control (mitigated by short JWT TTL)
 - **JWKS endpoint spoofing**: Attacker cannot spoof without DNS/network access (use HTTPS in production)
 - **Replay attacks**: JTI claim enables detection (not currently enforced)
 
 **Best Practices**:
 
 - Use HTTPS for all production traffic
-- Store server private keys in secret management systems
+- Store engine private keys in secret management systems
 - Monitor authentication failures in Control logs
 - Implement JTI-based replay protection for high-security deployments
 - Rotate keys on a regular schedule (e.g., quarterly)
@@ -1408,21 +1414,21 @@ if cert.revoked {
 - Session lifecycle management
 - Vault permission checks
 - JWT issuance and signing (vault tokens for clients)
-- JWKS publication for Server API
+- JWKS publication for Engine
 - Refresh token rotation
-- **Server JWT verification** (verifying server-to-management requests)
-- **Server JWKS caching** (caching server public keys with 15-min TTL)
-- **Dual authentication support** (accepting both session and server JWT)
+- **Engine JWT verification** (verifying engine-to-control requests)
+- **Engine JWKS caching** (caching engine public keys with 15-min TTL)
+- **Dual authentication support** (accepting both session and engine JWT)
 
-### Server API Responsibilities
+### Engine Responsibilities
 
 - JWT signature validation (client vault tokens)
 - Claims verification
 - Policy evaluation
 - Authorization decisions
 - Relationship graph queries
-- **Server JWT issuance** (signing requests to Control)
-- **Server JWKS publication** (exposing public key at `/.well-known/jwks.json`)
+- **Engine JWT issuance** (signing requests to Control)
+- **Engine JWKS publication** (exposing public key at `/.well-known/jwks.json`)
 - **Control verification calls** (fetching vault/org data for verification)
 
-This clean separation allows each service to focus on its core competency while maintaining strong security guarantees across the system. The bidirectional authentication architecture enables secure server-to-server communication for verification operations while preserving the stateless nature of policy evaluation.
+This clean separation allows each service to focus on its core competency while maintaining strong security guarantees across the system. The bidirectional authentication architecture enables secure engine-to-control communication for verification operations while preserving the stateless nature of policy evaluation.

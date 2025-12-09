@@ -361,7 +361,7 @@ curl -X POST http://localhost:9090/v1/organizations/111222333/vaults/777888999/t
 }
 ```
 
-### Use Token with InferaDB Server
+### Use Token with InferaDB Engine
 
 ```bash
 curl -X POST http://localhost:8080/v1/evaluate \
@@ -549,7 +549,7 @@ curl -X POST http://localhost:9090/v1/organizations/987654321/vaults/555555555/t
 cat token_response.json | jq -r '.access_token' > access_token.txt
 ```
 
-### Step 7: Use Token with InferaDB Server
+### Step 7: Use Token with InferaDB Engine
 
 ```bash
 curl -X POST http://localhost:8080/v1/evaluate \

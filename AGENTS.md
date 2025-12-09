@@ -227,7 +227,7 @@ pub enum Error {
 2. **Session Cookie** - Use `infera_session` cookie name
 3. **Organization Isolation** - Always filter queries by org_id
 4. **Role Hierarchy** - Owner > Admin > Member
-5. **Vault Sync** - After vault changes, sync to Server API via gRPC
+5. **Vault Sync** - After vault changes, sync to Engine via gRPC
 
 ## Code Quality
 

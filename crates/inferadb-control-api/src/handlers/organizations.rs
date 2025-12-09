@@ -23,7 +23,7 @@ use inferadb_control_types::{
 
 use crate::{
     handlers::auth::{AppState, Result},
-    middleware::{OrganizationContext, SessionContext, server_auth::ServerContext},
+    middleware::{OrganizationContext, SessionContext, engine_auth::EngineContext},
 };
 
 /// Global limit on total organizations
@@ -209,12 +209,12 @@ pub async fn get_organization(
     }))
 }
 
-/// Get organization by ID (server-to-server endpoint)
+/// Get organization by ID (engine-to-control endpoint)
 ///
 /// GET /v1/organizations/:org
-/// Auth: Session or Server JWT (dual authentication)
+/// Auth: Session or Engine JWT (dual authentication)
 ///
-/// This endpoint is used by the server to verify organization status.
+/// This endpoint is used by the Engine to verify organization status.
 /// Unlike `get_organization`, this does not require organization context
 /// and returns minimal information (no user role).
 ///
@@ -245,16 +245,16 @@ pub async fn get_organization_by_id(
     Ok(Json(OrganizationServerResponse { id: org.id, name: org.name, status }))
 }
 
-/// Get organization (privileged server-to-server endpoint)
+/// Get organization (privileged engine-to-control endpoint)
 ///
 /// GET /internal/v1/organizations/:org
 ///
-/// Returns organization details for server-to-server authentication.
-/// No membership or permission checks - any valid server JWT can access.
+/// Returns organization details for engine-to-control authentication.
+/// No membership or permission checks - any valid engine JWT can access.
 pub async fn get_organization_privileged(
     State(state): State<AppState>,
     Path(org_id): Path<i64>,
-    Extension(_server_ctx): Extension<ServerContext>,
+    Extension(_engine_ctx): Extension<EngineContext>,
 ) -> Result<Json<OrganizationServerResponse>> {
     let repos = RepositoryContext::new((*state.storage).clone());
 

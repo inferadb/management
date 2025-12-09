@@ -9,7 +9,7 @@ use crate::{
         metrics as metrics_handler, organizations, sessions, teams, tokens, users, vaults,
     },
     middleware::{
-        logging_middleware, require_organization_member, require_server_jwt, require_session,
+        logging_middleware, require_engine_jwt, require_organization_member, require_session,
     },
 };
 
@@ -220,27 +220,27 @@ pub fn public_routes(state: AppState) -> Router {
     create_router_with_state(state)
 }
 
-/// Create internal routes (server-to-server communication)
-/// Exposes JWKS endpoints (no auth) and privileged /internal/v1/* endpoints (server JWT auth)
+/// Create internal routes (engine-to-control communication)
+/// Exposes JWKS endpoints (no auth) and privileged /internal/v1/* endpoints (engine JWT auth)
 pub fn internal_routes(state: AppState) -> Router {
     // Public JWKS endpoints (no authentication required)
     // These are mirrored from public routes so servers can fetch JWKS from the internal port
     let jwks_routes = Router::new()
         .route("/internal/management-jwks.json", get(jwks::get_management_jwks))
-        // Organization JWKS endpoint - mirrored from public for server-to-server cert fetching
+        // Organization JWKS endpoint - mirrored from public for engine-to-control cert fetching
         .route("/v1/organizations/{org}/jwks.json", get(jwks::get_org_jwks))
         .with_state(state.clone());
 
-    // Privileged internal routes (require server JWT authentication)
+    // Privileged internal routes (require engine JWT authentication)
     let privileged_routes = Router::new()
-        // Organization GET endpoint - for server-to-server org verification
+        // Organization GET endpoint - for engine-to-control org verification
         .route("/internal/organizations/{org}", get(organizations::get_organization_privileged))
-        // Vault GET endpoint - for server-to-server vault ownership verification
+        // Vault GET endpoint - for engine-to-control vault ownership verification
         .route("/internal/vaults/{vault}", get(vaults::get_vault_by_id_privileged))
         .with_state(state.clone())
-        .layer(middleware::from_fn_with_state(state.clone(), require_server_jwt));
+        .layer(middleware::from_fn_with_state(state.clone(), require_engine_jwt));
 
-    // Combine JWKS (no auth) and privileged routes (server JWT auth)
+    // Combine JWKS (no auth) and privileged routes (engine JWT auth)
     jwks_routes
         .merge(privileged_routes)
         // Add logging middleware to log all internal requests

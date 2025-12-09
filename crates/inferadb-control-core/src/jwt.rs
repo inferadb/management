@@ -12,37 +12,37 @@ use crate::crypto::PrivateKeyEncryptor;
 /// Required JWT issuer for vault tokens
 ///
 /// Per RFC 8725 (JWT Best Current Practices), the issuer claim identifies
-/// the entity that issued the token - in this case, the InferaDB Management API.
+/// the entity that issued the token - in this case, the InferaDB Control API.
 ///
 /// This value is hardcoded since we own the entire experience end-to-end.
-/// The server uses this issuer to identify tokens issued by the Management API.
+/// The Engine uses this issuer to identify tokens issued by Control.
 pub const REQUIRED_ISSUER: &str = "https://api.inferadb.com";
 
-/// Required JWT audience for InferaDB Server API
+/// Required JWT audience for InferaDB Engine
 ///
 /// Per RFC 8725 (JWT Best Current Practices), the audience claim identifies
-/// the intended recipient of the token - in this case, the InferaDB Server API.
+/// the intended recipient of the token - in this case, the InferaDB Engine.
 ///
 /// This is intentionally NOT an endpoint path (like `/evaluate`) because:
 /// - The `aud` claim identifies the SERVICE, not a specific endpoint
-/// - A single token should be valid for all Server API endpoints
+/// - A single token should be valid for all Engine endpoints
 /// - Endpoint-specific authorization is handled by scopes, not audience
 ///
-/// This value MUST match the server's REQUIRED_AUDIENCE constant in:
+/// This value MUST match the engine's REQUIRED_AUDIENCE constant in:
 /// `inferadb_auth::validation::REQUIRED_AUDIENCE`
 pub const REQUIRED_AUDIENCE: &str = "https://api.inferadb.com";
 
 /// JWT claims for vault-scoped access tokens
 ///
 /// These tokens allow a client to access a specific vault with a specific role.
-/// Format matches the Server API specification.
+/// Format matches the Engine specification.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VaultTokenClaims {
     /// Issuer: Management API URL (https://api.inferadb.com)
     pub iss: String,
     /// Subject: Format "client:<client_id>" for service accounts
     pub sub: String,
-    /// Audience: InferaDB Server API (hardcoded to REQUIRED_AUDIENCE)
+    /// Audience: InferaDB Engine (hardcoded to REQUIRED_AUDIENCE)
     pub aud: String,
     /// Expiration time (Unix timestamp)
     pub exp: i64,

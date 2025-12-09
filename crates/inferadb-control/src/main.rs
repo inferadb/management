@@ -7,7 +7,7 @@ use inferadb_control_core::{
     IdGenerator, ManagementConfig, WebhookClient, WorkerRegistry, acquire_worker_id,
     config::DiscoveryMode, logging, startup,
 };
-use inferadb_control_engine_client::ServerApiClient;
+use inferadb_control_engine_client::EngineClient;
 use inferadb_control_storage::factory::{StorageConfig, create_storage_backend};
 
 #[derive(Parser, Debug)]
@@ -165,11 +165,7 @@ async fn main() -> Result<()> {
     worker_registry.clone().start_heartbeat();
     startup::log_initialized(&format!("Worker ID ({})", worker_id));
 
-    // Server API client (for gRPC communication with engine)
-    let server_client = Arc::new(ServerApiClient::new(config.mesh.url.clone(), config.mesh.grpc)?);
-    startup::log_initialized("Engine client");
-
-    // Identity for webhook authentication
+    // Identity for engine authentication (needs to be created before engine_client)
     let management_identity = if let Some(ref pem) = config.pem {
         ManagementIdentity::from_pem(pem)
             .map_err(|e| anyhow::anyhow!("Failed to load Management identity from PEM: {}", e))?
@@ -189,6 +185,36 @@ async fn main() -> Result<()> {
 
     let management_identity = Arc::new(management_identity);
     startup::log_initialized("Identity");
+
+    // Engine client (for communication with engine)
+    // Uses management identity for JWT authentication and discovery for load balancing
+    let discovery_mode = match &config.discovery.mode {
+        DiscoveryMode::None => inferadb_control_engine_client::DiscoveryMode::None,
+        DiscoveryMode::Kubernetes => inferadb_control_engine_client::DiscoveryMode::Kubernetes,
+        DiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
+            inferadb_control_engine_client::DiscoveryMode::Tailscale {
+                local_cluster: local_cluster.clone(),
+                remote_clusters: remote_clusters
+                    .iter()
+                    .map(|c| inferadb_control_engine_client::RemoteCluster {
+                        name: c.name.clone(),
+                        tailscale_domain: c.tailscale_domain.clone(),
+                        service_name: c.service_name.clone(),
+                        port: c.port,
+                    })
+                    .collect(),
+            }
+        },
+    };
+    let engine_client = Arc::new(EngineClient::with_config(
+        config.mesh.url.clone(),
+        config.mesh.grpc,
+        Some(Arc::clone(&management_identity)),
+        discovery_mode,
+        config.discovery.cache_ttl,
+        config.webhook.timeout,
+    )?);
+    startup::log_initialized("Engine client");
 
     // Webhook client for cache invalidation
     // Always enabled - uses discovery mode to find engine instances automatically
@@ -210,7 +236,7 @@ async fn main() -> Result<()> {
     inferadb_control_api::serve(
         storage.clone(),
         config.clone(),
-        server_client.clone(),
+        engine_client.clone(),
         worker_id,
         inferadb_control_api::ServicesConfig {
             leader: None,        // leader election (optional, for multi-node)

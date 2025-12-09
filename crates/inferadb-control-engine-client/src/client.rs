@@ -1,4 +1,4 @@
-//! HTTP client for communicating with policy service (server) REST API
+//! HTTP client for communicating with the Engine's REST API
 //!
 //! This module provides a client for vault lifecycle operations with load balancing,
 //! circuit breaker, and service discovery support.
@@ -16,7 +16,7 @@ use tracing::{debug, info, warn};
 
 use crate::discovery::{DiscoveryMode, ServiceDiscovery};
 
-/// Circuit breaker thresholds (matching server's implementation)
+/// Circuit breaker thresholds (matching engine's implementation)
 const FAILURE_THRESHOLD: u32 = 5;
 const CIRCUIT_RECOVERY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_RETRY_ATTEMPTS: u32 = 3;
@@ -141,15 +141,15 @@ struct CreateVaultRequest {
     name: String,
 }
 
-/// HTTP client for communicating with policy service (server) REST API
+/// HTTP client for communicating with the Engine's REST API
 ///
 /// Features:
 /// - Service discovery (Static, Kubernetes, Tailscale)
 /// - Load balancing with round-robin selection
 /// - Circuit breaker pattern (opens after 5 failures, recovers after 30s)
 /// - Automatic retry with failover (up to 3 attempts)
-/// - JWT authentication for management→server communication
-pub struct ServerApiClient {
+/// - JWT authentication for management→engine communication
+pub struct EngineClient {
     http_client: HttpClient,
     discovery: ServiceDiscovery,
     management_identity: Option<Arc<ManagementIdentity>>,
@@ -159,9 +159,9 @@ pub struct ServerApiClient {
     port: u16,
 }
 
-impl std::fmt::Debug for ServerApiClient {
+impl std::fmt::Debug for EngineClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ServerApiClient")
+        f.debug_struct("EngineClient")
             .field("discovery", &self.discovery)
             .field("port", &self.port)
             .field("cache_ttl", &self.cache_ttl)
@@ -169,23 +169,23 @@ impl std::fmt::Debug for ServerApiClient {
     }
 }
 
-impl ServerApiClient {
-    /// Create a new server API client (legacy constructor for backward compatibility)
+impl EngineClient {
+    /// Create a new engine client (legacy constructor for backward compatibility)
     ///
     /// # Arguments
     ///
     /// * `service_url` - Base service URL without port (e.g., "http://localhost")
-    /// * `grpc_port` - Port for server communication (uses REST API on this port)
+    /// * `grpc_port` - Port for engine communication (uses REST API on this port)
     pub fn new(service_url: String, grpc_port: u16) -> Result<Self> {
         Self::with_config(service_url, grpc_port, None, DiscoveryMode::None, 300, 5000)
     }
 
-    /// Create a new server API client with full configuration
+    /// Create a new engine client with full configuration
     ///
     /// # Arguments
     ///
     /// * `service_url` - Base service URL without port (e.g., "http://localhost")
-    /// * `port` - Server's public REST API port (e.g., 8080)
+    /// * `port` - Engine's public REST API port (e.g., 8080)
     /// * `management_identity` - Management identity for JWT authentication
     /// * `discovery_mode` - Service discovery mode
     /// * `cache_ttl` - Cache TTL for discovered endpoints in seconds
@@ -232,14 +232,14 @@ impl ServerApiClient {
             let cache = self.endpoint_cache.read();
             if let Some(cached) = cache.as_ref() {
                 if cached.is_valid() {
-                    debug!(count = cached.endpoints.len(), "Using cached server endpoints");
+                    debug!(count = cached.endpoints.len(), "Using cached engine endpoints");
                     return cached.endpoints.clone();
                 }
             }
         }
 
         // Cache miss or expired - discover endpoints
-        debug!("Discovering server endpoints");
+        debug!("Discovering engine endpoints");
         let endpoints = self.discovery.discover().await;
 
         // Update cache
@@ -287,7 +287,7 @@ impl ServerApiClient {
                 Some(e) => e,
                 None => {
                     return Err(inferadb_control_types::Error::External(
-                        "No server endpoints available".to_string(),
+                        "No engine endpoints available".to_string(),
                     ));
                 },
             };
@@ -330,10 +330,10 @@ impl ServerApiClient {
         }))
     }
 
-    /// Create a vault on the server
+    /// Create a vault on the engine
     ///
     /// Sends a POST request to create a vault, with automatic retry and failover
-    /// across discovered server endpoints.
+    /// across discovered engine endpoints.
     ///
     /// # Arguments
     ///
@@ -344,7 +344,7 @@ impl ServerApiClient {
     ///
     /// Ok(()) on success, or an error if all retry attempts fail
     pub async fn create_vault(&self, vault_id: i64, organization_id: i64) -> Result<()> {
-        info!(vault_id = vault_id, organization_id = organization_id, "Creating vault on server");
+        info!(vault_id = vault_id, organization_id = organization_id, "Creating vault on engine");
 
         self.execute_with_failover("create_vault", |endpoint| {
             let http_client = self.http_client.clone();
@@ -382,7 +382,7 @@ impl ServerApiClient {
                     let status = response.status();
                     let body = response.text().await.unwrap_or_default();
                     Err(inferadb_control_types::Error::External(format!(
-                        "Server returned {}: {}",
+                        "Engine returned {}: {}",
                         status, body
                     )))
                 }
@@ -391,10 +391,10 @@ impl ServerApiClient {
         .await
     }
 
-    /// Delete a vault on the server
+    /// Delete a vault on the engine
     ///
     /// Sends a DELETE request to remove a vault, with automatic retry and failover
-    /// across discovered server endpoints.
+    /// across discovered engine endpoints.
     ///
     /// # Arguments
     ///
@@ -404,7 +404,7 @@ impl ServerApiClient {
     ///
     /// Ok(()) on success, or an error if all retry attempts fail
     pub async fn delete_vault(&self, vault_id: i64) -> Result<()> {
-        info!(vault_id = vault_id, "Deleting vault on server");
+        info!(vault_id = vault_id, "Deleting vault on engine");
 
         self.execute_with_failover("delete_vault", |endpoint| {
             let http_client = self.http_client.clone();
@@ -441,7 +441,7 @@ impl ServerApiClient {
                     let status = response.status();
                     let body = response.text().await.unwrap_or_default();
                     Err(inferadb_control_types::Error::External(format!(
-                        "Server returned {}: {}",
+                        "Engine returned {}: {}",
                         status, body
                     )))
                 }
@@ -557,8 +557,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_server_api_client_creation() {
-        let client = ServerApiClient::new("http://localhost".to_string(), 8080);
+    async fn test_engine_client_creation() {
+        let client = EngineClient::new("http://localhost".to_string(), 8080);
         assert!(client.is_ok());
     }
 }

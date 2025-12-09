@@ -1,4 +1,4 @@
-//! Server API client for policy service (server) communication
+//! Engine client for policy service communication
 //!
 //! This crate provides HTTP-based communication with the InferaDB server's REST API
 //! for vault lifecycle operations, with support for:
@@ -13,6 +13,6 @@ pub mod client;
 pub mod discovery;
 pub mod refresh;
 
-pub use client::ServerApiClient;
+pub use client::EngineClient;
 pub use discovery::{DiscoveryMode, RemoteCluster, ServiceDiscovery};
 pub use refresh::DiscoveryRefresher;

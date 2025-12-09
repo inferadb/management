@@ -159,16 +159,16 @@ Controls HTTP/gRPC server behavior. Control exposes three interfaces:
 
 - **Public REST API** (port 9090): Client-facing HTTP API
 - **Public gRPC API** (port 9091): Client-facing gRPC API
-- **Internal REST API** (port 9092): Server-to-server communication (JWKS endpoint)
+- **Internal REST API** (port 9092): Engine-to-control communication (JWKS endpoint)
 
 ### Options
 
 | Option           | Type    | Default            | Description                                |
 | ---------------- | ------- | ------------------ | ------------------------------------------ |
-| `public_rest`    | string  | `"127.0.0.1:9090"` | Public REST API address (host:port format) |
-| `public_grpc`    | string  | `"127.0.0.1:9091"` | Public gRPC API address (host:port format) |
-| `private_rest`   | string  | `"0.0.0.0:9092"`   | Internal REST API address (JWKS, webhooks) |
-| `worker_threads` | integer | `4`                | Number of Tokio worker threads             |
+| `public_rest`    | string  | `"127.0.0.1:9090"` | Public REST API address (host:port format)              |
+| `public_grpc`    | string  | `"127.0.0.1:9091"` | Public gRPC API address (host:port format)              |
+| `private_rest`   | string  | `"0.0.0.0:9092"`   | Internal REST API address for Engine (JWKS, webhooks)   |
+| `worker_threads` | integer | `4`                | Number of Tokio worker threads                          |
 
 ### Examples
 
@@ -263,7 +263,7 @@ Controls user authentication, sessions, and security.
 
 > **Note**: The JWT issuer and audience are hardcoded to `https://api.inferadb.com` per RFC 8725 best practices.
 > Since we own the entire experience end-to-end, these values are not configurable and ensure
-> consistency between Control and Server API.
+> consistency between Control and Engine.
 
 ### WebAuthn Configuration
 
@@ -496,15 +496,15 @@ export INFERADB_CTRL__ID_GENERATION__WORKER_ID=0
 
 ## Policy Service Configuration
 
-Controls connection to the InferaDB Server (policy engine).
+Controls connection to the InferaDB Engine (policy engine).
 
 ### Options
 
 | Option          | Type    | Default              | Description                    |
 | --------------- | ------- | -------------------- | ------------------------------ |
-| `service_url`   | string  | `"http://localhost"` | Server base URL (without port) |
-| `grpc_port`     | integer | `8081`               | Server gRPC port               |
-| `internal_port` | integer | `8082`               | Server internal API port       |
+| `service_url`   | string  | `"http://localhost"` | Engine base URL (without port) |
+| `grpc_port`     | integer | `8081`               | Engine gRPC port               |
+| `internal_port` | integer | `8082`               | Engine internal API port       |
 
 ### Examples
 
@@ -575,11 +575,11 @@ export INFERADB_CTRL__IDENTITY__PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n..
 - In production, always provide `private_key_pem` rather than relying on auto-generation
 - Use Kubernetes secrets or a secret manager for the private key
 - The `kid` is deterministically derived from the public key (RFC 7638), so it remains consistent when using the same private key
-- The `management_id` is auto-generated from the hostname (Kubernetes pod name or hostname + random suffix)
+- The `control_id` is auto-generated from the hostname (Kubernetes pod name or hostname + random suffix)
 
 ## Cache Invalidation Configuration
 
-Controls webhook-based cache invalidation to server instances.
+Controls webhook-based cache invalidation to Engine instances.
 
 ### Options
 
@@ -607,7 +607,7 @@ export INFERADB_CTRL__CACHE_INVALIDATION__RETRY_ATTEMPTS=0
 
 - Default is fire-and-forget (0 retries) for performance
 - Increase `retry_attempts` if cache consistency is critical
-- The server's internal port receives these webhooks
+- The Engine's internal port receives these webhooks
 
 ## Discovery Configuration
 
@@ -1125,8 +1125,8 @@ inferadb-control --config config.yaml 2>&1 | grep ERROR
 ### Cache Invalidation Failing
 
 1. Verify `policy_service.service_url` is correct
-2. Check network connectivity to server internal port
-3. Increase `timeout_ms` if servers are slow
+2. Check network connectivity to Engine internal port
+3. Increase `timeout_ms` if Engine instances are slow
 4. Enable `retry_attempts` for reliability
 
 ### Snowflake ID Collisions
@@ -1137,6 +1137,6 @@ inferadb-control --config config.yaml 2>&1 | grep ERROR
 
 ## See Also
 
-- [Server Configuration](../../server/docs/guides/configuration.md) - Server (policy engine) configuration
+- [Engine Configuration](../../engine/docs/guides/configuration.md) - Engine (policy engine) configuration
 - [Authentication Guide](../security/authentication.md) - Detailed authentication setup
 - [Deployment Guide](deployment.md) - Production deployment

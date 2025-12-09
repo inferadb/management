@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use inferadb_control_core::{ManagementConfig, startup};
-use inferadb_control_engine_client::ServerApiClient;
+use inferadb_control_engine_client::EngineClient;
 use inferadb_control_storage::Backend;
 use tracing::info;
 
@@ -64,17 +64,17 @@ pub struct ServicesConfig {
     pub management_identity: Option<Arc<ManagementIdentity>>,
 }
 
-/// Start the Management API HTTP server (dual-server or single-server mode)
+/// Start the Control API HTTP server (dual-server or single-server mode)
 pub async fn serve(
     storage: Arc<Backend>,
     config: Arc<ManagementConfig>,
-    server_client: Arc<ServerApiClient>,
+    engine_client: Arc<EngineClient>,
     worker_id: u16,
     services: ServicesConfig,
 ) -> anyhow::Result<()> {
     // Create AppState with services using the builder pattern
     let mut builder =
-        AppState::builder(storage.clone(), config.clone(), server_client.clone(), worker_id);
+        AppState::builder(storage.clone(), config.clone(), engine_client.clone(), worker_id);
 
     if let Some(leader) = services.leader {
         builder = builder.leader(leader);

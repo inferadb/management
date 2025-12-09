@@ -90,7 +90,7 @@ email:
 export SMTP_PASSWORD="your-password"
 ```
 
-#### Policy Service (InferaDB Server) Endpoint
+#### Policy Service (InferaDB Engine) Endpoint
 
 ```yaml
 policy_service:
@@ -227,7 +227,7 @@ leader_election:
 
 ## Health Checks
 
-The management API provides multiple health check endpoints:
+Control provides multiple health check endpoints:
 
 ### Liveness Probe
 
@@ -274,7 +274,7 @@ Returns JSON with detailed health information:
 
 ## Graceful Shutdown
 
-The management API handles graceful shutdown on `SIGTERM` and `SIGINT`:
+Control handles graceful shutdown on `SIGTERM` and `SIGINT`:
 
 1. Stop accepting new requests
 2. Wait for in-flight requests to complete (up to 30 seconds)

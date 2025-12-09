@@ -20,7 +20,7 @@ use crate::{
     AppState,
     handlers::auth::Result,
     middleware::{
-        OrganizationContext, require_admin_or_owner, require_member, server_auth::ServerContext,
+        OrganizationContext, engine_auth::EngineContext, require_admin_or_owner, require_member,
     },
 };
 
@@ -109,8 +109,8 @@ pub async fn create_vault(
     // Save to repository
     repos.vault.create(vault.clone()).await?;
 
-    // Attempt to sync with @server
-    match state.server_client.create_vault(vault_id, org_ctx.organization_id).await {
+    // Attempt to sync with engine
+    match state.engine_client.create_vault(vault_id, org_ctx.organization_id).await {
         Ok(()) => {
             // Mark as synced
             vault.mark_synced();
@@ -218,12 +218,12 @@ pub async fn get_vault(
     Ok(Json(vault_to_response(vault)))
 }
 
-/// Get a specific vault by ID (server-to-server endpoint)
+/// Get a specific vault by ID (engine-to-control endpoint)
 ///
 /// GET /v1/vaults/:vault
-/// Auth: Session or Server JWT (dual authentication)
+/// Auth: Session or Engine JWT (dual authentication)
 ///
-/// This endpoint is used by the Server API to verify vault ownership and metadata.
+/// This endpoint is used by the Engine to verify vault ownership and metadata.
 /// Unlike the organization-scoped endpoint, this uses the vault ID directly without
 /// requiring organization context.
 pub async fn get_vault_by_id(
@@ -245,16 +245,16 @@ pub async fn get_vault_by_id(
     Ok(Json(vault_to_response(vault)))
 }
 
-/// Get vault by ID (privileged server-to-server endpoint)
+/// Get vault by ID (privileged engine-to-control endpoint)
 ///
 /// GET /internal/v1/vaults/:vault
 ///
-/// Returns vault details for server-to-server authentication.
-/// No membership or permission checks - any valid server JWT can access.
+/// Returns vault details for engine-to-control authentication.
+/// No membership or permission checks - any valid engine JWT can access.
 pub async fn get_vault_by_id_privileged(
     State(state): State<AppState>,
     Path(vault_id): Path<i64>,
-    Extension(_server_ctx): Extension<ServerContext>,
+    Extension(_engine_ctx): Extension<EngineContext>,
 ) -> Result<Json<VaultResponse>> {
     let repos = RepositoryContext::new((*state.storage).clone());
     let vault = repos
@@ -303,7 +303,7 @@ pub async fn update_vault(
     // Save changes
     repos.vault.update(vault.clone()).await?;
 
-    // Invalidate caches on all servers (vault metadata changed)
+    // Invalidate caches on all engine instances (vault metadata changed)
     if let Some(ref webhook_client) = state.webhook_client {
         webhook_client.invalidate_vault(vault_id).await;
     }
@@ -371,15 +371,15 @@ pub async fn delete_vault(
         repos.vault_team_grant.delete(grant.id).await?;
     }
 
-    // Attempt to delete from @server
+    // Attempt to delete from engine
     // Note: Even if this fails, we soft-delete locally
-    let _ = state.server_client.delete_vault(vault_id).await;
+    let _ = state.engine_client.delete_vault(vault_id).await;
 
     // Soft delete
     vault.mark_deleted();
     repos.vault.update(vault).await?;
 
-    // Invalidate caches on all servers
+    // Invalidate caches on all engine instances
     if let Some(ref webhook_client) = state.webhook_client {
         webhook_client.invalidate_vault(vault_id).await;
     }

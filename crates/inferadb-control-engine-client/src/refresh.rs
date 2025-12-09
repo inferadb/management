@@ -1,21 +1,21 @@
 //! Background discovery refresh task
 //!
 //! Provides periodic endpoint refresh by querying the discovery service
-//! and updating the server API client with newly discovered endpoints.
+//! and updating the engine client with newly discovered endpoints.
 
 use std::sync::Arc;
 
 use tokio::time::{Duration, interval};
 use tracing::{debug, error, info};
 
-use crate::{ServerApiClient, ServiceDiscovery};
+use crate::{EngineClient, ServiceDiscovery};
 
 /// Background task for refreshing discovered endpoints
 pub struct DiscoveryRefresher {
     /// Discovery service implementation
     discovery: Arc<ServiceDiscovery>,
-    /// Server API client to update
-    server_client: Arc<ServerApiClient>,
+    /// Engine client to update
+    engine_client: Arc<EngineClient>,
     /// How often to refresh endpoints
     refresh_interval: Duration,
     /// Service URL being discovered (for logging)
@@ -28,18 +28,18 @@ impl DiscoveryRefresher {
     /// # Arguments
     ///
     /// * `discovery` - The discovery service implementation
-    /// * `server_client` - The server API client to update
+    /// * `engine_client` - The engine client to update
     /// * `refresh_interval_secs` - How often to refresh endpoints (in seconds)
     /// * `service_url` - The service URL being discovered (for logging)
     pub fn new(
         discovery: Arc<ServiceDiscovery>,
-        server_client: Arc<ServerApiClient>,
+        engine_client: Arc<EngineClient>,
         refresh_interval_secs: u64,
         service_url: String,
     ) -> Self {
         Self {
             discovery,
-            server_client,
+            engine_client,
             refresh_interval: Duration::from_secs(refresh_interval_secs),
             service_url,
         }
@@ -48,7 +48,7 @@ impl DiscoveryRefresher {
     /// Spawn the background refresh task
     ///
     /// This creates a tokio task that periodically queries the discovery service
-    /// and updates the server API client with new endpoints.
+    /// and updates the engine client with new endpoints.
     ///
     /// The task runs indefinitely until the program exits or the task is cancelled.
     ///
@@ -57,7 +57,7 @@ impl DiscoveryRefresher {
         info!(
             service_url = %self.service_url,
             refresh_interval_secs = self.refresh_interval.as_secs(),
-            "Spawning server API discovery refresh task"
+            "Spawning engine discovery refresh task"
         );
 
         tokio::spawn(async move {
@@ -71,7 +71,7 @@ impl DiscoveryRefresher {
 
                 debug!(
                     service_url = %self.service_url,
-                    "Refreshing server API endpoints"
+                    "Refreshing engine endpoints"
                 );
 
                 let endpoints = self.discovery.discover().await;
@@ -87,11 +87,11 @@ impl DiscoveryRefresher {
                 info!(
                     service_url = %self.service_url,
                     count = endpoints.len(),
-                    "Successfully refreshed server API endpoints"
+                    "Successfully refreshed engine endpoints"
                 );
 
-                // Update server API client with new endpoints
-                self.server_client.update_endpoints(endpoints);
+                // Update engine client with new endpoints
+                self.engine_client.update_endpoints(endpoints);
             }
         })
     }
@@ -102,7 +102,7 @@ impl DiscoveryRefresher {
     pub async fn refresh_once(&self) -> usize {
         debug!(
             service_url = %self.service_url,
-            "Performing one-time server API endpoint refresh"
+            "Performing one-time engine endpoint refresh"
         );
 
         let endpoints = self.discovery.discover().await;
@@ -118,11 +118,11 @@ impl DiscoveryRefresher {
         info!(
             service_url = %self.service_url,
             count = endpoints.len(),
-            "One-time server API refresh completed"
+            "One-time engine refresh completed"
         );
 
         let count = endpoints.len();
-        self.server_client.update_endpoints(endpoints);
+        self.engine_client.update_endpoints(endpoints);
 
         count
     }
@@ -147,12 +147,12 @@ mod tests {
             DiscoveryMode::None,
         ));
 
-        let server_client =
-            Arc::new(ServerApiClient::new("http://localhost".to_string(), 8080).unwrap());
+        let engine_client =
+            Arc::new(EngineClient::new("http://localhost".to_string(), 8080).unwrap());
 
         let refresher = DiscoveryRefresher::new(
             discovery,
-            server_client.clone(),
+            engine_client.clone(),
             30,
             "http://test-server:8080".to_string(),
         );
@@ -170,12 +170,12 @@ mod tests {
             DiscoveryMode::None,
         ));
 
-        let server_client =
-            Arc::new(ServerApiClient::new("http://localhost".to_string(), 8080).unwrap());
+        let engine_client =
+            Arc::new(EngineClient::new("http://localhost".to_string(), 8080).unwrap());
 
         let refresher = Arc::new(DiscoveryRefresher::new(
             discovery,
-            server_client.clone(),
+            engine_client.clone(),
             1, // 1 second for fast test
             "http://test-server:8080".to_string(),
         ));
@@ -190,7 +190,7 @@ mod tests {
         handle.abort();
 
         // Verify we got endpoints
-        let count = server_client.endpoint_count().await;
+        let count = engine_client.endpoint_count().await;
         assert!(count >= 1);
     }
 
@@ -202,12 +202,12 @@ mod tests {
             DiscoveryMode::None,
         ));
 
-        let server_client =
-            Arc::new(ServerApiClient::new("http://localhost".to_string(), 8080).unwrap());
+        let engine_client =
+            Arc::new(EngineClient::new("http://localhost".to_string(), 8080).unwrap());
 
         let refresher = DiscoveryRefresher::new(
             discovery,
-            server_client,
+            engine_client,
             60,
             "http://test-server:8080".to_string(),
         );

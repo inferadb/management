@@ -215,11 +215,11 @@ pub struct TransferOwnershipResponse {
 }
 
 // ============================================================================
-// Server-to-Server Organization Info
+// Engine-to-Control Organization Info
 // ============================================================================
 
-/// Organization status for server-to-server communication
-/// This mirrors the server's OrgStatus enum for compatibility
+/// Organization status for engine-to-control communication
+/// This mirrors the engine's OrgStatus enum for compatibility
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OrganizationStatus {
@@ -231,8 +231,8 @@ pub enum OrganizationStatus {
     Deleted,
 }
 
-/// Organization information for server-to-server endpoints
-/// This response format is specifically for the server API to verify
+/// Organization information for engine-to-control endpoints
+/// This response format is specifically for the Engine to verify
 /// organization status without requiring user session context.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OrganizationServerResponse {

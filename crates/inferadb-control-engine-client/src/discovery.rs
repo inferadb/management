@@ -1,4 +1,4 @@
-//! Service discovery for policy service (server) endpoints
+//! Service discovery for policy service (engine) endpoints
 //!
 //! Supports multiple discovery modes:
 //! - Static: Use service URL directly

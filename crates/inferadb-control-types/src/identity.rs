@@ -1,7 +1,7 @@
-//! Management API identity for authenticating with Server APIs
+//! Control identity for authenticating with Engine
 //!
-//! This module handles the Management API's Ed25519 keypair used to sign JWTs when
-//! making authenticated requests to Server APIs for cache invalidation webhooks.
+//! This module handles Control's Ed25519 keypair used to sign JWTs when
+//! making authenticated requests to Engine for cache invalidation webhooks.
 
 use std::sync::Arc;
 
@@ -41,6 +41,8 @@ struct ManagementJwtClaims {
     exp: i64,
     /// JWT ID for replay protection
     jti: String,
+    /// Scope - space-separated permissions (required by engine's JwtClaims)
+    scope: String,
 }
 
 /// JWKS (JSON Web Key Set) response
@@ -196,6 +198,8 @@ impl ManagementIdentity {
             iat: now.timestamp(),
             exp: exp.timestamp(),
             jti: uuid::Uuid::new_v4().to_string(),
+            // Admin scope for management operations (vault lifecycle, cache invalidation)
+            scope: "inferadb.admin".to_string(),
         };
 
         let mut header = Header::new(jsonwebtoken::Algorithm::EdDSA);

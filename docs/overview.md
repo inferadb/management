@@ -2206,8 +2206,8 @@ Clients can simply ignore the refresh token if they don't need it - there's no o
 
 ```python
 class VaultClient:
-    def __init__(self, management_url, session_token):
-        self.management_url = management_url
+    def __init__(self, control_url, session_token):
+        self.control_url = control_url
         self.session_token = session_token
         self.access_token = None
         self.refresh_token = None
@@ -2225,7 +2225,7 @@ class VaultClient:
         if self.refresh_token and use_refresh:
             try:
                 response = requests.post(
-                    f"{self.management_url}/tokens/refresh",
+                    f"{self.control_url}/tokens/refresh",
                     headers={"Authorization": f"Bearer {self.session_token}"},
                     json={"refresh_token": self.refresh_token}
                 )
@@ -2245,7 +2245,7 @@ class VaultClient:
 
         # Request new access token (always returns refresh token too)
         response = requests.post(
-            f"{self.management_url}/tokens/vault/{vault_id}",
+            f"{self.control_url}/tokens/vault/{vault_id}",
             headers={"Authorization": f"Bearer {self.session_token}"}
         )
 

@@ -12,21 +12,21 @@ use tokio::sync::RwLock;
 
 use crate::handlers::auth::{ApiError, AppState};
 
-/// Context for server-authenticated requests
+/// Context for engine-authenticated requests
 #[derive(Debug, Clone)]
-pub struct ServerContext {
-    /// Server ID from JWT subject claim
-    pub server_id: String,
+pub struct EngineContext {
+    /// Engine ID from JWT subject claim
+    pub engine_id: String,
 }
 
-/// JWT claims for server-to-management authentication
+/// JWT claims for engine-to-control authentication
 #[derive(Debug, Serialize, Deserialize)]
-struct ServerJwtClaims {
-    /// Issuer - the server instance
+struct EngineJwtClaims {
+    /// Issuer - the engine instance
     iss: String,
-    /// Subject - "server:{server_id}"
+    /// Subject - "server:{server_id}" (format from engine)
     sub: String,
-    /// Audience - the management API
+    /// Audience - the control API
     aud: String,
     /// Issued at (Unix timestamp)
     iat: i64,
@@ -36,7 +36,7 @@ struct ServerJwtClaims {
     jti: String,
 }
 
-/// JWKS (JSON Web Key Set) response from server
+/// JWKS (JSON Web Key Set) response from engine
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Jwks {
     pub keys: Vec<Jwk>,
@@ -60,7 +60,7 @@ pub struct Jwk {
     pub key_use: String,
 }
 
-/// Cache for server JWKS with TTL
+/// Cache for engine JWKS with TTL
 #[derive(Clone)]
 struct JwksCache {
     jwks: Arc<RwLock<Option<(Jwks, std::time::Instant)>>>,
@@ -89,10 +89,10 @@ impl JwksCache {
             .get(jwks_url)
             .send()
             .await
-            .map_err(|e| CoreError::Internal(format!("Failed to fetch server JWKS: {}", e)))?
+            .map_err(|e| CoreError::Internal(format!("Failed to fetch engine JWKS: {}", e)))?
             .json()
             .await
-            .map_err(|e| CoreError::Internal(format!("Failed to parse server JWKS: {}", e)))?;
+            .map_err(|e| CoreError::Internal(format!("Failed to parse engine JWKS: {}", e)))?;
 
         // Update cache
         {
@@ -109,11 +109,11 @@ impl JwksCache {
 static JWKS_CACHE: once_cell::sync::Lazy<JwksCache> =
     once_cell::sync::Lazy::new(|| JwksCache::new(300)); // 5 minutes default
 
-/// Server JWT authentication middleware
+/// Engine JWT authentication middleware
 ///
-/// Extracts JWT from Authorization header, verifies it against the server's JWKS,
-/// and attaches server context to the request.
-pub async fn require_server_jwt(
+/// Extracts JWT from Authorization header, verifies it against the engine's JWKS,
+/// and attaches engine context to the request.
+pub async fn require_engine_jwt(
     State(state): State<AppState>,
     mut request: Request,
     next: Next,
@@ -139,18 +139,18 @@ pub async fn require_server_jwt(
 
     let kid = header.kid.ok_or_else(|| CoreError::Auth("JWT missing kid claim".to_string()))?;
 
-    // Derive server JWKS URL from policy_service config
-    // The JWKS endpoint is at /.well-known/jwks.json on the server's mesh port
-    let server_jwks_url = format!("{}/.well-known/jwks.json", state.config.effective_mesh_url());
+    // Derive engine JWKS URL from policy_service config
+    // The JWKS endpoint is at /.well-known/jwks.json on the engine's mesh port
+    let engine_jwks_url = format!("{}/.well-known/jwks.json", state.config.effective_mesh_url());
 
     // Fetch JWKS and find the key
-    let jwks = JWKS_CACHE.get_or_fetch(&server_jwks_url).await?;
+    let jwks = JWKS_CACHE.get_or_fetch(&engine_jwks_url).await?;
 
     let jwk = jwks
         .keys
         .iter()
         .find(|k| k.kid == kid)
-        .ok_or_else(|| CoreError::Auth(format!("Key ID {} not found in server JWKS", kid)))?;
+        .ok_or_else(|| CoreError::Auth(format!("Key ID {} not found in engine JWKS", kid)))?;
 
     // Verify algorithm
     if jwk.alg != "EdDSA" || jwk.kty != "OKP" || jwk.crv != "Ed25519" {
@@ -189,19 +189,19 @@ pub async fn require_server_jwt(
     validation.set_required_spec_claims(&["exp", "iss", "sub", "aud"]);
 
     // Verify JWT
-    let token_data = decode::<ServerJwtClaims>(token, &decoding_key, &validation)
+    let token_data = decode::<EngineJwtClaims>(token, &decoding_key, &validation)
         .map_err(|e| CoreError::Auth(format!("JWT validation failed: {}", e)))?;
 
-    // Extract server ID from subject claim (format: "server:{server_id}")
-    let server_id = token_data
+    // Extract engine ID from subject claim (format: "server:{server_id}" from engine)
+    let engine_id = token_data
         .claims
         .sub
         .strip_prefix("server:")
-        .ok_or_else(|| CoreError::Auth("Invalid server subject format".to_string()))?
+        .ok_or_else(|| CoreError::Auth("Invalid engine subject format".to_string()))?
         .to_string();
 
-    // Attach server context to request extensions
-    request.extensions_mut().insert(ServerContext { server_id });
+    // Attach engine context to request extensions
+    request.extensions_mut().insert(EngineContext { engine_id });
 
     Ok(next.run(request).await)
 }
@@ -222,15 +222,15 @@ fn create_ed25519_public_key_pem(public_key_bytes: &[u8]) -> String {
     pem::encode(&pem)
 }
 
-/// Extract server context from request extensions
+/// Extract engine context from request extensions
 ///
-/// This should only be called from handlers that are wrapped with require_server_jwt middleware
-pub fn extract_server_context(request: &Request) -> Result<ServerContext, ApiError> {
+/// This should only be called from handlers that are wrapped with require_engine_jwt middleware
+pub fn extract_engine_context(request: &Request) -> Result<EngineContext, ApiError> {
     request
         .extensions()
-        .get::<ServerContext>()
+        .get::<EngineContext>()
         .cloned()
-        .ok_or_else(|| CoreError::Auth("Server context not found in request".to_string()).into())
+        .ok_or_else(|| CoreError::Auth("Engine context not found in request".to_string()).into())
 }
 
 #[cfg(test)]

@@ -43,7 +43,7 @@ graph TB
     end
 
     subgraph "External Services"
-        Server[InferaDB Server<br/>gRPC]
+        Engine[InferaDB Engine<br/>gRPC]
         SMTP[SMTP Server<br/>Email]
         Metrics[Prometheus<br/>Metrics]
         Tracing[Jaeger<br/>Traces]
@@ -76,7 +76,7 @@ graph TB
     Storage --> Memory
     Storage --> FDB
 
-    Token --> Server
+    Token --> Engine
     Email --> SMTP
     REST --> Metrics
     GRPC --> Metrics
@@ -86,7 +86,7 @@ graph TB
     style REST fill:#4CAF50
     style GRPC fill:#4CAF50
     style Storage fill:#2196F3
-    style Server fill:#FF9800
+    style Engine fill:#FF9800
 ```
 
 ## Deployment Topology
