@@ -8,9 +8,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-// Re-export RemoteCluster for tests and consumers
-#[cfg(test)]
-use inferadb_control_discovery::RemoteCluster;
 use inferadb_control_discovery::{DiscoveryMode, EndpointDiscovery, create_discovery};
 use inferadb_control_types::ControlIdentity;
 use parking_lot::RwLock;
@@ -69,7 +66,7 @@ impl WebhookClient {
     /// * `internal_port` - Internal API port for webhooks (e.g., 9090)
     /// * `control_identity` - Control identity for signing webhook JWTs
     /// * `timeout_ms` - Request timeout in milliseconds (default: 5000)
-    /// * `discovery_mode` - Service discovery mode (None, Kubernetes, or Tailscale)
+    /// * `discovery_mode` - Service discovery mode (None or Kubernetes)
     /// * `cache_ttl` - Cache TTL for discovered endpoints in seconds (default: 300)
     pub fn new(
         service_url: String,
@@ -626,25 +623,4 @@ mod tests {
         assert!(client.is_ok());
     }
 
-    #[tokio::test]
-    async fn test_tailscale_discovery_mode() {
-        let identity = Arc::new(ControlIdentity::generate());
-
-        let remote_clusters = vec![RemoteCluster::new(
-            "eu-west-1".to_string(),
-            "prod.ts.net".to_string(),
-            "inferadb-engine".to_string(),
-            9090,
-        )];
-
-        let client = WebhookClient::new(
-            "http://inferadb-engine".to_string(),
-            9090,
-            identity,
-            5000,
-            DiscoveryMode::Tailscale { local_cluster: "us-west-1".to_string(), remote_clusters },
-            300,
-        );
-        assert!(client.is_ok());
-    }
 }

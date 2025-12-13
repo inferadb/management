@@ -8,6 +8,8 @@ pub mod auth;
 pub mod clock;
 pub mod crypto;
 pub mod email;
+pub mod fdb_invalidation;
+pub mod fdb_jwks;
 pub mod id;
 pub mod jobs;
 pub mod jwt;
@@ -45,3 +47,5 @@ pub use repository::{
 };
 pub use repository_context::RepositoryContext;
 pub use webhook_client::WebhookClient;
+pub use fdb_invalidation::FdbInvalidationWriter;
+pub use fdb_jwks::FdbJwksWriter;

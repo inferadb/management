@@ -48,6 +48,29 @@ pub enum Backend {
     FoundationDB(FdbBackend),
 }
 
+impl Backend {
+    /// Get the FDB database handle if using FoundationDB backend.
+    ///
+    /// Returns `None` if using a non-FDB backend (e.g., Memory).
+    /// This is used for FDB-based cross-service communication like
+    /// JWKS storage and cache invalidation.
+    #[cfg(feature = "fdb")]
+    pub fn fdb_database(&self) -> Option<std::sync::Arc<foundationdb::Database>> {
+        match self {
+            Backend::FoundationDB(b) => Some(b.database()),
+            _ => None,
+        }
+    }
+
+    /// Get the FDB database handle if using FoundationDB backend.
+    ///
+    /// Returns `None` if using a non-FDB backend (e.g., Memory).
+    #[cfg(not(feature = "fdb"))]
+    pub fn fdb_database(&self) -> Option<std::sync::Arc<()>> {
+        None
+    }
+}
+
 #[async_trait]
 impl StorageBackend for Backend {
     async fn get(&self, key: &[u8]) -> StorageResult<Option<Bytes>> {

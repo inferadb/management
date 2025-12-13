@@ -72,6 +72,13 @@ inferadb-control-types = { path = "../inferadb-control-types" }
 # Storage
 inferadb-control-storage = { path = "../inferadb-control-storage" }
 
+# Shared FDB types
+inferadb-control-fdb-shared = { path = "../inferadb-control-fdb-shared" }
+
+# FoundationDB
+foundationdb = { workspace = true }
+uuid = { workspace = true }
+
 # OpenTelemetry (optional, for distributed tracing)
 opentelemetry = { workspace = true, optional = true }
 opentelemetry-otlp = { workspace = true, optional = true }

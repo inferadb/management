@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Service discovery configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveryConfig {
-    /// Discovery mode (none, kubernetes, or tailscale)
+    /// Discovery mode (none or kubernetes)
     #[serde(default)]
     pub mode: DiscoveryMode,
 
@@ -45,42 +45,6 @@ pub enum DiscoveryMode {
     None,
     /// Kubernetes service discovery - resolve to pod IPs
     Kubernetes,
-    /// Tailscale mesh networking for multi-region discovery
-    Tailscale {
-        /// Local cluster name (e.g., "us-west-1")
-        local_cluster: String,
-        /// Remote clusters to discover across
-        #[serde(default)]
-        remote_clusters: Vec<RemoteCluster>,
-    },
-}
-
-/// Remote cluster configuration for Tailscale mesh networking
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RemoteCluster {
-    /// Cluster name (e.g., "eu-west-1", "ap-southeast-1")
-    pub name: String,
-
-    /// Tailscale domain for this cluster (e.g., "eu-west-1.ts.net")
-    pub tailscale_domain: String,
-
-    /// Service name within the cluster (e.g., "inferadb-control")
-    pub service_name: String,
-
-    /// Service port
-    pub port: u16,
-}
-
-impl RemoteCluster {
-    /// Create a new remote cluster configuration
-    pub fn new(name: String, tailscale_domain: String, service_name: String, port: u16) -> Self {
-        Self { name, tailscale_domain, service_name, port }
-    }
-
-    /// Get the full Tailscale hostname for this cluster
-    pub fn tailscale_hostname(&self) -> String {
-        format!("{}.{}", self.service_name, self.tailscale_domain)
-    }
 }
 
 #[cfg(test)]
@@ -102,17 +66,6 @@ mod tests {
     }
 
     #[test]
-    fn test_remote_cluster_hostname() {
-        let cluster = RemoteCluster::new(
-            "eu-west-1".to_string(),
-            "prod.ts.net".to_string(),
-            "inferadb-control".to_string(),
-            9090,
-        );
-        assert_eq!(cluster.tailscale_hostname(), "inferadb-control.prod.ts.net");
-    }
-
-    #[test]
     fn test_discovery_mode_serde() {
         // Test None mode
         let json = r#"{"type":"none"}"#;
@@ -123,10 +76,5 @@ mod tests {
         let json = r#"{"type":"kubernetes"}"#;
         let mode: DiscoveryMode = serde_json::from_str(json).unwrap();
         assert_eq!(mode, DiscoveryMode::Kubernetes);
-
-        // Test Tailscale mode
-        let json = r#"{"type":"tailscale","local_cluster":"us-west-1","remote_clusters":[]}"#;
-        let mode: DiscoveryMode = serde_json::from_str(json).unwrap();
-        assert!(matches!(mode, DiscoveryMode::Tailscale { .. }));
     }
 }

@@ -8,7 +8,6 @@
 //!
 //! - **Static**: Use service URL directly (no discovery)
 //! - **Kubernetes**: Discover pod IPs from Kubernetes Endpoints API
-//! - **Tailscale**: Discover endpoints via MagicDNS across multiple clusters
 
 use std::fmt;
 
@@ -22,16 +21,14 @@ pub mod lb_client;
 pub mod metrics;
 pub mod refresh;
 pub mod static_discovery;
-pub mod tailscale;
 
-pub use config::{DiscoveryConfig, DiscoveryMode, RemoteCluster};
+pub use config::{DiscoveryConfig, DiscoveryMode};
 pub use endpoint::{Endpoint, EndpointHealth};
 pub use error::{DiscoveryError, Result};
 pub use kubernetes::KubernetesServiceDiscovery;
 pub use lb_client::LoadBalancingClient;
 pub use refresh::DiscoveryRefresher;
 pub use static_discovery::StaticDiscovery;
-pub use tailscale::TailscaleServiceDiscovery;
 
 /// Trait for service discovery implementations
 #[async_trait]
@@ -65,9 +62,6 @@ pub fn create_discovery(mode: &DiscoveryMode) -> Box<dyn EndpointDiscovery> {
     match mode {
         DiscoveryMode::None => Box::new(StaticDiscovery::new()),
         DiscoveryMode::Kubernetes => Box::new(KubernetesServiceDiscovery::new()),
-        DiscoveryMode::Tailscale { local_cluster, remote_clusters } => {
-            Box::new(TailscaleServiceDiscovery::new(local_cluster.clone(), remote_clusters.clone()))
-        },
     }
 }
 
@@ -87,15 +81,5 @@ mod tests {
         let mode = DiscoveryMode::Kubernetes;
         let discovery = create_discovery(&mode);
         assert!(format!("{:?}", discovery).contains("KubernetesServiceDiscovery"));
-    }
-
-    #[test]
-    fn test_create_discovery_tailscale() {
-        let mode = DiscoveryMode::Tailscale {
-            local_cluster: "us-west-1".to_string(),
-            remote_clusters: vec![],
-        };
-        let discovery = create_discovery(&mode);
-        assert!(format!("{:?}", discovery).contains("TailscaleServiceDiscovery"));
     }
 }

@@ -92,11 +92,6 @@ async fn main() -> Result<()> {
                 "Engine Endpoint",
                 format!("{} (kubernetes)", policy_url),
             ),
-            DiscoveryMode::Tailscale { local_cluster, .. } => startup::ConfigEntry::new(
-                "Network",
-                "Engine Endpoint",
-                format!("{} (tailscale:{})", policy_url, local_cluster),
-            ),
         };
 
         // Create discovery mode entry
@@ -104,7 +99,7 @@ async fn main() -> Result<()> {
             DiscoveryMode::None => {
                 startup::ConfigEntry::warning("Network", "Service Discovery", "○ Disabled")
             },
-            DiscoveryMode::Kubernetes | DiscoveryMode::Tailscale { .. } => {
+            DiscoveryMode::Kubernetes => {
                 startup::ConfigEntry::new("Network", "Service Discovery", "✓ Enabled")
             },
         };

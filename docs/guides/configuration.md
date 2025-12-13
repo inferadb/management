@@ -516,23 +516,6 @@ control:
     health_check_interval: 10
 ```
 
-#### Tailscale
-
-Multi-region discovery via Tailscale mesh:
-
-```yaml
-control:
-  discovery:
-    mode:
-      type: tailscale
-      local_cluster: "us-west-1"
-      remote_clusters:
-        - name: "eu-west-1"
-          tailscale_domain: "eu-west-1.ts.net"
-          service_name: "inferadb-engine"
-          port: 8082
-```
-
 ### Environment Variables
 
 ```bash

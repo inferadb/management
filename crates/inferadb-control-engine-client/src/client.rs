@@ -145,7 +145,7 @@ struct CreateVaultRequest {
 /// HTTP client for communicating with the Engine's REST API
 ///
 /// Features:
-/// - Service discovery (Static, Kubernetes, Tailscale)
+/// - Service discovery (Static, Kubernetes)
 /// - Load balancing with round-robin selection
 /// - Circuit breaker pattern (opens after 5 failures, recovers after 30s)
 /// - Automatic retry with failover (up to 3 attempts)

@@ -88,6 +88,14 @@ impl FdbBackend {
         Ok(backend)
     }
 
+    /// Get a reference to the FDB database handle.
+    ///
+    /// This allows sharing the database connection with other FDB-based services
+    /// like JWKS storage and cache invalidation.
+    pub fn database(&self) -> Arc<Database> {
+        Arc::clone(&self.db)
+    }
+
     /// Start background task to clean up expired TTL entries
     fn start_ttl_cleanup(&self) {
         let backend = self.clone();
