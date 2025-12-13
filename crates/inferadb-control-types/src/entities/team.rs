@@ -12,6 +12,9 @@ pub struct OrganizationTeam {
     pub id: i64,
     pub organization_id: i64,
     pub name: String,
+    /// Optional description of the team
+    #[serde(default)]
+    pub description: String,
     pub created_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
 }
@@ -126,13 +129,14 @@ pub struct OrganizationTeamPermission {
 
 impl OrganizationTeam {
     /// Create a new organization team
-    pub fn new(id: i64, organization_id: i64, name: String) -> Result<Self> {
+    pub fn new(id: i64, organization_id: i64, name: String, description: Option<String>) -> Result<Self> {
         Self::validate_name(&name)?;
 
         Ok(Self {
             id,
             organization_id,
             name: name.trim().to_string(),
+            description: description.unwrap_or_default(),
             created_at: Utc::now(),
             deleted_at: None,
         })
@@ -165,6 +169,11 @@ impl OrganizationTeam {
         Self::validate_name(&name)?;
         self.name = name.trim().to_string();
         Ok(())
+    }
+
+    /// Update the team description
+    pub fn set_description(&mut self, description: String) {
+        self.description = description;
     }
 
     /// Check if the team is deleted
@@ -208,7 +217,7 @@ mod tests {
 
     #[test]
     fn test_create_team() {
-        let team = OrganizationTeam::new(1, 100, "Engineering Team".to_string()).unwrap();
+        let team = OrganizationTeam::new(1, 100, "Engineering Team".to_string(), None).unwrap();
         assert_eq!(team.id, 1);
         assert_eq!(team.organization_id, 100);
         assert_eq!(team.name, "Engineering Team");
@@ -227,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_set_team_name() {
-        let mut team = OrganizationTeam::new(1, 100, "Old Name".to_string()).unwrap();
+        let mut team = OrganizationTeam::new(1, 100, "Old Name".to_string(), None).unwrap();
 
         team.set_name("New Name".to_string()).unwrap();
         assert_eq!(team.name, "New Name");
@@ -238,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_team_soft_delete() {
-        let mut team = OrganizationTeam::new(1, 100, "Test Team".to_string()).unwrap();
+        let mut team = OrganizationTeam::new(1, 100, "Test Team".to_string(), None).unwrap();
 
         assert!(!team.is_deleted());
         team.mark_deleted();

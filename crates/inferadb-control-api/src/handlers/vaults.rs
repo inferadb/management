@@ -11,7 +11,7 @@ use inferadb_control_types::{
         ListTeamGrantsResponse, ListUserGrantsResponse, ListVaultsResponse, TeamGrantInfo,
         TeamGrantResponse, UpdateTeamGrantRequest, UpdateTeamGrantResponse, UpdateUserGrantRequest,
         UpdateUserGrantResponse, UpdateVaultRequest, UpdateVaultResponse, UserGrantInfo,
-        UserGrantResponse, VaultDetail, VaultInfo, VaultResponse,
+        UserGrantResponse, VaultInfo, VaultResponse,
     },
     entities::{Vault, VaultRole, VaultTeamGrant, VaultUserGrant},
 };
@@ -32,8 +32,9 @@ fn vault_to_response(vault: Vault) -> VaultResponse {
     VaultResponse {
         id: vault.id,
         name: vault.name,
+        description: vault.description,
         organization_id: vault.organization_id,
-        sync_status: format!("{:?}", vault.sync_status),
+        sync_status: vault.sync_status,
         sync_error: vault.sync_error,
         created_at: vault.created_at.to_rfc3339(),
         updated_at: vault.updated_at.to_rfc3339(),
@@ -104,7 +105,7 @@ pub async fn create_vault(
 
     // Create vault entity (starts with PENDING sync status)
     let mut vault =
-        Vault::new(vault_id, org_ctx.organization_id, payload.name, org_ctx.member.user_id)?;
+        Vault::new(vault_id, org_ctx.organization_id, payload.name, payload.description.clone(), org_ctx.member.user_id)?;
 
     // Save to repository
     repos.vault.create(vault.clone()).await?;
@@ -141,7 +142,7 @@ pub async fn create_vault(
             vault: VaultInfo {
                 id: vault.id,
                 name: vault.name,
-                description: payload.description.unwrap_or_default(),
+                description: vault.description,
                 organization_id: vault.organization_id,
                 sync_status: vault.sync_status,
                 created_at: vault.created_at.to_rfc3339(),
@@ -300,6 +301,11 @@ pub async fn update_vault(
     Vault::validate_name(&payload.name)?;
     vault.name = payload.name.clone();
 
+    // Update description if provided
+    if let Some(desc) = payload.description.clone() {
+        vault.description = desc;
+    }
+
     // Save changes
     repos.vault.update(vault.clone()).await?;
 
@@ -309,10 +315,13 @@ pub async fn update_vault(
     }
 
     Ok(Json(UpdateVaultResponse {
-        vault: VaultDetail {
+        vault: VaultInfo {
             id: vault.id,
             name: vault.name,
-            description: payload.description.unwrap_or_default(),
+            description: vault.description,
+            organization_id: vault.organization_id,
+            sync_status: vault.sync_status,
+            created_at: vault.created_at.to_rfc3339(),
         },
     }))
 }

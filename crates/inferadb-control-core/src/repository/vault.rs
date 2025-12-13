@@ -702,7 +702,7 @@ mod tests {
     }
 
     fn create_test_vault(id: i64, org_id: i64, name: &str) -> Result<Vault> {
-        Vault::new(id, org_id, name.to_string(), 999)
+        Vault::new(id, org_id, name.to_string(), None, 999)
     }
 
     #[tokio::test]

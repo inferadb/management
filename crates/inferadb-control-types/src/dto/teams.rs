@@ -30,6 +30,7 @@ pub struct TeamInfo {
 pub struct TeamResponse {
     pub id: i64,
     pub name: String,
+    pub description: String,
     pub organization_id: i64,
     pub created_at: String,
     pub deleted_at: Option<String>,
@@ -45,13 +46,13 @@ pub struct ListTeamsResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateTeamRequest {
-    pub name: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct UpdateTeamResponse {
-    pub id: i64,
-    pub name: String,
+    pub team: TeamInfo,
 }
 
 #[derive(Debug, Serialize)]

@@ -12,6 +12,9 @@ pub struct Vault {
     pub id: i64,
     pub organization_id: i64,
     pub name: String,
+    /// Optional description of the vault
+    #[serde(default)]
+    pub description: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub sync_status: VaultSyncStatus,
@@ -80,6 +83,7 @@ impl Vault {
         id: i64,
         organization_id: i64,
         name: String,
+        description: Option<String>,
         _created_by_user_id: i64,
     ) -> Result<Self> {
         Self::validate_name(&name)?;
@@ -88,6 +92,7 @@ impl Vault {
             id,
             organization_id,
             name,
+            description: description.unwrap_or_default(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
             sync_status: VaultSyncStatus::Pending,
@@ -179,13 +184,20 @@ mod tests {
 
     #[test]
     fn test_create_vault() {
-        let vault = Vault::new(1, 100, "Test Vault".to_string(), 999).unwrap();
+        let vault = Vault::new(1, 100, "Test Vault".to_string(), Some("Test description".to_string()), 999).unwrap();
         assert_eq!(vault.id, 1);
         assert_eq!(vault.organization_id, 100);
         assert_eq!(vault.name, "Test Vault");
+        assert_eq!(vault.description, "Test description");
         assert_eq!(vault.sync_status, VaultSyncStatus::Pending);
         assert!(vault.sync_error.is_none());
         assert!(vault.deleted_at.is_none());
+    }
+
+    #[test]
+    fn test_create_vault_without_description() {
+        let vault = Vault::new(1, 100, "Test Vault".to_string(), None, 999).unwrap();
+        assert_eq!(vault.description, "");
     }
 
     #[test]
@@ -199,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_mark_synced() {
-        let mut vault = Vault::new(1, 100, "Test".to_string(), 999).unwrap();
+        let mut vault = Vault::new(1, 100, "Test".to_string(), None, 999).unwrap();
         vault.mark_synced();
         assert_eq!(vault.sync_status, VaultSyncStatus::Synced);
         assert!(vault.sync_error.is_none());
@@ -207,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_mark_sync_failed() {
-        let mut vault = Vault::new(1, 100, "Test".to_string(), 999).unwrap();
+        let mut vault = Vault::new(1, 100, "Test".to_string(), None, 999).unwrap();
         vault.mark_sync_failed("Connection error".to_string());
         assert_eq!(vault.sync_status, VaultSyncStatus::Failed);
         assert_eq!(vault.sync_error, Some("Connection error".to_string()));
@@ -215,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_mark_deleted() {
-        let mut vault = Vault::new(1, 100, "Test".to_string(), 999).unwrap();
+        let mut vault = Vault::new(1, 100, "Test".to_string(), None, 999).unwrap();
         assert!(!vault.is_deleted());
         vault.mark_deleted();
         assert!(vault.is_deleted());

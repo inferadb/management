@@ -63,7 +63,7 @@ async fn test_cross_organization_vault_access_denied() {
 
     // Create a vault in Organization B
     let vault_repo = VaultRepository::new((*state.storage).clone());
-    let vault_b = Vault::new(5000, org_b.id, "Vault B".to_string(), 200).unwrap();
+    let vault_b = Vault::new(5000, org_b.id, "Vault B".to_string(), None, 200).unwrap();
     vault_repo.create(vault_b.clone()).await.unwrap();
 
     // User A tries to access Organization B's vault
@@ -100,7 +100,7 @@ async fn test_cross_organization_client_access_denied() {
 
     // Create a client in Organization B
     let client_repo = ClientRepository::new((*state.storage).clone());
-    let client_b = Client::new(6000, org_b.id, "Client B".to_string(), 200).unwrap();
+    let client_b = Client::new(6000, org_b.id, None, "Client B".to_string(), None, 200).unwrap();
     client_repo.create(client_b.clone()).await.unwrap();
 
     // User A tries to access Organization B's client
@@ -135,7 +135,7 @@ async fn test_cross_organization_team_access_denied() {
 
     // Create a team in Organization B
     let team_repo = OrganizationTeamRepository::new((*state.storage).clone());
-    let team_b = OrganizationTeam::new(7000, org_b.id, "Team B".to_string()).unwrap();
+    let team_b = OrganizationTeam::new(7000, org_b.id, "Team B".to_string(), None).unwrap();
     team_repo.create(team_b.clone()).await.unwrap();
 
     // User A tries to access Organization B's team
@@ -170,7 +170,7 @@ async fn test_cannot_modify_other_organization_resources() {
 
     // Create a vault in Organization B
     let vault_repo = VaultRepository::new((*state.storage).clone());
-    let vault_b = Vault::new(5000, org_b.id, "Vault B".to_string(), 200).unwrap();
+    let vault_b = Vault::new(5000, org_b.id, "Vault B".to_string(), None, 200).unwrap();
     vault_repo.create(vault_b.clone()).await.unwrap();
 
     // User A tries to update Organization B's vault
@@ -211,7 +211,7 @@ async fn test_cannot_delete_other_organization_resources() {
 
     // Create a client in Organization B
     let client_repo = ClientRepository::new((*state.storage).clone());
-    let client_b = Client::new(6000, org_b.id, "Client B".to_string(), 200).unwrap();
+    let client_b = Client::new(6000, org_b.id, None, "Client B".to_string(), None, 200).unwrap();
     client_repo.create(client_b.clone()).await.unwrap();
 
     // User A tries to delete Organization B's client
@@ -277,18 +277,18 @@ async fn test_vault_jwt_isolation() {
     let (_, _session_a, org_a, _) = setup_user_and_org(&state, 100, 1, 1000, 10000, "userA").await;
 
     let vault_repo = VaultRepository::new((*state.storage).clone());
-    let vault_a = Vault::new(5000, org_a.id, "Vault A".to_string(), 100).unwrap();
+    let vault_a = Vault::new(5000, org_a.id, "Vault A".to_string(), None, 100).unwrap();
     vault_repo.create(vault_a.clone()).await.unwrap();
 
     // Setup Organization B with vault
     let (_, _session_b, org_b, _) = setup_user_and_org(&state, 200, 2, 2000, 20000, "userB").await;
 
-    let vault_b = Vault::new(6000, org_b.id, "Vault B".to_string(), 200).unwrap();
+    let vault_b = Vault::new(6000, org_b.id, "Vault B".to_string(), None, 200).unwrap();
     vault_repo.create(vault_b.clone()).await.unwrap();
 
     // Create a client in Organization A
     let client_repo = ClientRepository::new((*state.storage).clone());
-    let client_a = Client::new(7000, org_a.id, "Client A".to_string(), 100).unwrap();
+    let client_a = Client::new(7000, org_a.id, None, "Client A".to_string(), None, 100).unwrap();
     client_repo.create(client_a.clone()).await.unwrap();
 
     // Create a certificate for the client

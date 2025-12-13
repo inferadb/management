@@ -513,7 +513,7 @@ async fn test_member_cannot_delete_vault() {
 
     // Create a vault
     let vault_repo = VaultRepository::new((*state.storage).clone());
-    let vault = Vault::new(5000, org.id, "Test Vault".to_string(), 100).unwrap();
+    let vault = Vault::new(5000, org.id, "Test Vault".to_string(), None, 100).unwrap();
     vault_repo.create(vault.clone()).await.unwrap();
 
     // Setup member

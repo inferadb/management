@@ -30,9 +30,20 @@ fn team_to_response(team: OrganizationTeam) -> TeamResponse {
     TeamResponse {
         id: team.id,
         name: team.name,
+        description: team.description,
         organization_id: team.organization_id,
         created_at: team.created_at.to_rfc3339(),
         deleted_at: team.deleted_at.map(|dt| dt.to_rfc3339()),
+    }
+}
+
+fn team_to_info(team: OrganizationTeam) -> TeamInfo {
+    TeamInfo {
+        id: team.id,
+        name: team.name,
+        description: team.description,
+        organization_id: team.organization_id,
+        created_at: team.created_at.to_rfc3339(),
     }
 }
 
@@ -96,7 +107,7 @@ pub async fn create_team(
 
     // Generate ID and create team
     let team_id = IdGenerator::next_id();
-    let team = OrganizationTeam::new(team_id, org_ctx.organization_id, payload.name)?;
+    let team = OrganizationTeam::new(team_id, org_ctx.organization_id, payload.name, payload.description)?;
 
     // Store team
     repos.org_team.create(team.clone()).await?;
@@ -106,8 +117,8 @@ pub async fn create_team(
         Json(CreateTeamResponse {
             team: TeamInfo {
                 id: team.id,
-                name: team.name,
-                description: payload.description.unwrap_or_default(),
+                name: team.name.clone(),
+                description: team.description,
                 organization_id: team.organization_id,
                 created_at: team.created_at.to_rfc3339(),
             },
@@ -232,11 +243,16 @@ pub async fn update_team(
         .into());
     }
 
-    // Update team name
-    team.set_name(payload.name)?;
+    // Update team fields
+    if let Some(name) = payload.name {
+        team.set_name(name)?;
+    }
+    if let Some(description) = payload.description {
+        team.set_description(description);
+    }
     repos.org_team.update(team.clone()).await?;
 
-    Ok(Json(UpdateTeamResponse { id: team.id, name: team.name }))
+    Ok(Json(UpdateTeamResponse { team: team_to_info(team) }))
 }
 
 /// Delete a team

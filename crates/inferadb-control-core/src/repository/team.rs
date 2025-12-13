@@ -690,7 +690,7 @@ mod tests {
         let storage = MemoryBackend::new();
         let repo = OrganizationTeamRepository::new(storage);
 
-        let team = OrganizationTeam::new(1, 100, "Engineering".to_string()).unwrap();
+        let team = OrganizationTeam::new(1, 100, "Engineering".to_string(), None).unwrap();
         repo.create(team.clone()).await.unwrap();
 
         let retrieved = repo.get(1).await.unwrap().unwrap();
@@ -704,10 +704,10 @@ mod tests {
         let storage = MemoryBackend::new();
         let repo = OrganizationTeamRepository::new(storage);
 
-        let team1 = OrganizationTeam::new(1, 100, "Engineering".to_string()).unwrap();
+        let team1 = OrganizationTeam::new(1, 100, "Engineering".to_string(), None).unwrap();
         repo.create(team1).await.unwrap();
 
-        let team2 = OrganizationTeam::new(2, 100, "Engineering".to_string()).unwrap();
+        let team2 = OrganizationTeam::new(2, 100, "Engineering".to_string(), None).unwrap();
         let result = repo.create(team2).await;
         assert!(result.is_err());
     }
@@ -717,9 +717,9 @@ mod tests {
         let storage = MemoryBackend::new();
         let repo = OrganizationTeamRepository::new(storage);
 
-        let team1 = OrganizationTeam::new(1, 100, "Engineering".to_string()).unwrap();
-        let team2 = OrganizationTeam::new(2, 100, "Sales".to_string()).unwrap();
-        let team3 = OrganizationTeam::new(3, 200, "Other".to_string()).unwrap();
+        let team1 = OrganizationTeam::new(1, 100, "Engineering".to_string(), None).unwrap();
+        let team2 = OrganizationTeam::new(2, 100, "Sales".to_string(), None).unwrap();
+        let team3 = OrganizationTeam::new(3, 200, "Other".to_string(), None).unwrap();
 
         repo.create(team1).await.unwrap();
         repo.create(team2).await.unwrap();
@@ -734,7 +734,7 @@ mod tests {
         let storage = MemoryBackend::new();
         let repo = OrganizationTeamRepository::new(storage);
 
-        let mut team = OrganizationTeam::new(1, 100, "Old Name".to_string()).unwrap();
+        let mut team = OrganizationTeam::new(1, 100, "Old Name".to_string(), None).unwrap();
         repo.create(team.clone()).await.unwrap();
 
         team.set_name("New Name".to_string()).unwrap();
@@ -749,7 +749,7 @@ mod tests {
         let storage = MemoryBackend::new();
         let repo = OrganizationTeamRepository::new(storage);
 
-        let team = OrganizationTeam::new(1, 100, "Engineering".to_string()).unwrap();
+        let team = OrganizationTeam::new(1, 100, "Engineering".to_string(), None).unwrap();
         repo.create(team).await.unwrap();
 
         repo.delete(1).await.unwrap();

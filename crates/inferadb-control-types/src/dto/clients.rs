@@ -1,9 +1,79 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Helper to deserialize either string or integer as Option<i64>
+/// This is needed because Terraform sends IDs as strings, but our API expects i64
+fn deserialize_optional_string_or_number<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+    use std::fmt;
+
+    struct OptionalStringOrNumber;
+
+    impl<'de> Visitor<'de> for OptionalStringOrNumber {
+        type Value = Option<i64>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("null, a string, or a number")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_unit<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(value))
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(value as i64))
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            if value.is_empty() {
+                Ok(None)
+            } else {
+                value.parse::<i64>().map(Some).map_err(de::Error::custom)
+            }
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            self.visit_str(&value)
+        }
+    }
+
+    deserializer.deserialize_any(OptionalStringOrNumber)
+}
 
 #[derive(Debug, Deserialize)]
 pub struct CreateClientRequest {
     pub name: String,
     pub description: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string_or_number")]
+    pub vault_id: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -16,6 +86,7 @@ pub struct ClientInfo {
     pub id: i64,
     pub name: String,
     pub description: String,
+    pub vault_id: Option<i64>,
     pub is_active: bool,
     pub organization_id: i64,
     pub created_at: String,
@@ -30,6 +101,8 @@ pub struct GetClientResponse {
 pub struct ClientDetail {
     pub id: i64,
     pub name: String,
+    pub description: String,
+    pub vault_id: Option<i64>,
     pub is_active: bool,
     pub organization_id: i64,
     pub created_at: String,
@@ -45,13 +118,15 @@ pub struct ListClientsResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateClientRequest {
-    pub name: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string_or_number")]
+    pub vault_id: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct UpdateClientResponse {
-    pub id: i64,
-    pub name: String,
+    pub client: ClientDetail,
 }
 
 #[derive(Debug, Serialize)]

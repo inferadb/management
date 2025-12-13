@@ -192,6 +192,13 @@ pub struct EmailConfig {
     /// From display name
     #[serde(default = "default_email_name")]
     pub name: String,
+
+    /// Allow insecure (unencrypted) SMTP connections.
+    ///
+    /// **WARNING**: Only enable this for local development/testing with tools like Mailpit.
+    /// Never enable in production as it transmits credentials in plain text.
+    #[serde(default)]
+    pub insecure: bool,
 }
 
 /// Rate limits configuration
@@ -374,6 +381,7 @@ impl Default for ControlConfig {
                 password: None,
                 address: "noreply@inferadb.com".to_string(),
                 name: default_email_name(),
+                insecure: false,
             },
             limits: LimitsConfig {
                 login_attempts_per_ip_per_hour: default_login_attempts_per_ip_per_hour(),

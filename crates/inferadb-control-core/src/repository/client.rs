@@ -245,7 +245,7 @@ mod tests {
     }
 
     fn create_test_client(id: i64, org_id: i64, name: &str) -> Result<Client> {
-        Client::new(id, org_id, name.to_string(), 999)
+        Client::new(id, org_id, None, name.to_string(), None, 999)
     }
 
     #[tokio::test]

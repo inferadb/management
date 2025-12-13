@@ -4,7 +4,8 @@ use anyhow::Result;
 use clap::Parser;
 use inferadb_control_api::ControlIdentity;
 use inferadb_control_core::{
-    ControlConfig, IdGenerator, WebhookClient, WorkerRegistry, acquire_worker_id, logging, startup,
+    ControlConfig, EmailService, IdGenerator, SmtpConfig, SmtpEmailService, WebhookClient,
+    WorkerRegistry, acquire_worker_id, logging, startup,
 };
 use inferadb_control_discovery::DiscoveryMode;
 use inferadb_control_engine_client::EngineClient;
@@ -207,6 +208,38 @@ async fn main() -> Result<()> {
     startup::log_initialized("Webhook client");
     let webhook_client = Some(Arc::new(webhook_client));
 
+    // Initialize email service (if configured)
+    let email_service = if !config.email.host.is_empty() {
+        let smtp_config = SmtpConfig {
+            host: config.email.host.clone(),
+            port: config.email.port,
+            username: config.email.username.clone().unwrap_or_default(),
+            password: config.email.password.clone().unwrap_or_default(),
+            address: config.email.address.clone(),
+            name: config.email.name.clone(),
+            insecure: config.email.insecure,
+        };
+
+        match SmtpEmailService::new(smtp_config) {
+            Ok(smtp_service) => {
+                startup::log_initialized(&format!(
+                    "Email service ({}:{}{})",
+                    config.email.host,
+                    config.email.port,
+                    if config.email.insecure { " [insecure]" } else { "" }
+                ));
+                Some(Arc::new(EmailService::new(Box::new(smtp_service))))
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to initialize email service - emails will be disabled");
+                None
+            }
+        }
+    } else {
+        tracing::info!("Email service not configured - verification emails disabled");
+        None
+    };
+
     // Wrap config in Arc for sharing across services
     let config = Arc::new(config);
 
@@ -216,10 +249,9 @@ async fn main() -> Result<()> {
         engine_client.clone(),
         worker_id,
         inferadb_control_api::ServicesConfig {
-            leader: None, // leader election (optional, for multi-node)
-            email_service: None, /* email service (optional, can be
-                           * initialized later) */
-            webhook_client,                           // cache invalidation webhooks
+            leader: None,       // leader election (optional, for multi-node)
+            email_service,      // email service for verification emails
+            webhook_client,     // cache invalidation webhooks
             control_identity: Some(control_identity), // control identity for JWKS endpoint
         },
     )

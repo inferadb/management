@@ -32,6 +32,8 @@ fn client_to_detail(client: Client) -> ClientDetail {
     ClientDetail {
         id: client.id,
         name: client.name,
+        description: client.description,
+        vault_id: client.vault_id,
         is_active: client.deleted_at.is_none(),
         organization_id: client.organization_id,
         created_at: client.created_at.to_rfc3339(),
@@ -77,8 +79,14 @@ pub async fn create_client(
     let client_id = IdGenerator::next_id();
 
     // Create client entity
-    let client =
-        Client::new(client_id, org_ctx.organization_id, payload.name, org_ctx.member.user_id)?;
+    let client = Client::new(
+        client_id,
+        org_ctx.organization_id,
+        payload.vault_id,
+        payload.name,
+        payload.description,
+        org_ctx.member.user_id,
+    )?;
 
     // Save to repository
     repos.client.create(client.clone()).await?;
@@ -89,7 +97,8 @@ pub async fn create_client(
             client: ClientInfo {
                 id: client.id,
                 name: client.name.clone(),
-                description: payload.description.unwrap_or_default(),
+                description: client.description,
+                vault_id: client.vault_id,
                 is_active: client.deleted_at.is_none(),
                 organization_id: client.organization_id,
                 created_at: client.created_at.to_rfc3339(),
@@ -186,14 +195,23 @@ pub async fn update_client(
         return Err(CoreError::NotFound("Client not found".to_string()).into());
     }
 
-    // Validate and update name
-    Client::validate_name(&payload.name)?;
-    client.name = payload.name.clone();
+    // Update fields if provided
+    if let Some(name) = payload.name {
+        client.set_name(name)?;
+    }
+    if let Some(description) = payload.description {
+        client.set_description(description);
+    }
+    if let Some(vault_id) = payload.vault_id {
+        client.set_vault_id(Some(vault_id));
+    }
 
     // Save changes
     repos.client.update(client.clone()).await?;
 
-    Ok(Json(UpdateClientResponse { id: client.id, name: client.name }))
+    Ok(Json(UpdateClientResponse {
+        client: client_to_detail(client),
+    }))
 }
 
 /// Delete a client (soft delete)

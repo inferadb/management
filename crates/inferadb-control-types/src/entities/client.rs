@@ -11,8 +11,14 @@ pub struct Client {
     pub id: i64,
     /// Organization this client belongs to
     pub organization_id: i64,
+    /// Default vault for this client (for token generation)
+    #[serde(default)]
+    pub vault_id: Option<i64>,
     /// Human-readable name for the client
     pub name: String,
+    /// Optional description of the client
+    #[serde(default)]
+    pub description: String,
     /// When the client was created
     pub created_at: DateTime<Utc>,
     /// User who created this client
@@ -26,7 +32,9 @@ impl Client {
     pub fn new(
         id: i64,
         organization_id: i64,
+        vault_id: Option<i64>,
         name: String,
+        description: Option<String>,
         created_by_user_id: i64,
     ) -> Result<Self> {
         Self::validate_name(&name)?;
@@ -34,7 +42,9 @@ impl Client {
         Ok(Self {
             id,
             organization_id,
+            vault_id,
             name,
+            description: description.unwrap_or_default(),
             created_at: Utc::now(),
             created_by_user_id,
             deleted_at: None,
@@ -50,6 +60,23 @@ impl Client {
             return Err(Error::Validation("Client name cannot exceed 100 characters".to_string()));
         }
         Ok(())
+    }
+
+    /// Update the client name
+    pub fn set_name(&mut self, name: String) -> Result<()> {
+        Self::validate_name(&name)?;
+        self.name = name;
+        Ok(())
+    }
+
+    /// Update the client description
+    pub fn set_description(&mut self, description: String) {
+        self.description = description;
+    }
+
+    /// Update the default vault ID
+    pub fn set_vault_id(&mut self, vault_id: Option<i64>) {
+        self.vault_id = vault_id;
     }
 
     /// Check if client is deleted
@@ -179,7 +206,7 @@ mod tests {
 
     #[test]
     fn test_client_creation() {
-        let client = Client::new(1, 100, "Test Client".to_string(), 999).unwrap();
+        let client = Client::new(1, 100, None, "Test Client".to_string(), None, 999).unwrap();
         assert_eq!(client.id, 1);
         assert_eq!(client.organization_id, 100);
         assert_eq!(client.name, "Test Client");
@@ -196,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_client_soft_delete() {
-        let mut client = Client::new(1, 100, "Test Client".to_string(), 999).unwrap();
+        let mut client = Client::new(1, 100, None, "Test Client".to_string(), None, 999).unwrap();
         assert!(!client.is_deleted());
 
         client.mark_deleted();

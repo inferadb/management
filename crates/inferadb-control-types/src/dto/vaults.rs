@@ -31,8 +31,9 @@ pub struct VaultInfo {
 pub struct VaultResponse {
     pub id: i64,
     pub name: String,
+    pub description: String,
     pub organization_id: i64,
-    pub sync_status: String,
+    pub sync_status: VaultSyncStatus,
     pub sync_error: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -55,7 +56,7 @@ pub struct UpdateVaultRequest {
 
 #[derive(Debug, Serialize)]
 pub struct UpdateVaultResponse {
-    pub vault: VaultDetail,
+    pub vault: VaultInfo,
 }
 
 #[derive(Debug, Serialize)]

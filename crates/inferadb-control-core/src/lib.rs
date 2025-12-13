@@ -28,7 +28,7 @@ pub use crypto::{MasterKey, PrivateKeyEncryptor, keypair};
 pub use email::{
     EmailSender, EmailService, EmailTemplate, InvitationAcceptedEmailTemplate,
     InvitationEmailTemplate, MockEmailSender, OrganizationDeletionWarningEmailTemplate,
-    PasswordResetEmailTemplate, RoleChangeEmailTemplate, SmtpEmailService,
+    PasswordResetEmailTemplate, RoleChangeEmailTemplate, SmtpConfig, SmtpEmailService,
     VerificationEmailTemplate,
 };
 pub use id::{IdGenerator, WorkerRegistry, acquire_worker_id};
