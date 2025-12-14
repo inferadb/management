@@ -14,4 +14,7 @@ pub use factory::{Backend, StorageBackendType, StorageConfig, create_storage_bac
 pub use fdb::FdbBackend;
 pub use memory::MemoryBackend;
 pub use metrics::{Metrics, MetricsCollector};
-pub use optimization::{BatchConfig, CacheConfig, OptimizedBackend};
+pub use optimization::{
+    BatchConfig, BatchFlushStats, BatchOperation, BatchWriter, CacheConfig, LruCache,
+    OptimizedBackend,
+};
