@@ -637,6 +637,37 @@ pub async fn remove_member(
     Ok(Json(RemoveMemberResponse { message: "Member removed successfully".to_string() }))
 }
 
+/// Leave an organization (remove self)
+///
+/// DELETE /v1/organizations/:org/members/self
+///
+/// Allows any member to remove themselves from an organization.
+/// Owners cannot leave if they are the last owner - they must first
+/// promote another member to owner or delete the organization.
+pub async fn leave_organization(
+    State(state): State<AppState>,
+    Extension(org_ctx): Extension<OrganizationContext>,
+) -> Result<Json<RemoveMemberResponse>> {
+    let repos = RepositoryContext::new((*state.storage).clone());
+
+    // If the user is an owner, check if there are other owners
+    if org_ctx.member.role == OrganizationRole::Owner {
+        let owner_count = repos.org_member.count_owners(org_ctx.organization_id).await?;
+        if owner_count <= 1 {
+            return Err(CoreError::Validation(
+                "Cannot leave as the last owner. Promote another member to owner first or delete the organization."
+                    .to_string(),
+            )
+            .into());
+        }
+    }
+
+    // Remove self from organization
+    repos.org_member.delete(org_ctx.member.id).await?;
+
+    Ok(Json(RemoveMemberResponse { message: "You have left the organization".to_string() }))
+}
+
 // ============================================================================
 // Organization Invitations
 // ============================================================================

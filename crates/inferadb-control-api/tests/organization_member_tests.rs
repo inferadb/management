@@ -640,3 +640,231 @@ async fn test_cannot_remove_last_owner() {
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn test_leave_organization() {
+    let _ = IdGenerator::init(1);
+    let state = create_test_state();
+    let app = create_test_app(state.clone());
+
+    // Register owner
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/register")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "owner",
+                        "email": "owner@example.com",
+                        "password": "securepassword123"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let owner_session =
+        extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "owner").await;
+
+    // Create organization
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/organizations")
+                .header("content-type", "application/json")
+                .header("cookie", format!("infera_session={}", owner_session))
+                .body(Body::from(
+                    json!({
+                        "name": "Test Organization"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let org_id = json["organization"]["id"].as_i64().unwrap();
+
+    // Register second user (will be the one to leave)
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/register")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "member",
+                        "email": "member@example.com",
+                        "password": "securepassword123"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let member_session =
+        extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Get member user ID
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/v1/users/me")
+                .header("cookie", format!("infera_session={}", member_session))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let member_user_id = json["user"]["id"].as_i64().unwrap();
+
+    // Manually add member
+    use inferadb_control_core::{
+        OrganizationMember, OrganizationMemberRepository, OrganizationRole,
+    };
+    let member_repo = OrganizationMemberRepository::new((*state.storage).clone());
+    let new_member_id = IdGenerator::next_id();
+    let new_member =
+        OrganizationMember::new(new_member_id, org_id, member_user_id, OrganizationRole::Member);
+    member_repo.create(new_member).await.unwrap();
+
+    // Member leaves organization
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/v1/organizations/{}/members/self", org_id))
+                .header("cookie", format!("infera_session={}", member_session))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(json["message"].as_str().unwrap().contains("left"));
+
+    // Verify member was removed - owner should only see themselves
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/v1/organizations/{}/members", org_id))
+                .header("cookie", format!("infera_session={}", owner_session))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    let members = json["members"].as_array().expect("Should have members");
+    assert_eq!(members.len(), 1); // Only owner remains
+}
+
+#[tokio::test]
+async fn test_last_owner_cannot_leave() {
+    let _ = IdGenerator::init(1);
+    let state = create_test_state();
+    let app = create_test_app(state.clone());
+
+    // Register owner
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/register")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "owner",
+                        "email": "owner@example.com",
+                        "password": "securepassword123"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let owner_session =
+        extract_session_cookie(response.headers()).expect("Session cookie should be set");
+
+    // Verify user's email (required to create organization)
+    verify_user_email(&state, "owner").await;
+
+    // Create organization
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/organizations")
+                .header("content-type", "application/json")
+                .header("cookie", format!("infera_session={}", owner_session))
+                .body(Body::from(
+                    json!({
+                        "name": "Test Organization"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let org_id = json["organization"]["id"].as_i64().unwrap();
+
+    // Try to leave as the only owner - should fail
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/v1/organizations/{}/members/self", org_id))
+                .header("cookie", format!("infera_session={}", owner_session))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(json["error"].as_str().unwrap().contains("last owner"));
+}

@@ -29,6 +29,7 @@ pub fn create_router_with_state(state: AppState) -> axum::Router {
         )
         // Organization member management routes
         .route("/v1/organizations/{org}/members", get(organizations::list_members))
+        .route("/v1/organizations/{org}/members/self", delete(organizations::leave_organization))
         .route("/v1/organizations/{org}/members/{member}", patch(organizations::update_member_role))
         .route("/v1/organizations/{org}/members/{member}", delete(organizations::remove_member))
         // Organization invitation routes
