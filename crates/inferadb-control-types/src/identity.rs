@@ -43,6 +43,10 @@ struct ControlJwtClaims {
     jti: String,
     /// Scope - space-separated permissions (required by engine's JwtClaims)
     scope: String,
+    /// Vault ID - "0" for admin operations (not vault-specific)
+    vault_id: String,
+    /// Organization ID - "0" for admin operations (cross-organization access)
+    org_id: String,
 }
 
 /// JWKS (JSON Web Key Set) response
@@ -200,6 +204,10 @@ impl ControlIdentity {
             jti: uuid::Uuid::new_v4().to_string(),
             // Admin scope for control operations (vault lifecycle, cache invalidation)
             scope: "inferadb.admin".to_string(),
+            // Control uses "0" for vault_id/org_id since it operates with admin scope
+            // across all vaults/organizations. The admin scope grants cross-tenant access.
+            vault_id: "0".to_string(),
+            org_id: "0".to_string(),
         };
 
         let mut header = Header::new(jsonwebtoken::Algorithm::EdDSA);
